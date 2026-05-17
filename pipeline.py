@@ -96,6 +96,20 @@ class DataPipeline:
         logging.info("Pipeline cleared.")
 
 
+def source_from_db() -> dict:
+    """Load all draws from the database into ``past_results``."""
+    from database import fetch_all_draws
+    return {"past_results": fetch_all_draws()}
+
+
+def run_pipeline(steps: list, initial_state: dict | None = None) -> dict:
+    """Run a list of step functions in order, threading state through each."""
+    state: dict = initial_state or {}
+    for step in steps:
+        state = step(state)
+    return state
+
+
 def hit_rate_analysis(
     tickets: List[Dict[str, Any]],
     historical_data: List[Dict[str, Any]]
