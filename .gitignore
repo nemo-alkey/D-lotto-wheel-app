@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 venv/
 .pytest_cache/
+lotto.db
 lotto_working.db
 lotto_data.db
 current_ticket.json
