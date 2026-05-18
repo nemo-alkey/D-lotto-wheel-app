@@ -100,8 +100,9 @@ python3 data_loader.py data.csv
 
 ### Run the full analysis pipeline
 
-```bash
-python3 -c "
+```python
+from database import fetch_all_draws
+from pipeline import run_pipeline
 from steps.historical import run as s1
 from steps.frequency import run as s2
 from steps.decay import run as s3
@@ -113,14 +114,10 @@ from steps.markov import run as s8
 from steps.entropy import run as s9
 from steps.generate_ticket import run as s12
 
-from pipeline import run_pipeline, source_from_db
-
-state = run_pipeline([
-    source_from_db,
-    s1, s2, s3, s4, s5, s6, s7, s8, s9, s12,
-])
-print('Ticket:', state['ticket_lines'])
-"
+steps = [s1, s2, s3, s4, s5, s6, s7, s8, s9, s12]
+state = {"past_results": fetch_all_draws()}
+state = run_pipeline(steps, state)
+print("Ticket:", state["ticket_lines"])
 ```
 
 ### Run the CLI (main.py)
