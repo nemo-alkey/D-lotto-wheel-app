@@ -47,7 +47,7 @@ calendar-week-based decay:
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.12+ (3.12 recommended; 3.10 may work but is not officially tested)
 - SQLite 3
 - pip
 
