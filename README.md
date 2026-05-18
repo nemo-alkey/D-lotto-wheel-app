@@ -15,7 +15,7 @@ receiving and returning a shared state dict:
 |------|------|---------|
 | 1 | `steps/historical.py` | Load and clean draw data from SQLite |
 | 2 | `steps/frequency.py` | Global occurrence probabilities (main + PB) |
-| 3 | `steps/decay.py` | Recency-weighted probabilities (decay rate 0.98^weeks) |
+| 3 | `steps/decay.py` | Recency-weighted probabilities (draw-based decay, half-life configurable via `config.py`) |
 | 4 | `steps/bayesian_fusion_with_mechanics.py` | Dirichlet posterior + chi-square uniformity test + log-space fusion of frequency, decay, and mechanics priors |
 | 5 | `steps/clustering.py` | K-Means clustering on probability features (dynamic k) |
 | 6 | `steps/monte_carlo.py` | Efraimidis-Spirakis weighted sampling (up to 200k sims) |
@@ -23,8 +23,25 @@ receiving and returning a shared state dict:
 | 8 | `steps/markov.py` | First-order Markov chain on inter-draw cluster transitions |
 | 9 | `steps/entropy.py` | Per-symbol Shannon entropy: -p_i x log2(p_i) |
 | 10 | `config/quantum_features.py` | SPSA-trained 12-qubit variational circuit (classical simulation) |
-| 11 | `config/quantum_kernels.py` | Fidelity kernel features |psi(x_i) | proto_j|^2 |
+| 11 | `config/quantum_kernels.py` | Fidelity kernel features \|psi(x_i) \| proto_j\|^2 |
 | 12 | `steps/generate_ticket.py` | 12-line ticket generation with rejection sampling (max 2 overlap, max 2 PB repeats) |
+
+## Draw Frequency
+
+NZ Lotto Powerball holds **two draws per week** (Wednesday and Saturday).
+The pipeline accounts for this through draw-based decay rather than
+calendar-week-based decay:
+
+- **`DRAWS_PER_WEEK = 2`** in [`config.py`](config.py) — when draw frequency
+  changes, only this constant needs updating.
+- **`DECAY_PER_DRAW = 0.98 ** (1 / DRAWS_PER_WEEK)`** — the per-draw decay
+  rate is derived from the weekly half-life, so applying it across two draws
+  compounds to the same 0.98 weekly decay in real time.
+- Recency, gap, and Markov features in `steps/redundancy.py` and
+  `steps/markov.py` operate on draw indices (not calendar dates), making
+  them naturally frequency-agnostic.
+- The rotation scheduler (`rotation_scheduler.py`) labels its output in
+  *periods* where 1 period = 2 draws, clarifying coverage per row.
 
 ## Installation (Linux)
 
@@ -129,7 +146,7 @@ python3 lotto_wheels.py export double tickets.csv
 python3 lotto_wheels.py check double "11,12,17,22,28,32" 3
 ```
 
-### Generate a 6-week rotation plan
+### Generate a rotation plan
 
 ```bash
 python3 rotation_scheduler.py
@@ -194,7 +211,8 @@ Key constants you may want to tune:
 
 | Constant | File | Default | Meaning |
 |----------|------|---------|---------|
-| DECAY_RATE | steps/decay.py | 0.98 | Weekly decay factor |
+| DRAWS_PER_WEEK | config.py | 2 | Number of lottery draws per week |
+| DECAY_PER_DRAW | config.py | 0.98^(1/2) | Per-draw decay rate (derived from 0.98 weekly half-life) |
 | ALPHA | steps/bayesian_fusion_with_mechanics.py | 1.0 | Dirichlet prior concentration |
 | DEFAULT_K | steps/clustering.py | 5 | Preferred cluster count |
 | CLUSTER_MODULATION | steps/monte_carlo.py | 0.3 | Cluster strength influence on MC |
@@ -244,7 +262,7 @@ lotto-wheel-app/
   lotto_wheels.py         -- Wheel manager (Albert + Bluskov integration)
   wheel_generator.py      -- Full / abbreviated / key-number wheels
   wheel_dashboard.py      -- Wheel analysis dashboard
-  rotation_scheduler.py   -- 6-week Bayesian rotation planner
+  rotation_scheduler.py   -- Rotation planner (2 draws/period)
 
   frequency_analysis.py   -- Frequency, hot/cold, gap, pair analysis
   distribution_analysis.py-- Odd/even, low/high distributions
@@ -301,11 +319,11 @@ The launcher mounts the drive with proper uid/gid, verifies Streamlit is
 available (installs via --user if missing), then starts the dashboard using
 the system Python interpreter (no venv).
 
-## Bayesian Rotation (6-Week Planner)
+## Bayesian Rotation (Period Planner)
 
 The `rotation_scheduler.py` script computes Dirichlet-Multinomial posterior
-probabilities for numbers 1-40 from historical draw data. Week 1 selects the
-top 11 numbers by Bayesian score. Each subsequent week swaps out the weakest
+probabilities for numbers 1-40 from historical draw data. Period 1 selects the
+top 11 numbers by Bayesian score. Each subsequent period swaps out the weakest
 number for the next-best candidate from the remaining pool. Outputs a
 formatted table and `rotation_plan.csv`.
 
