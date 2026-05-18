@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-rotation_scheduler.py -- 6-Week Rotation Planner for NZ Lotto Powerball
+rotation_scheduler.py -- Rotation Planner for NZ Lotto Powerball
 
 Loads historical draws from lotto_working.db, computes Bayesian posterior
 probabilities (Dirichlet-Multinomial) for numbers 1-40, and generates a
-6-week rotation plan. Each week's 11-number set swaps out the weakest
-number and brings in the next-best from the Bayesian ranking.
+rotation plan. Each period covers 2 draws (one calendar week). At each
+period boundary the weakest number is swapped out for the next-best
+candidate from the Bayesian ranking.
 
 Outputs a terminal table and saves to rotation_plan.csv.
 """
@@ -18,7 +19,7 @@ import sys
 from collections import Counter
 
 WORKING_DB = "lotto_working.db"
-WEEKS = 6
+PERIODS = 6           # each period = 2 draws (one calendar week → 12 draws total)
 POOL_SIZE = 11
 DEFAULT_PB = 3
 ALPHA = 1.0  # Dirichlet prior concentration
@@ -75,22 +76,22 @@ def bayesian_posterior(draws: list[tuple], alpha: float = ALPHA) -> dict[int, fl
 # ---------------------------------------------------------------------------
 
 def build_rotation(posterior: dict[int, float]) -> list[list[int]]:
-    """Generate 6 weeks of 11-number pools.
+    """Generate PERIODS pools of POOL_SIZE numbers.
 
-    Week 1 gets the top 11 by Bayesian score.
-    Each subsequent week swaps out the lowest-scoring number in the pool
+    Period 1 gets the top 11 by Bayesian score.
+    Each subsequent period swaps out the lowest-scoring number in the pool
     and brings in the next-best from the remaining candidates.
     """
     # All numbers ranked by posterior probability (descending)
     ranked = sorted(range(1, 41), key=lambda n: -posterior[n])
 
-    week1 = set(ranked[:POOL_SIZE])
+    pool1 = set(ranked[:POOL_SIZE])
     remaining = ranked[POOL_SIZE:]  # numbers not yet used
     next_idx = 0
 
-    schedule = [sorted(week1)]
+    schedule = [sorted(pool1)]
 
-    for week in range(2, WEEKS + 1):
+    for period in range(2, PERIODS + 1):
         current = set(schedule[-1])
         if next_idx < len(remaining):
             # Find the worst-ranked number in the current pool
@@ -111,16 +112,16 @@ def build_rotation(posterior: dict[int, float]) -> list[list[int]]:
 def print_plan(schedule: list[list[int]], posterior: dict[int, float]) -> None:
     """Print the rotation plan as a formatted table."""
     print()
-    print("  Bayesian Rotation Plan (6 weeks) -- NZ Lotto Powerball")
+    print("  Bayesian Rotation Plan -- NZ Lotto Powerball  (1 period = 2 draws)")
     print("  Recommended Powerball: {}".format(DEFAULT_PB))
     print()
-    print(f"  {'Week':>6s}  {'Numbers (11 per week)':^49s}  {'Weakest':>7s}  {'Incoming':>8s}")
-    print(f"  {'-'*74}")
+    print(f"  {'Period (2 draws)':>16s}  {'Numbers (11 per period)':^49s}  {'Weakest':>7s}  {'Incoming':>8s}")
+    print(f"  {'-'*84}")
 
     previous_set: set[int] | None = None
-    for i, week_nums in enumerate(schedule, 1):
-        nums_str = "  ".join(f"{n:02d}" for n in week_nums)
-        current_set = set(week_nums)
+    for i, period_nums in enumerate(schedule, 1):
+        nums_str = "  ".join(f"{n:02d}" for n in period_nums)
+        current_set = set(period_nums)
 
         weakest = ""
         incoming = ""
@@ -132,7 +133,7 @@ def print_plan(schedule: list[list[int]], posterior: dict[int, float]) -> None:
             if added:
                 incoming = f"in {min(added):02d}"
 
-        print(f"  Week {i:>1d}    {nums_str}    {weakest:>7s}  {incoming:>8s}")
+        print(f"  Period {i:>1d}       {nums_str}    {weakest:>7s}  {incoming:>8s}")
         previous_set = current_set
 
     print()
@@ -159,11 +160,11 @@ def save_plan(schedule: list[list[int]], path: str = "rotation_plan.csv") -> Non
     """Save the rotation plan to a CSV file."""
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["Week", "Number_1", "Number_2", "Number_3", "Number_4",
+        writer.writerow(["Period", "Number_1", "Number_2", "Number_3", "Number_4",
                           "Number_5", "Number_6", "Number_7", "Number_8",
                           "Number_9", "Number_10", "Number_11", "Powerball"])
-        for i, week_nums in enumerate(schedule, 1):
-            writer.writerow([i, *week_nums, DEFAULT_PB])
+        for i, period_nums in enumerate(schedule, 1):
+            writer.writerow([i, *period_nums, DEFAULT_PB])
     print(f"  Saved rotation plan to {path}")
 
 
@@ -180,8 +181,8 @@ def main() -> None:
     posterior = bayesian_posterior(draws)
     print("done.")
     print(f"  Draws used:      {len(draws)}")
-    print(f"  Pool size:       {POOL_SIZE} numbers per week")
-    print(f"  Rotation weeks:  {WEEKS}")
+    print(f"  Pool size:       {POOL_SIZE} numbers per period")
+    print(f"  Periods:         {PERIODS}  ({PERIODS * 2} draws @ 2 draws/period)")
     print(f"  Prior alpha:     {ALPHA}")
 
     schedule = build_rotation(posterior)
