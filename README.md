@@ -171,8 +171,8 @@ The system includes 5 Bluskov preset wheels accessed via `lotto_wheels.py`:
 | Wheel | Pool | Tickets | Guarantee | Cost |
 |-------|------|---------|-----------|------|
 | jackpot7 | 7 numbers | 7 | 6/6 (full wheel) | $10.50 |
-| single1 | 10 numbers | 20 | 3/3 (100%) | $30.00 |
-| single2 | 10 numbers | 20 | 3/3 (100%) | $30.00 |
+| single1 | 10 numbers | 20 | 4/4 (100%) | $30.00 |
+| single2 | 10 numbers | 20 | 4/4 (100%) | $30.00 |
 | double | 10 numbers | 30 | 4/4 (97%) | $45.00 |
 | five-if-six | 11 numbers | 22 | 5-if-6 | $33.00 |
 
