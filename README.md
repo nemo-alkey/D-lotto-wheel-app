@@ -1,331 +1,366 @@
-# NZ Lotto Powerball Analysis Pipeline
+# NZ Lotto Powerball — Wheel Analysis & Prediction Platform
 
-A multi-stage analysis pipeline for NZ Lotto Powerball (6/40 + PB 1/10) that
-combines classical statistics, Bayesian inference, frequency analysis, wheel
-construction, and simulated quantum methods to analyse historical draws,
-generate predictions, build abbreviated lotto wheels, and produce playable
-tickets.
+A comprehensive Python platform for NZ Lotto Powerball (6/40 + Bonus 1–40 + PB 1–10)
+wheel analysis, prediction, backtesting, and ticket generation.
 
-## Pipeline Overview (12 Steps)
+**Lotto Rules 2025 compliant** — Powerball, Lotto-only, Strike, and jackpot rollover.
 
-The analysis pipeline (`pipeline.py` + `steps/`) chains 12 stages, each
-receiving and returning a shared state dict:
-
-| Step | File | Purpose |
-|------|------|---------|
-| 1 | `steps/historical.py` | Load and clean draw data from SQLite |
-| 2 | `steps/frequency.py` | Global occurrence probabilities (main + PB) |
-| 3 | `steps/decay.py` | Recency-weighted probabilities (draw-based decay, half-life configurable via `config.py`) |
-| 4 | `steps/bayesian_fusion_with_mechanics.py` | Dirichlet posterior + chi-square uniformity test + log-space fusion of frequency, decay, and mechanics priors |
-| 5 | `steps/clustering.py` | K-Means clustering on probability features (dynamic k) |
-| 6 | `steps/monte_carlo.py` | Efraimidis-Spirakis weighted sampling (up to 200k sims) |
-| 7 | `steps/redundancy.py` | Recency + unbiased gap scores, std-normalised, cluster-weighted |
-| 8 | `steps/markov.py` | First-order Markov chain on inter-draw cluster transitions |
-| 9 | `steps/entropy.py` | Per-symbol Shannon entropy: -p_i x log2(p_i) |
-| 10 | `config/quantum_features.py` | SPSA-trained 12-qubit variational circuit (classical simulation) |
-| 11 | `config/quantum_kernels.py` | Fidelity kernel features \|psi(x_i) \| proto_j\|^2 |
-| 12 | `steps/generate_ticket.py` | 12-line ticket generation with rejection sampling (max 2 overlap, max 2 PB repeats) |
-
-## Draw Frequency
-
-NZ Lotto Powerball holds **two draws per week** (Wednesday and Saturday).
-The pipeline accounts for this through draw-based decay rather than
-calendar-week-based decay:
-
-- **`DRAWS_PER_WEEK = 2`** in [`config.py`](config.py) — when draw frequency
-  changes, only this constant needs updating.
-- **`DECAY_PER_DRAW = 0.98 ** (1 / DRAWS_PER_WEEK)`** — the per-draw decay
-  rate is derived from the weekly half-life, so applying it across two draws
-  compounds to the same 0.98 weekly decay in real time.
-- Recency, gap, and Markov features in `steps/redundancy.py` and
-  `steps/markov.py` operate on draw indices (not calendar dates), making
-  them naturally frequency-agnostic.
-- The rotation scheduler (`rotation_scheduler.py`) labels its output in
-  *periods* where 1 period = 2 draws, clarifying coverage per row.
-
-## Installation (Linux)
-
-### Prerequisites
-
-- Python 3.12+ (3.12 recommended; 3.10 may work but is not officially tested)
-- SQLite 3
-- pip
-
-### 1. Clone and set up
-
-```bash
-git clone <repo-url> lotto-wheel-app
-cd lotto-wheel-app
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
-pip install numpy scipy scikit-learn pytest
-```
-
-Optional extras:
-```bash
-pip install fastapi uvicorn streamlit pandas  # API / dashboard / reporting
-```
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| numpy | >=1.24 | Numerical computing, array ops, random sampling |
-| scipy | >=1.10 | Chi-square distribution, statistical tests |
-| scikit-learn | >=1.3 | K-Means clustering, MinMaxScaler |
-| pytest | >=7.0 | Test suite |
-| fastapi | (optional) | REST API |
-| uvicorn | (optional) | ASGI server |
-| streamlit | (optional) | Interactive dashboard |
-| pandas | (optional) | DataFrames for reporting / export |
+---
 
 ## Quick Start
 
-### Initialise the database
+### One-command start (local / Codespaces)
 
 ```bash
-python3 db_schema.py
+bash start.sh
 ```
 
-### Load historical data
+This installs dependencies, initialises the database, and starts both the
+Streamlit dashboard (port 8501) and FastAPI server (port 8000) in the background.
+
+### Docker
 
 ```bash
-python3 data_loader.py data.csv
+docker compose up --build
 ```
 
-### Run the full analysis pipeline
+The Docker image bundles the database, all dependencies, and runs both services
+via supervisord.  Persistent data is stored in a Docker volume.
 
-```python
-from database import fetch_all_draws
-from pipeline import run_pipeline
-from steps.historical import run as s1
-from steps.frequency import run as s2
-from steps.decay import run as s3
-from steps.bayesian_fusion_with_mechanics import run as s4
-from steps.clustering import run as s5
-from steps.monte_carlo import run as s6
-from steps.redundancy import run as s7
-from steps.markov import run as s8
-from steps.entropy import run as s9
-from steps.generate_ticket import run as s12
-
-steps = [s1, s2, s3, s4, s5, s6, s7, s8, s9, s12]
-state = {"past_results": fetch_all_draws()}
-state = run_pipeline(steps, state)
-print("Ticket:", state["ticket_lines"])
-```
-
-### Run the CLI (main.py)
+### Manual setup
 
 ```bash
-python3 main.py list-wheels
-python3 main.py hot-numbers
-python3 main.py simulate jackpot7 100000
-python3 main.py check double "11,12,17,22,28,32 PB3"
-python3 main.py recommend
-python3 main.py rotate jackpot7 6
-python3 main.py build-wheel mywheel "1,2,3,4,5,6,7,8"
-python3 main.py update-draw 1234 "2026-01-15" "10,20,30,31,32,33" 7
-```
+# Install dependencies
+pip install -r requirements.txt
 
-### Run the CLI (lotto_wheels.py)
+# Run database migrations (create/update tables)
+python migrate.py
 
-```bash
-python3 lotto_wheels.py report
-python3 lotto_wheels.py list-wheels
-python3 lotto_wheels.py show-wheel double
-python3 lotto_wheels.py export double tickets.csv
-python3 lotto_wheels.py check double "11,12,17,22,28,32" 3
-```
+# Populate the draw database (run daily/weekly)
+python update_draws.py
 
-### Generate a rotation plan
+# Check Selenium/ChromeDriver readiness (optional)
+python update_draws.py --check-selenium
 
-```bash
-python3 rotation_scheduler.py
-```
-
-Outputs a formatted table and saves `rotation_plan.csv`.
-
-### Start the REST API
-
-```bash
-uvicorn api:app --reload
-# Open http://127.0.0.1:8000/docs
-```
-
-### Run the Streamlit dashboard
-
-```bash
+# Launch the Streamlit dashboard
 streamlit run dashboard.py
+
+# Start the FastAPI server
+uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-## Lotto Wheels
+### PostgreSQL (optional)
 
-The system includes 5 Bluskov preset wheels accessed via `lotto_wheels.py`:
+Set `DATABASE_URL` in `.env` or environment, then run migrations:
 
-| Wheel | Pool | Tickets | Guarantee | Cost |
-|-------|------|---------|-----------|------|
-| jackpot7 | 7 numbers | 7 | 6/6 (full wheel) | $10.50 |
-| single1 | 10 numbers | 20 | 4/4 (100%) | $30.00 |
-| single2 | 10 numbers | 20 | 4/4 (100%) | $30.00 |
-| double | 10 numbers | 30 | 4/4 (97%) | $45.00 |
-| five-if-six | 11 numbers | 22 | 5-if-6 | $33.00 |
+```bash
+export DATABASE_URL=postgresql://user:pass@localhost:5432/lotto
+python migrate.py
+```
 
-Plus custom abbreviated wheels via `wheel_generator.py` (any pool 7-40 numbers).
+The platform uses SQLAlchemy Core and supports SQLite (default) and PostgreSQL
+out of the box.  See `.env.example` for all configuration options.
 
-### Division Payouts (NZ Lotto Powerball)
+---
 
-| Division | Condition | Est. Prize |
-|----------|-----------|------------|
-| Div 1 (6+PB) | 6 main + PB | $1,000,000 |
-| Div 2 (5+PB) | 5 main + PB | $30,000 |
-| Div 3 (5) | 5 main, no PB | $1,000 |
-| Div 4 (4+PB) | 4 main + PB | $100 |
-| Div 5 (4) | 4 main, no PB | $60 |
-| Div 6 (3+PB) | 3 main + PB | $40 |
-| Div 7 (3) | 3 main, no PB | $20 |
+## API Documentation
 
-A ticket qualifies for exactly one division (the highest it satisfies).
-PB must match for divisions marked "+PB"; PB must NOT match for the rest.
+Interactive API docs are served by FastAPI:
+
+| Endpoint | Description |
+|----------|-------------|
+| [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger UI — try endpoints interactively |
+| [http://localhost:8000/redoc](http://localhost:8000/redoc) | ReDoc — clean, readable API reference |
+
+---
+
+## Project Structure
+
+### Core Modules
+
+| File | Purpose |
+|---|---|
+| `dashboard.py` | Streamlit web dashboard (25+ pages) |
+| `api.py` | FastAPI REST API (40+ endpoints) |
+| `main.py` | CLI menu + `optimize-wheel` sub‑command |
+| `lotto_wheels.py` | Bluskov wheels, draw loading, statistical analysis, `check_all_wheels()` |
+| `prize_calculator.py` | NZ Lotto division rules, API prize fetching, pool allocation, jackpot rollover, Strike |
+| `database.py` | SQLAlchemy database layer (SQLite + PostgreSQL) |
+| `database_engine.py` | SQLAlchemy engine factory with multi-DB support |
+| `settings.py` | Pydantic BaseSettings — centralised configuration via `.env` |
+| `update_draws.py` | Fetch latest draws from MyLotto API with retry + fallback |
+| `data_pipeline.py` | Unified data fetching pipeline (API → HTML → Selenium) |
+
+### Prediction & Analysis
+
+| File | Purpose |
+|---|---|
+| `predictions.py` | XGBoost predictor with SHAP force plots, `BonusBayesian`, `HierarchicalBonusPredictor` |
+| `ensemble.py` | `EnsemblePredictor` — walk‑forward weight calibration fusing 4 sub‑predictors |
+| `block_analysis.py` | Positional block analysis (6 slots × 4 buckets) |
+| `albert_analysis.py` | Positive/Negative classification, Albert recommended pool |
+| `sum_analysis.py` | Dynamic sum-range with volatility‑adjusted multipliers |
+| `analysis_bonus_pairs.py` | Bonus‑main co‑occurrence matrix, top pairs, top triplets |
+| `compliance_scorer.py` | Lotto Code compliance scoring (0–100) |
+| `wheel_validator.py` | Monte Carlo Bluskov guarantee validation |
+| `wheel_generator.py` | Abbreviated wheel generator with `prefer_numbers`, `include/exclude`, `max_bonus_coverage` |
+| `ga_optimizer.py` | Genetic Algorithm optimising wheel parameters for max EV |
+
+### Backtesting & Simulation
+
+| File | Purpose |
+|---|---|
+| `backtest.py` | Historical backtest, multi‑draw jackpot rollover, bonus impact, `simulate_bonus_ev()`, `simulate_strike_ev()`, bootstrap CI, paired t‑tests |
+| `rotation_scheduler.py` | Bayesian rotation plan with optional bonus picks |
+
+### Automation & Notifications
+
+| File | Purpose |
+|---|---|
+| `scheduler.py` | APScheduler daemon — fetch draws Thu/Sun, check tickets, alert on wins |
+| `notifier.py` | Email (SMTP), desktop toast (plyer), file‑based alert logging, `notifier_settings` table |
+| `ticket_wizard.py` | 8‑step Streamlit wizard for guided ticket generation |
+
+---
+
+## Dashboard Pages
+
+| Page | Description |
+|---|---|
+| **Wheels & Tickets** | Overview cards, detailed wheel views, Lotto Code scores |
+| **Statistical Report** | Positive/negative split, block analysis, sum range, Bayesian, Thompson sampling |
+| **Frequency Chart** | Main numbers & Powerball frequency bar charts |
+| **Check Draw** | Check any wheel against custom draw numbers |
+| **Check Latest Draw** | Auto‑fetch latest draw, check all wheels, bonus‑match toggle, Lotto‑only tab |
+| **Strike Check** | Enter 4 numbers in exact order, compare against latest draw's first 4 balls |
+| **Custom Wheel Builder** | Generate abbreviated wheels, Albert pool, include/exclude, GA auto‑optimize |
+| **Bonus Ball Analysis** | Frequency bar chart, stats table, prediction model (Basic/Hierarchical Bayesian), CSV export |
+| **Predictions** | Bonus prediction (Bayesian, Gap, Ensemble), weight evolution chart |
+| **EV Simulation** | Monte Carlo bonus‑premium simulation |
+| **Bonus–Main Co‑occurrence** | Heatmap, per‑bonus top pairs, top triplets |
+| **Rotation Scheduler** | Generate rotation plan, include bonus, save tickets |
+| **Backtest Results** | Single‑wheel bonus impact, multi‑wheel comparison with bootstrap CI + t‑tests, clear cache |
+| **Multi‑Draw Backtest** | Consecutive draw simulation with jackpot rollover, $50M cap, forced distribution at draw 10 |
+| **Block Analysis** | Positional block heatmap, compliance validation |
+| **Wheel Explorer** | Bluskov guarantee validation, pair‑coverage heatmap |
+| **Live Monitor** | Scheduled check status, alert log, manual check trigger |
+| **Notification Settings** | Toggle email/desktop alerts, set min division threshold, choose monitored wheels, send test alert |
+| **Ticket Wizard** | 8‑step guided ticket generation |
+| **International Lotteries** | Fetch Powerball, Mega Millions, EuroMillions results via APIVerve |
+| **ML Predictor** | XGBoost model with SHAP bar chart, individual force plots, ZIP download |
+| **Performance Monitor** | Cache stats, memory/CPU usage (psutil), session state inspector |
+| **Export** | Download wheel tickets as CSV |
+
+---
 
 ## API Endpoints
 
+### Wheels & Analysis
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/wheels` | List all wheels with metadata |
+| GET | `/wheel/{name}` | Get a wheel's tickets |
+| POST | `/check` | Check a wheel against a draw |
+| GET | `/check-strike?n1=…&n2=…&n3=…&n4=…` | Check Strike against latest draw |
+| GET | `/stats` | Full statistical report |
+| GET | `/api/bonus/stats` | Bonus ball statistics |
+| GET | `/backtest/bonus_impact?wheel_name=X` | Bonus impact report |
+
+### Predictions
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/predict/bonus_bayesian?k=5` | Basic Bayesian bonus prediction |
+| GET | `/predict/bonus_gap?k=5` | Gap‑method bonus prediction |
+| GET | `/predict/bonus/hierarchical?k=5&halflife=90` | Hierarchical Bayesian with error bars |
+| GET | `/predict/bonus/probability?num=15` | Probability for specific bonus number |
+| GET | `/predict/ensemble?main=15&bonus=5&pb=3` | Ensemble prediction |
+
+### Simulation
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/ev_simulation` | Monte Carlo bonus EV simulation |
+
+---
+
+## CLI Commands
+
+```bash
+# Run the interactive menu
+python main.py
+
+# GA wheel optimisation
+python main.py optimize-wheel --generations 30 --population 50 --seed 42
+
+# Single-draw backtest
+python backtest.py --wheel single1 --draws 500
+python backtest.py --wheel double --draw-pb 3
+
+# Multi-draw backtest with jackpot rollover
+python backtest.py --wheel jackpot7 --multi --num-draws 20 --start-draw 100
+
+# Check Selenium setup
+python update_draws.py --check-selenium
+
+# Rotation scheduler (print + CSV + DB)
+python rotation_scheduler.py
+python rotation_scheduler.py --include-bonus --json
+
+# Alert daemon (background)
+python scheduler.py --daemon
+
+# One‑off alert check
+python scheduler.py
 ```
-GET  /wheels              -- List all wheels with metadata
-GET  /wheel/{name}        -- Tickets and suggested powerball for one wheel
-POST /check               -- Check a wheel against a draw (JSON: wheel, draw, powerball)
-GET  /stats               -- Statistical report as JSON
+
+---
+
+## Environment Variables
+
+See `.env.example` for the complete list.  Key variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `sqlite:///lotto.db` | SQLAlchemy DB URL (set to `postgresql://...` for PostgreSQL) |
+| `DIV1_CAP` | `50000000` | $50M maximum per Div 1 winner |
+| `SMTP_SERVER` | `smtp.gmail.com` | SMTP server for email alerts |
+| `SMTP_PORT` | `587` | SMTP port |
+| `SMTP_USERNAME` | — | Email address |
+| `SMTP_PASSWORD` | — | App password |
+| `JWT_SECRET_KEY` | (built-in default) | Secret for JWT tokens |
+| `USE_SELENIUM_FALLBACK` | `false` | Enable Selenium fallback scraper |
+| `CACHE_TTL_SECONDS` | `3600` | Streamlit cache TTL |
+
+---
+
+## Database Schema
+
+**`lotto.db`** — main database (SQLAlchemy Core, supports SQLite + PostgreSQL):
+
+```sql
+CREATE TABLE draws (
+    draw_id    INTEGER PRIMARY KEY,
+    draw_date  TEXT NOT NULL UNIQUE,
+    numbers    TEXT NOT NULL,      -- comma-separated: "11,12,17,22,28,32"
+    bonus      INTEGER CHECK (bonus BETWEEN 1 AND 40),
+    powerball  INTEGER CHECK (powerball BETWEEN 1 AND 10)
+);
 ```
 
-## Configuration
+Additional tables: `epochs`, `pipeline_stats`, `notifier_settings`, `rotation_history`.
 
-Key constants you may want to tune:
+---
 
-| Constant | File | Default | Meaning |
-|----------|------|---------|---------|
-| DRAWS_PER_WEEK | config.py | 2 | Number of lottery draws per week |
-| DECAY_PER_DRAW | config.py | 0.98^(1/2) | Per-draw decay rate (derived from 0.98 weekly half-life) |
-| ALPHA | steps/bayesian_fusion_with_mechanics.py | 1.0 | Dirichlet prior concentration |
-| DEFAULT_K | steps/clustering.py | 5 | Preferred cluster count |
-| CLUSTER_MODULATION | steps/monte_carlo.py | 0.3 | Cluster strength influence on MC |
-| LINES | steps/generate_ticket.py | 12 | Number of ticket lines to generate |
-| MAX_OVERLAP | steps/generate_ticket.py | 2 | Max shared main numbers between lines |
-| N_QUBITS | config/quantum_features.py | 12 | Simulated qubit count |
-| SPSA_A | config/quantum_features.py | 50.0 | SPSA gain schedule parameter |
+## Wheel Definitions
+
+Five Bluskov wheels are pre‑built in `lotto_wheels.py`:
+
+| Name | Tickets | Pool | Guarantee |
+|---|---|---|---|
+| `single1` | 20 | 10 | 4‑win if 4 pool numbers drawn |
+| `single2` | 20 | 10 | 4‑win if 4 pool numbers drawn |
+| `double` | 88 | 10 | Two 4‑wins if 4 pool numbers drawn |
+| `five-if-six` | 11 | 11 | 5‑win if all 6 drawn from pool |
+| `jackpot7` | 7 | 7 | Jackpot (6‑win) if all 6 drawn from pool |
+
+Custom wheels can be generated via `wheel_generator.py`.
+
+---
+
+## NZ Lotto Division Rules
+
+### Powerball (must match Powerball number)
+
+| Division | Main Matches | Bonus | Pool % |
+|---|---|---|---|
+| Div 1 | 6 | — | 85.74% (capped at $50M) |
+| Div 2 | 5 | Required | 2.23% |
+| Div 3 | 5 | — | 2.23% |
+| Div 4 | 4 | Required | 0.60% |
+| Div 5 | 4 | — | 4.64% |
+| Div 6 | 3 | Required | 4.56% |
+| Div 7 | 3 | — | Fixed ($15) |
+
+### Lotto Strike (first 4 balls in exact order)
+
+| Division | Name | Matches | Prize |
+|---|---|---|---|
+| Div 1 | Strike Four | All 4 in exact order | ~65% of pool |
+| Div 2 | Strike Three | First 3 in exact order | ~20% of pool |
+| Div 3 | Strike Two | First 2 in exact order | ~15% of pool |
+| Div 4 | Strike One | First 1 in exact order | Fixed ($1.00) |
+
+---
+
+## Key Features
+
+- **25+ dashboard pages** covering every aspect of Lotto analysis
+- **40+ API endpoints** with interactive Swagger/ReDoc docs
+- **Multi‑draw jackpot rollover** — $50M Div1 cap, forced must‑win at draw 10
+- **Lotto Strike** — exact‑order matching for the first 4 balls
+- **XGBoost + SHAP** — ML predictions with interactive force plots
+- **PostgreSQL support** — SQLAlchemy Core with SQLite fallback
+- **Pydantic settings** — all config in one place, overridable via `.env`
+- **Bluskov wheel validation** via Monte Carlo simulation
+- **Hierarchical Bayesian bonus predictor** with recency decay
+- **Ensemble predictor** fusing 4 methods with walk‑forward calibration
+- **Genetic Algorithm** wheel parameter optimisation
+- **Bootstrap confidence intervals** and paired t‑tests
+- **Background scheduler** with email + desktop alerts
+- **Notification Settings** dashboard — toggle alerts, set thresholds
+- **Performance Monitor** — cache stats, memory/CPU, session inspector
+- **Smart caching** — ML model cached by draw hash, backtest results keyed by parameters
+- **Docker Compose** support with persistent volumes
+
+---
 
 ## Testing
 
 ```bash
 pytest test_lotto.py -v
-pytest test_frequency.py -v
-pytest test_bayesian_fusion.py -v
-pytest test_clustering.py -v
-pytest test_monte_carlo.py -v
-pytest test_data_io.py -v
-pytest test_historical.py -v
-pytest test_decay.py -v
-pytest test_entropy.py -v
-pytest test_markov.py -v
-pytest test_redundancy.py -v
-pytest test_quantum.py -v
-pytest test_generate_ticket.py -v
-pytest test_logs.py -v
 ```
 
-Test coverage includes database init/insert/dedup, frequency analysis, hot/cold
-split, gap analysis, wheel verification, abbreviated wheels, CLI parsing,
-division key mapping, simulation determinism, and edge cases.
+---
 
-## Project Structure
+## Troubleshooting
 
-```
-lotto-wheel-app/
-  main.py                 -- CLI entry point (10+ subcommands)
-  pipeline.py             -- Lightweight step chaining framework
-  api.py                  -- FastAPI REST API (4 endpoints)
-  dashboard.py            -- Streamlit interactive dashboard
+### Git Push Timeout in Codespaces
 
-  db_schema.py            -- SQLite schema (draws, frequencies)
-  queries.py              -- Query helpers (date range, streaming)
-  data_loader.py          -- CSV/JSON import into database
-  data_validator.py       -- Integrity checks
-  data_io.py              -- JSON save/load for generated tickets
-
-  lotto_wheels.py         -- Wheel manager (Albert + Bluskov integration)
-  wheel_generator.py      -- Full / abbreviated / key-number wheels
-  wheel_dashboard.py      -- Wheel analysis dashboard
-  rotation_scheduler.py   -- Rotation planner (2 draws/period)
-
-  frequency_analysis.py   -- Frequency, hot/cold, gap, pair analysis
-  distribution_analysis.py-- Odd/even, low/high distributions
-  pattern_detection.py    -- Consecutive, odd/even, low/high patterns
-  temporal_analysis.py    -- Sliding-window frequency trends
-  copula_analysis.py       -- Gaussian copula dependence modelling
-  predictions.py          -- 7 prediction methods + ensemble
-  backtesting.py          -- Walk-forward historical backtesting
-  report.py               -- HTML statistical report generator
-
-  steps/                  -- 12 pipeline step modules
-  config/                 -- Quantum features, kernels, logging
-
-  test_lotto.py           -- End-to-end tests
-  test_*.py               -- Individual module tests (14 files)
-
-  run_lotto.sh            -- Convenience wrapper for lotto_wheels.py
-  run_dashboard.sh        -- USB-friendly dashboard launcher
-  sync_to_usb.sh          -- Sync project to FAT32 USB drive
-```
-
-## Prediction Methods
-
-The `predictions.py` module implements 7 methods:
-
-1. **Frequency** -- Top-6 most drawn numbers + most common PB
-2. **Bayesian** -- Dirichlet-Multinomial posterior (alpha=1.0, add-one smoothing)
-3. **Markov** -- Number-to-number pair transition matrix
-4. **Weighted Random** -- Recency-weighted Thompson sampling (2x weight on last 20%)
-5. **Due Numbers** -- Gap z-score + frequency z-score combination
-6. **Pattern** -- Odd/even + low/high pattern extrapolation from last 10 draws
-7. **Ensemble** -- Weighted vote across all methods
-
-## Statistical Tests
-
-- Chi-square uniformity test (alpha=0.05, collapses to uniform when p > 0.05)
-- Unbiased gap scoring (initial + internal + final gaps)
-- Coefficient of variation for dynamic cluster count selection
-
-## USB Drive Usage (FAT32)
-
-The project supports running from a FAT32 USB drive where Python venv symlinks
-would break. Use the included scripts:
+Use a GitHub Personal Access Token or configure SSH keys:
 
 ```bash
-# Sync project to USB (auto-mounts /dev/sda1)
-./sync_to_usb.sh
+# Option 1: PAT
+git config --global credential.helper store
+# Next push will prompt for username + token (paste token as password)
 
-# Launch dashboard from USB
-./run_dashboard.sh
+# Option 2: SSH
+ssh-keygen -t ed25519 -C "your-email@example.com"
+# Add the public key to https://github.com/settings/keys
+git remote set-url origin git@github.com:nemo-alkey/D-lotto-wheel-app.git
 ```
 
-The launcher mounts the drive with proper uid/gid, verifies Streamlit is
-available (installs via --user if missing), then starts the dashboard using
-the system Python interpreter (no venv).
+### Selenium / ChromeDriver
 
-## Bayesian Rotation (Period Planner)
+```bash
+python update_draws.py --check-selenium
+```
 
-The `rotation_scheduler.py` script computes Dirichlet-Multinomial posterior
-probabilities for numbers 1-40 from historical draw data. Period 1 selects the
-top 11 numbers by Bayesian score. Each subsequent period swaps out the weakest
-number for the next-best candidate from the remaining pool. Outputs a
-formatted table and `rotation_plan.csv`.
+### PostgreSQL Connection
 
-## Disclaimer
+```bash
+# Start a Postgres container
+docker run -d --name lotto-pg -e POSTGRES_USER=lotto -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=lotto -p 5432:5432 postgres:16
 
-Lottery draws are independent random events. This pipeline identifies
-historical patterns and statistical tendencies only. No method can predict
-future draws. Output is for analytical and entertainment purposes only.
+# Set env var and migrate
+export DATABASE_URL=postgresql://lotto:secret@localhost:5432/lotto
+python migrate.py
+```
+
+---
+
+## Links
+
+- [API Docs (Swagger)](http://localhost:8000/docs)
+- [API Docs (ReDoc)](http://localhost:8000/redoc)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [.env.example](.env.example)
