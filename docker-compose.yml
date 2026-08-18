@@ -1,0 +1,73 @@
+# NZ Lotto Powerball — full stack
+#
+#   app    — FastAPI (:8000) + Streamlit (:8501) via the multi-stage Dockerfile
+#   redis  — rate limiting / caching backend (api.py reads REDIS_URL)
+#   nginx  — reverse proxy on :8080 (dashboard at /, API at /api/, mobile at /mobile/)
+#
+# SQLite needs no server process: there is deliberately no `db` service.
+# The database file lives on the named `lotto-data` volume mounted at
+# /app/data (the entrypoint symlinks /app/lotto.db there).
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"   # FastAPI
+      - "8501:8501"   # Streamlit
+    volumes:
+      - lotto-data:/app/data      # persistent SQLite database
+      - ./exports:/app/exports    # CSV/JSON exports
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-120}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
+      - DIV1_CAP=${DIV1_CAP:-50000000}
+      - USE_SELENIUM_FALLBACK=${USE_SELENIUM_FALLBACK:-false}
+    depends_on:
+      - redis
+    networks:
+      - lotto-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes   # persist rate-limit/cache state
+    volumes:
+      - lotto-redis:/data
+    networks:
+      - lotto-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Static mobile frontend served directly by nginx (build it first
+      # with `npm run build` in mobile-frontend/; empty dir is fine).
+      - ./mobile-frontend/dist:/usr/share/nginx/html/mobile:ro
+    depends_on:
+      - app
+    networks:
+      - lotto-network
+    restart: unless-stopped
+
+networks:
+  lotto-network:
+    driver: bridge
+
+volumes:
+  lotto-data:
+  lotto-redis:

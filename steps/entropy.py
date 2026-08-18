@@ -8,8 +8,9 @@
 ## using the Bayesian-fused unified probability distribution (shape 50).
 ## Produces a mathematically correct, normalized entropy feature vector.
 
-import numpy as np
 import logging
+
+import numpy as np
 
 # Number of standard lottery balls
 NUM_MAIN = 40
@@ -21,10 +22,7 @@ NUM_POWERBALL = 10
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # = 50
 
 # Configure logging output format and verbosity
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def shannon_entropy_features(pipeline):
@@ -44,9 +42,7 @@ def shannon_entropy_features(pipeline):
 
     # If fusion data is missing or malformed, fall back to uniform distribution
     if fusion is None or len(fusion) != NUM_TOTAL:
-        logging.warning(
-            "Fusion distribution missing — fallback to uniform entropy features."
-        )
+        logging.warning("Fusion distribution missing — fallback to uniform entropy features.")
 
         # Create a uniform probability distribution over 50 symbols
         uniform = np.ones(NUM_TOTAL) / NUM_TOTAL
@@ -70,7 +66,7 @@ def shannon_entropy_features(pipeline):
     p /= p.sum() or 1.0
 
     # Compute Shannon entropy contributions safely
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         # clip() prevents log2(0) and keeps values numerically stable
         entropy_terms = -p * np.log2(p.clip(1e-12, 1.0))
 
@@ -84,6 +80,3 @@ def shannon_entropy_features(pipeline):
     pipeline.add_data("entropy_features", entropy_terms)
 
     logging.info("Shannon entropy features generated successfully.")
-
-
-

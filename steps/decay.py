@@ -7,12 +7,15 @@
 ## weight depends on how many draws ago it occurred. The normalized decay-weighted frequency distributions
 ## are stored in the data pipeline for downstream use in prediction models.
 
-import numpy as np
 import logging
 
-from config import DECAY_PER_DRAW
+import numpy as np
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from settings import settings
+
+DECAY_PER_DRAW = settings.decay_per_draw
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Constants
 NUM_MAIN = 40
@@ -45,34 +48,27 @@ def calculate_decay_factors(pipeline, decay_rate: float = DECAY_PER_DRAW):
     # ---- Accumulate decay-weighted counts, most-recent-last order ----
     for i, draw in enumerate(historical_data):
         age = total_draws - i  # 1 for most recent, total_draws for oldest
-        weight = decay_rate ** age
+        weight = decay_rate**age
 
         # Main numbers
         for num in draw.get("numbers", []) or []:
             if isinstance(num, int) and 1 <= num <= NUM_MAIN:
                 main_frequency[num - 1] += weight
             else:
-                logging.warning(
-                    f"Invalid main number {num!r} in draw at index {i}; ignored."
-                )
+                logging.warning(f"Invalid main number {num!r} in draw at index {i}; ignored.")
 
         # Powerball(s)
         pb = draw.get("powerball")
         if pb is None:
             continue
 
-        if isinstance(pb, list):
-            pb_iter = pb
-        else:
-            pb_iter = [pb]
+        pb_iter = pb if isinstance(pb, list) else [pb]
 
         for p in pb_iter:
             if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:
                 powerball_frequency[p - 1] += weight
             else:
-                logging.warning(
-                    f"Invalid Powerball value {p!r} in draw at index {i}; ignored."
-                )
+                logging.warning(f"Invalid Powerball value {p!r} in draw at index {i}; ignored.")
 
     # ---- Normalise separately and concatenate ----
     main_sum = main_frequency.sum()

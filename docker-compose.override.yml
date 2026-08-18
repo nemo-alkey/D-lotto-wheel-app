@@ -1,0 +1,26 @@
+# Local development overrides (auto-loaded by `docker compose up`).
+#
+# Mounts the source tree into the container and runs both services in
+# hot-reload mode: uvicorn --reload for the API, streamlit's runOnSave
+# watcher for the dashboard. The named lotto-data volume still wins at
+# /app/data (later entries override by mount target).
+
+services:
+  app:
+    volumes:
+      - .:/app                      # live source for hot-reload
+      - lotto-data:/app/data        # keep the persistent DB off the bind mount
+      - ./exports:/app/exports
+    environment:
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379
+    # Skip supervisord in dev: run migrations, then both dev servers with
+    # file-watch reload. `wait` keeps the container alive; Ctrl+C stops all.
+    command: >
+      bash -c "
+        python migrate.py upgrade || true;
+        uvicorn api:app --host 0.0.0.0 --port 8000 --reload &
+        streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
+          --server.headless true --server.runOnSave true &
+        wait
+      "

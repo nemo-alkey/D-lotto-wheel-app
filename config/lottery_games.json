@@ -1,0 +1,83 @@
+{
+  "NZ_LOTTO": {
+    "name": "NZ Lotto (6/40 + bonus)",
+    "currency": "NZD",
+    "pool_size_main": 40,
+    "pool_size_bonus": 40,
+    "numbers_to_pick": 6,
+    "bonus_to_pick": 1,
+    "jackpot_estimate": 1000000,
+    "divisions": [
+      {"division": 1, "main": 6, "bonus": 0, "prize": 1000000},
+      {"division": 2, "main": 5, "bonus": 1, "prize": 30000},
+      {"division": 3, "main": 5, "bonus": 0, "prize": 1000},
+      {"division": 4, "main": 4, "bonus": 1, "prize": 100},
+      {"division": 5, "main": 4, "bonus": 0, "prize": 60},
+      {"division": 6, "main": 3, "bonus": 1, "prize": 40},
+      {"division": 7, "main": 3, "bonus": 0, "prize": 20}
+    ]
+  },
+  "POWERBALL_US": {
+    "name": "Powerball (US) 5/69 + 1/26",
+    "currency": "USD",
+    "pool_size_main": 69,
+    "pool_size_bonus": 26,
+    "numbers_to_pick": 5,
+    "bonus_to_pick": 1,
+    "jackpot_estimate": 20000000,
+    "divisions": [
+      {"division": 1, "main": 5, "bonus": 1, "prize": "jackpot"},
+      {"division": 2, "main": 5, "bonus": 0, "prize": 1000000},
+      {"division": 3, "main": 4, "bonus": 1, "prize": 50000},
+      {"division": 4, "main": 4, "bonus": 0, "prize": 100},
+      {"division": 5, "main": 3, "bonus": 1, "prize": 100},
+      {"division": 6, "main": 3, "bonus": 0, "prize": 7},
+      {"division": 7, "main": 2, "bonus": 1, "prize": 7},
+      {"division": 8, "main": 1, "bonus": 1, "prize": 4},
+      {"division": 9, "main": 0, "bonus": 1, "prize": 4}
+    ]
+  },
+  "MEGA_MILLIONS": {
+    "name": "Mega Millions (US) 5/70 + 1/25",
+    "currency": "USD",
+    "pool_size_main": 70,
+    "pool_size_bonus": 25,
+    "numbers_to_pick": 5,
+    "bonus_to_pick": 1,
+    "jackpot_estimate": 20000000,
+    "divisions": [
+      {"division": 1, "main": 5, "bonus": 1, "prize": "jackpot"},
+      {"division": 2, "main": 5, "bonus": 0, "prize": 1000000},
+      {"division": 3, "main": 4, "bonus": 1, "prize": 10000},
+      {"division": 4, "main": 4, "bonus": 0, "prize": 500},
+      {"division": 5, "main": 3, "bonus": 1, "prize": 200},
+      {"division": 6, "main": 3, "bonus": 0, "prize": 10},
+      {"division": 7, "main": 2, "bonus": 1, "prize": 10},
+      {"division": 8, "main": 1, "bonus": 1, "prize": 4},
+      {"division": 9, "main": 0, "bonus": 1, "prize": 2}
+    ]
+  },
+  "EUROMILLIONS": {
+    "name": "EuroMillions 5/50 + 2/12",
+    "currency": "EUR",
+    "pool_size_main": 50,
+    "pool_size_bonus": 12,
+    "numbers_to_pick": 5,
+    "bonus_to_pick": 2,
+    "jackpot_estimate": 17000000,
+    "divisions": [
+      {"division": 1, "main": 5, "bonus": 2, "prize": "jackpot"},
+      {"division": 2, "main": 5, "bonus": 1, "prize": 130000},
+      {"division": 3, "main": 5, "bonus": 0, "prize": 13000},
+      {"division": 4, "main": 4, "bonus": 2, "prize": 844},
+      {"division": 5, "main": 4, "bonus": 1, "prize": 77},
+      {"division": 6, "main": 3, "bonus": 2, "prize": 37},
+      {"division": 7, "main": 4, "bonus": 0, "prize": 25},
+      {"division": 8, "main": 2, "bonus": 2, "prize": 14},
+      {"division": 9, "main": 3, "bonus": 1, "prize": 11},
+      {"division": 10, "main": 3, "bonus": 0, "prize": 9},
+      {"division": 11, "main": 1, "bonus": 2, "prize": 7},
+      {"division": 12, "main": 2, "bonus": 1, "prize": 5}
+    ]
+  }
+}

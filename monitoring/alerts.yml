@@ -1,0 +1,66 @@
+# Prometheus alerting rules for the Lotto Wheel API.
+#
+# Loaded by monitoring/prometheus.yml (rule_files). The same thresholds are
+# evaluated app-side by monitoring/alerting.py, which dispatches email
+# (notifier.py) and webhook (ALERT_WEBHOOK_URL) notifications even when
+# Prometheus isn't running. Keep the two in sync.
+
+groups:
+  - name: lotto-api-health
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        # 5xx responses above 1% of all requests, sustained for 5 minutes.
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error rate above 1% for 5 minutes"
+          description: "5xx rate is {{ $value | humanizePercentage }} of all requests over the last 5m."
+
+      - alert: SlowPredictions
+        # p95 latency of POST /predictions above 5s, sustained for 10 minutes.
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{endpoint="/predictions"}[10m])) by (le)
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 prediction latency above 5s for 10 minutes"
+          description: "p95 latency of /predictions is {{ $value }}s over the last 10m."
+
+      - alert: DatabaseDown
+        # Scrape-time health check reports the database unreachable for 2 minutes.
+        expr: health_check_ok{check="database"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failing for 2 minutes"
+          description: "The /health database check has been failing for at least 2m."
+
+      - alert: DrawStale
+        # Latest draw older than 72 hours (draws run Wed + Sat).
+        expr: last_draw_age_hours > 72
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No new draw recorded in over 72 hours"
+          description: "The most recent draw is {{ $value }}h old."
+
+      - alert: DiskFull
+        # Less than 10% disk free (i.e. usage above 90%).
+        expr: disk_free_ratio < 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk usage above 90%"
+          description: "Only {{ $value | humanizePercentage }} of disk space remains free."

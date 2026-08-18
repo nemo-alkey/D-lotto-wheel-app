@@ -1,8 +1,8 @@
-﻿{
+{
   "name": "NZ Lotto App",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "forwardPorts": [8501, 8000],
-  "postCreateCommand": "pip install -r requirements.txt",
+  "postCreateCommand": "cp -n .env.example .env 2>/dev/null; pip install --upgrade pip && pip install -r requirements.txt",
   "customizations": {
     "vscode": {
       "extensions": [

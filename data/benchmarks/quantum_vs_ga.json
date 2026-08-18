@@ -1,0 +1,36 @@
+[
+  {
+    "timestamp": "2026-08-06T01:05:47",
+    "settings": {
+      "iterations": 1500,
+      "num_tickets": 6,
+      "ga_population": 4,
+      "ga_generations": 2
+    },
+    "constraints": {
+      "attraction_pairs": 0,
+      "block_constraints": false,
+      "sum_range": null
+    },
+    "quantum": {
+      "tickets": 6,
+      "execution_time_s": 0.053,
+      "best_energy": -0.1154,
+      "pair_coverage_pct": 11.5
+    },
+    "ga": {
+      "best_individual": {
+        "pool_size": 12,
+        "positive_ratio": 0.55,
+        "max_overlap": 2,
+        "require_attraction": true,
+        "include_bonus_coverage": true
+      },
+      "best_ev_fitness": 7.2254,
+      "tickets": 1,
+      "execution_time_s": 11.521,
+      "best_energy": -0.0192,
+      "pair_coverage_pct": 1.9
+    }
+  }
+]

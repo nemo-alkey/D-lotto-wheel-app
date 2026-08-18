@@ -6,9 +6,11 @@
 ## into the SQLite 'epochs' table. Each training run is grouped by a unique run_date.
 ## Adds pacing between inserts to prevent DB contention.
 
-from datetime import datetime
 import time
+from datetime import datetime
+
 import tensorflow as tf
+
 from database import insert_epoch_metrics  # Uses your existing DB manager
 
 
@@ -31,7 +33,7 @@ class EpochLogger(tf.keras.callbacks.Callback):
         if logs is None:
             return
 
-    # ---- Metric normalization layer (CRITICAL FIX) ----
+        # ---- Metric normalization layer (CRITICAL FIX) ----
 
         def _get(*keys, default=0.0):
             for k in keys:
@@ -41,27 +43,22 @@ class EpochLogger(tf.keras.callbacks.Callback):
 
         try:
             insert_epoch_metrics(
-            run_date=self.run_date,
-            epoch=epoch + 1,
-
-            loss=_get("loss"),
-            val_loss=_get("val_loss"),
-
-            # Accept BOTH legacy and current metric names
-            binary_accuracy=_get("binary_accuracy", "bin_acc"),
-            val_binary_accuracy=_get("val_binary_accuracy", "val_bin_acc"),
-
-            auc=_get("auc"),
-            val_auc=_get("val_auc"),
-
-            mae=_get("mae"),
-            val_mae=_get("val_mae"),
-        )
+                run_date=self.run_date,
+                epoch=epoch + 1,
+                loss=_get("loss"),
+                val_loss=_get("val_loss"),
+                # Accept BOTH legacy and current metric names
+                binary_accuracy=_get("binary_accuracy", "bin_acc"),
+                val_binary_accuracy=_get("val_binary_accuracy", "val_bin_acc"),
+                auc=_get("auc"),
+                val_auc=_get("val_auc"),
+                mae=_get("mae"),
+                val_mae=_get("val_mae"),
+            )
             time.sleep(self.delay)
 
         except Exception as e:
             print(f"[EpochLogger] Error inserting metrics: {e}")
-
 
 
 def get_run_date():

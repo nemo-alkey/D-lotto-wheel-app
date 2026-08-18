@@ -2,8 +2,27 @@ __pycache__/
 *.pyc
 venv/
 .pytest_cache/
+.env
 lotto.db
+backups/
 lotto_working.db
 lotto_data.db
 current_ticket.json
 exports/
+
+# Secrets & credentials — never commit
+deepseek api key.txt
+bmail code.txt
+
+# Logs and local state
+*.log
+data/logs/
+prize_cache.json
+
+# Backups / scratch
+*.bak
+_ci_checkout/
+
+# Frontend build artifacts
+node_modules/
+mobile-frontend/dist/

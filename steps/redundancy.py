@@ -8,8 +8,13 @@
 ## - Clustering centroids are always applied; if invalid, a neutral vector is used.
 ## - Output is a unified feature vector of shape (50,).
 
-import numpy as np
 import logging
+from typing import Any
+
+import numpy as np
+import numpy.typing as npt
+
+from pipeline import DataPipeline
 
 NUM_MAIN_NUMBERS = 40
 NUM_POWERBALL_NUMBERS = 10
@@ -21,7 +26,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # ============================================================
 # RECENCY: corrected (recent = higher score)
 # ============================================================
-def calculate_recency_features(historical_data, key, num_total):
+def calculate_recency_features(
+    historical_data: list[dict[str, Any]], key: str, num_total: int
+) -> npt.NDArray[np.float64]:
     """Recency: newer appearances ? larger value in [0,1]."""
     total_draws = len(historical_data)
     recency = np.full(num_total, total_draws, dtype=float)
@@ -44,7 +51,9 @@ def calculate_recency_features(historical_data, key, num_total):
 # ============================================================
 # GAP FREQUENCY: unbiased gap model
 # ============================================================
-def calculate_gap_frequency(historical_data, key, num_total):
+def calculate_gap_frequency(
+    historical_data: list[dict[str, Any]], key: str, num_total: int
+) -> npt.NDArray[np.float64]:
     """
     Average gap length between appearances for each number, including:
     - initial gap (from draw 0 to first appearance)
@@ -52,7 +61,7 @@ def calculate_gap_frequency(historical_data, key, num_total):
     - final gap (last appearance to final draw)
     """
     total_draws = len(historical_data)
-    occurrences = [[] for _ in range(num_total)]
+    occurrences: list[list[int]] = [[] for _ in range(num_total)]
 
     # Collect occurrence indices
     for idx, draw in enumerate(historical_data):
@@ -96,7 +105,7 @@ def calculate_gap_frequency(historical_data, key, num_total):
 # ============================================================
 # FULL SEQUENTIAL / TEMPORAL FEATURES
 # ============================================================
-def sequential_features(pipeline):
+def sequential_features(pipeline: DataPipeline) -> None:
     """
     Generates sequential / temporal features for both main and Powerball numbers.
     Output:
@@ -109,7 +118,7 @@ def sequential_features(pipeline):
         pipeline.add_data("redundancy", np.ones(NUM_TOTAL_NUMBERS) / NUM_TOTAL_NUMBERS)
         return
 
-    # ===================== MAIN (1–40) =====================
+    # ===================== MAIN (1â€“40) =====================
     recency_main = calculate_recency_features(historical_data, "numbers", NUM_MAIN_NUMBERS)
     gap_main = calculate_gap_frequency(historical_data, "numbers", NUM_MAIN_NUMBERS)
 
@@ -119,7 +128,7 @@ def sequential_features(pipeline):
 
     combined_main = (recency_main / rec_main_std + gap_main / gap_main_std) / 2.0
 
-    # ===================== POWERBALL (1–10) =====================
+    # ===================== POWERBALL (1â€“10) =====================
     recency_power = calculate_recency_features(historical_data, "powerball", NUM_POWERBALL_NUMBERS)
     gap_power = calculate_gap_frequency(historical_data, "powerball", NUM_POWERBALL_NUMBERS)
 
@@ -143,7 +152,7 @@ def sequential_features(pipeline):
         centroids = np.asarray(centroids, dtype=float)
 
     # Always modulate by centroids (or neutral ones)
-    combined_features *= (centroids + 1e-6)
+    combined_features *= centroids + 1e-6
 
     # ===================== FINAL NORMALIZATION =====================
     min_v = np.min(combined_features)

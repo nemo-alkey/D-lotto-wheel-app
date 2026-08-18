@@ -1,0 +1,286 @@
+Yes, the current `README.md` in your repository is **outdated** and needs updating. It still describes the project as just a "12-step analysis pipeline" with no mention of the prize calculator compliance (Lotto Rules 2025), the new modules (data pipeline, GA optimizer, ensemble, etc.), the full dashboard pages, or the API server. The comprehensive README you generated earlier from the project report is much more accurate.
+
+I’ll provide a **single CodeWhale prompt** that replaces the old README with the correct, production‑ready version and pushes the change.
+
+---
+
+## Prompt to Update README.md
+
+```
+You are working on the NZ Lotto Wheel Analysis & Prediction Platform in the repository at https://github.com/nemo-alkey/D-lotto-wheel-app. The current README.md is outdated and describes only the pipeline steps, not the full application. Replace it with the comprehensive, up-to-date README below. Then commit and push the change.
+
+**Steps:**
+1. Open `README.md` in the project root.
+2. Replace its entire content with the new README provided after the instructions.
+3. Verify that the file is saved as UTF-8 (no BOM).
+4. Stage and commit:
+   ```
+   git add README.md
+   git commit -m "Update README to reflect full platform, Lotto Rules 2025, and new features"
+   git push origin main
+   ```
+5. Confirm the push succeeded and that the updated README appears on the GitHub repository page.
+
+Use this exact content (the comprehensive README from the project report, slightly polished):
+
+```
+# NZ Lotto Powerball — Wheel Analysis & Prediction Platform
+
+A comprehensive Python platform for NZ Lotto Powerball (6/40 + Bonus 1–40 + PB 1–10) wheel analysis, prediction, backtesting, and ticket generation.  
+**Now fully compliant with the Lotto Rules 2025 (effective 29 September 2025).**
+
+---
+
+## Quick Start
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run database migrations (create/update tables)
+python migrate.py
+
+# Populate the draw database (run daily/weekly)
+python update_draws.py
+
+# Launch the Streamlit dashboard
+streamlit run dashboard.py
+
+# Start the FastAPI server
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+---
+
+## Project Structure
+
+### Core Modules
+| File | Purpose |
+|------|---------|
+| `dashboard.py` | Streamlit web dashboard (8+ pages, dark mode) |
+| `api.py` | FastAPI REST API (authentication, rate limiting, pagination) |
+| `main.py` | CLI menu + sub‑commands (crawl, optimize-wheel, xgboost, etc.) |
+| `lotto_wheels.py` | Bluskov wheels, draw loading, statistical analysis |
+| `prize_calculator.py` | **Lotto Rules 2025** compliant prize engine (percentage splits, reserve fund, jackpot logic) |
+| `database.py` | SQLite DB helpers (draws, users, pipeline_stats, etc.) |
+| `update_draws.py` | Fetch draws from MyLotto API (with fallback chain) |
+| `data_pipeline.py` | Unified DataFetcher with monitoring and validation |
+| `scheduler.py` | APScheduler daemon for automatic draw checks |
+
+### Prediction & Analysis
+| File | Purpose |
+|------|---------|
+| `predictions.py` | XGBoost predictor + SHAP explainability, 7 traditional methods |
+| `ensemble.py` | Ensemble predictor with walk‑forward weight calibration |
+| `ga_optimizer.py` | Genetic Algorithm wheel parameter optimisation (quick/full modes) |
+| `block_analysis.py`, `albert_analysis.py`, `sum_analysis.py` | Albert's Lotto Code analysis |
+| `analysis_bonus_pairs.py` | Bonus–main co‑occurrence matrix, top pairs/triplets |
+| `compliance_scorer.py` | Lotto Code compliance scoring (0–100) |
+| `wheel_validator.py` | Monte Carlo Bluskov guarantee validation |
+| `wheel_generator.py` | Abbreviated wheel generator (include/exclude, coverage) |
+
+### Backtesting & Simulation
+| File | Purpose |
+|------|---------|
+| `backtest.py` | Single & multi‑draw backtest, EV simulation, bootstrap CI, paired t‑tests |
+| `rotation_scheduler.py` | Bayesian rotation plan (with bonus picks) |
+
+### Automation & Notifications
+| File | Purpose |
+|------|---------|
+| `scheduler.py` | Wed/Sat draw scheduler (NZ timezone) |
+| `notifier.py` | Email + desktop toast alerts, notification settings UI |
+
+### Data Ingestion
+| File | Purpose |
+|------|---------|
+| `html_scraper.py` | MyLotto HTML scraper (fallback after API) |
+| `selenium_scraper.py` | Headless Chrome scraper for JS‑rendered pages |
+| `crawler.py` | Historical results crawler with state persistence |
+| `csv_importer.py` | CSV import with column mapping (supports 10 date formats) |
+| `api_fetcher.py` | APIVerve international lottery client |
+
+---
+
+## Dashboard Pages
+
+| Page | Description |
+|------|-------------|
+| Wheels & Tickets | Overview cards, wheel details, Lotto Code scores |
+| Statistical Report | Positive/negative split, block analysis, Bayesian, bandit |
+| Frequency Chart | Main numbers & Powerball frequency bar charts |
+| Check Draw | Check any wheel against custom draw numbers |
+| Check Latest Draw | Auto‑fetch latest draw, bonus‑match toggle, Lotto‑only tab |
+| Custom Wheel Builder | Generate wheels, Albert pool, include/exclude, GA optimise |
+| Bonus Ball Analysis | Frequency bar chart, stats table, hierarchical Bayesian predictor |
+| Predictions | Ensemble prediction, weight evolution chart |
+| EV Simulation | Monte Carlo bonus‑premium simulation |
+| Bonus–Main Co‑occurrence | Heatmap, top pairs, triplets |
+| Rotation Scheduler | Generate rotation plan, include bonus, save tickets |
+| Backtest Results | Single/multi‑draw bonus impact, comparison with CI + t‑tests |
+| Block Analysis | Positional block heatmap, compliance validation |
+| Wheel Explorer | Bluskov guarantee validation, pair‑coverage heatmap |
+| Live Monitor | Scheduled check status, alert log |
+| Ticket Wizard | 8‑step guided ticket generation |
+| Export | Download wheel tickets as CSV |
+| ML Predictor | Train XGBoost, view top predictions, SHAP force plots |
+| Data Import | Upload CSV files with interactive column mapping |
+| Data Pipeline Status | Monitor fetch runs, success rates, manual trigger |
+| International Lotteries | Fetch APIVerve results for global lotteries |
+
+---
+
+## API Endpoints
+
+### Wheels & Analysis
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/wheels` | List all wheels (paginated) |
+| GET | `/wheel/{name}` | Get a wheel's tickets |
+| POST | `/check` | Check a wheel against a draw (auth required) |
+| GET | `/stats` | Full statistical report |
+
+### Predictions
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/predict/bonus_bayesian?k=5` | Basic Bayesian bonus prediction |
+| GET | `/predict/bonus/hierarchical?k=5&halflife=90` | Hierarchical Bayesian with error bars |
+| GET | `/predict/ensemble?main=15&bonus=5&pb=3` | Ensemble prediction |
+
+### Co‑occurrence Analysis
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/analysis/cooccurrence/matrix?min_support=5` | Bonus‑main co‑occurrence matrix |
+| GET | `/analysis/cooccurrence/pairs/{bonus_num}?top_k=3` | Top pairs for a bonus ball |
+| GET | `/analysis/cooccurrence/triplets?top_n=10` | Top bonus‑main‑main triplets |
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Register a new user |
+| POST | `/token` | Obtain a JWT access token |
+| GET | `/users/me` | Get current authenticated user |
+
+---
+
+## CLI Commands
+
+```bash
+# Data fetching
+python update_draws.py
+python update_draws.py --range 2026-01-01:2026-06-08
+
+# Crawl historical data
+python crawler.py --max-pages 100
+python crawler.py --resume
+
+# Import CSV
+python csv_importer.py --file data.csv --mapping "Date:draw_date,Numbers:numbers,Bonus:bonus,Powerball:powerball"
+
+# ML & optimization
+python predictions.py --train --shap
+python main.py optimize-wheel --quick --generations 20
+
+# Backtest
+python backtest.py --wheel single1 --draws 100
+
+# Rotation scheduler
+python rotation_scheduler.py --include-bonus --json
+
+# Database management
+python migrate.py               # Run migrations
+python create_admin.py           # Create admin user
+
+# Servers
+uvicorn api:app --port 8000
+streamlit run dashboard.py --server.port 8501
+```
+
+---
+
+## Wheel Definitions
+
+| Name | Tickets | Pool | Guarantee |
+|------|---------|------|-----------|
+| `single1` | 20 | 10 | 4‑win if 4 pool numbers drawn |
+| `single2` | 20 | 10 | 4‑win if 4 pool numbers drawn |
+| `double` | 88 | 10 | Two 4‑wins if 4 pool numbers drawn |
+| `five-if-six` | 11 | 11 | 5‑win if all 6 drawn from pool |
+| `jackpot7` | 7 | 7 | Jackpot (6‑win) if all 6 drawn from pool |
+
+Custom wheels can be generated via `wheel_generator.py` with configurable pool size, guarantee, bonus coverage, and include/exclude numbers.
+
+---
+
+## Prize Calculation (Lotto Rules 2025)
+
+The `prize_calculator.py` module implements the official NZ Lotto Rules 2025. For Standard Lotto, the prize pool is split into percentages after deducting the reserve fund (5%) and fixed Div7 prizes. Powerball uses a 94.72% allocation for Div1, capped at $50M. Jackpot rollover is supported with forced distribution after 10 consecutive rollovers.
+
+**Reserve fund rates**: Lotto 5%, Powerball 10%, Strike 3%
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET_KEY` | `change-me-...` | JWT signing secret |
+| `JWT_EXPIRE_MINUTES` | `60` | Token lifetime (minutes) |
+| `ADMIN_USERNAME` | `admin` | Initial admin user |
+| `ADMIN_PASSWORD` | `admin123` | Initial admin password |
+| `SMTP_SERVER`, `SMTP_PORT`, etc. | — | Email notification settings |
+| `DATABASE_URL` | `sqlite:///lotto.db` | Database connection string (supports PostgreSQL) |
+| `API_RATE_LIMIT` | `60/minute` | Per‑client API rate limit |
+
+---
+
+## Deployment
+
+### Codespaces
+Open the repo in GitHub Codespaces – the devcontainer will install everything automatically. Then run:
+```bash
+streamlit run dashboard.py --server.port 8501 &
+uvicorn api:app --host 0.0.0.0 --port 8000 &
+```
+
+### Docker Compose
+```bash
+docker compose up --build -d
+```
+
+### Makefile
+```bash
+make test          # Run pytest
+make lint          # Ruff + flake8
+make run-api       # Start API server
+make run-dash      # Start Streamlit
+make docker-up     # Launch both services in Docker
+```
+
+---
+
+## Testing
+
+```bash
+pytest -v
+```
+
+Key test scenarios:
+- Bayesian posterior sum = 1.0
+- Bonus‑upgraded divisions correctly identified
+- Compliance score higher for deliberately‑constructed wheels
+- Bluskov guarantee validation passes for all presets
+- Dynamic sum range coverage >90% on historical data
+
+---
+
+## Compliance & Licensing
+
+This project is for analytical and entertainment purposes only. It complies with the Lotto Rules 2025 for prize simulations but does not offer real‑money gambling. See `LICENSE` for details.
+
+---
+
+**Repository:** https://github.com/nemo-alkey/D-lotto-wheel-app
+```
+
+Now execute the prompt steps to update the repository README.

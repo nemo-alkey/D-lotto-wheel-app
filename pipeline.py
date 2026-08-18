@@ -1,4 +1,4 @@
-﻿# Modified By: Callam
+# Modified By: Callam
 # Project: Lotto Generator
 # Purpose: Core Data Pipeline and Dynamic Parameter Management
 # Description:
@@ -6,10 +6,9 @@
 #   - Provides dynamic epoch scaling ONLY
 #   - No Monte Carlo logic exists here anymore
 
-import os  # OS utilities used for environment setup
 import logging  # Standard logging module
-from typing import Any, Dict, Tuple, List  # Type hinting for better clarity and error checking
-import numpy as np  # Numerical computing
+import os  # OS utilities used for environment setup
+from typing import Any  # Type hinting for better clarity and error checking
 
 # Constants defining the lottery structure
 NUM_MAIN_NUMBERS = 40  # Number of main numbers in each draw
@@ -22,13 +21,13 @@ LINE_SIZE = 6  # Number of main numbers per ticket line
 MIN_PROB = 1e-12
 
 # Configure logging format and level
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Suppress verbose TensorFlow logs
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def get_dynamic_params(num_draws: int) -> Tuple[int, int]:
+def get_dynamic_params(num_draws: int) -> tuple[int, int]:
     """
     Dynamic parameter helper.
 
@@ -43,7 +42,9 @@ def get_dynamic_params(num_draws: int) -> Tuple[int, int]:
     Returns:
         Tuple[None, int]: Placeholder and dynamic epoch count.
     """
-    dynamic_epochs = min(50 + (num_draws // 100), 100)  # Increase epochs based on data volume, capped at 100
+    dynamic_epochs = min(
+        50 + (num_draws // 100), 100
+    )  # Increase epochs based on data volume, capped at 100
 
     logging.debug(f"Dynamic epochs: {dynamic_epochs}")
     return None, dynamic_epochs  # Placeholder for compatibility
@@ -54,8 +55,9 @@ class DataPipeline:
     Central data store for all stages of the pipeline.
     Enables shared access to intermediate computations.
     """
+
     def __init__(self) -> None:
-        self.data: Dict[str, Any] = {}  # Internal dictionary to hold data elements
+        self.data: dict[str, Any] = {}  # Internal dictionary to hold data elements
         logging.info("Initialized DataPipeline.")
 
     def add_data(self, key: str, value: Any) -> None:
@@ -99,6 +101,7 @@ class DataPipeline:
 def source_from_db() -> dict:
     """Load all draws from the database into ``past_results``."""
     from database import fetch_all_draws
+
     return {"past_results": fetch_all_draws()}
 
 
@@ -111,9 +114,8 @@ def run_pipeline(steps: list, initial_state: dict | None = None) -> dict:
 
 
 def hit_rate_analysis(
-    tickets: List[Dict[str, Any]],
-    historical_data: List[Dict[str, Any]]
-) -> Tuple[int, Dict[int, int]]:
+    tickets: list[dict[str, Any]], historical_data: list[dict[str, Any]]
+) -> tuple[int, dict[int, int]]:
     """
     Evaluates generated tickets against historical data.
 
@@ -147,7 +149,3 @@ def hit_rate_analysis(
                 exact_matches += 1  # Count perfect match including powerball
 
     return exact_matches, partial_matches  # Return full result tuple
-
-
-
-

@@ -1,0 +1,35 @@
+# Version control / CI
+.git
+.github
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments (huge — never ship)
+venv/
+.venv/
+
+# Local secrets
+.env
+
+# Local databases (seed via migrations + update_draws.py inside the container)
+lotto.db
+lotto_working.db
+lotto_data.db
+data/*.db
+
+# Tests stay out of the runtime image (mount them in CI/dev instead)
+tests/
+test_lotto.py
+
+# Dev artifacts
+exports/
+*.log
+.codewhale/
+.devcontainer/
+mobile-frontend/node_modules/

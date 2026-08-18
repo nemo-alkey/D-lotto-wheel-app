@@ -16,14 +16,13 @@ This module constructs a fixed-width quantum kernel feature matrix by:
 
 from __future__ import annotations  # Enable modern type hints safely
 
-import numpy as np                     # Numerical arrays and linear algebra
-import pennylane as qml                # Quantum circuit framework
+import numpy as np  # Numerical arrays and linear algebra
+import pennylane as qml  # Quantum circuit framework
 
 # IMPORTANT:
 # I import the quantum_features *module*, not individual symbols,
 # because its global weights are reassigned during training.
 from config import quantum_features as qf
-
 
 # ---------------------------------------------------------------------
 # Quantum device configuration
@@ -31,11 +30,7 @@ from config import quantum_features as qf
 
 # Statevector simulator is required for exact fidelity computation.
 # shots=None ensures analytic statevector access.
-_kernel_dev = qml.device(
-    "default.qubit",
-    wires=qf.NUM_QUBITS,
-    shots=None
-)
+_kernel_dev = qml.device("default.qubit", wires=qf.NUM_QUBITS, shots=None)
 
 
 @qml.qnode(_kernel_dev)
@@ -62,10 +57,7 @@ def _state_circuit(angles: np.ndarray, weights: np.ndarray):
         qml.RY(theta, wires=w)
 
     # Apply entangling variational layers
-    qml.templates.StronglyEntanglingLayers(
-        weights,
-        wires=range(qf.NUM_QUBITS)
-    )
+    qml.templates.StronglyEntanglingLayers(weights, wires=range(qf.NUM_QUBITS))
 
     # Return the full statevector
     return qml.state()
@@ -85,10 +77,7 @@ def _get_live_weights(weights: np.ndarray | None) -> np.ndarray:
     return np.asarray(weights, dtype=float)
 
 
-def _encode_state(
-    classical_vec: np.ndarray,
-    weights: np.ndarray | None = None
-) -> np.ndarray:
+def _encode_state(classical_vec: np.ndarray, weights: np.ndarray | None = None) -> np.ndarray:
     """
     Encode a classical feature vector into a normalized quantum state.
 
@@ -105,10 +94,7 @@ def _encode_state(
     w = _get_live_weights(weights)
 
     # Convert classical features into rotation angles
-    angles = qf._preprocess_to_angles(
-        classical_vec,
-        num_qubits=qf.NUM_QUBITS
-    )
+    angles = qf._preprocess_to_angles(classical_vec, num_qubits=qf.NUM_QUBITS)
 
     # Execute the quantum circuit
     state = _state_circuit(angles, w)
@@ -122,10 +108,7 @@ def _encode_state(
     return state / norm
 
 
-def _pure_state_fidelity(
-    psi: np.ndarray,
-    phi: np.ndarray
-) -> float:
+def _pure_state_fidelity(psi: np.ndarray, phi: np.ndarray) -> float:
     """
     Compute fidelity between two pure quantum states:
 
@@ -171,11 +154,11 @@ def _select_prototypes_fixed_width(
     *with replacement* to preserve width.
     """
 
-    X = np.asarray(feature_matrix, dtype=float)
-    if X.ndim != 2:
-        raise ValueError(f"feature_matrix must be 2D, got {X.shape}")
+    x = np.asarray(feature_matrix, dtype=float)
+    if x.ndim != 2:
+        raise ValueError(f"feature_matrix must be 2D, got {x.shape}")
 
-    n, d = X.shape
+    n, d = x.shape
 
     # No data case: return zero prototypes
     if n == 0:
@@ -191,7 +174,7 @@ def _select_prototypes_fixed_width(
     else:
         indices = rng.choice(n, size=num_prototypes, replace=True)
 
-    return X[indices], indices.astype(int)
+    return x[indices], indices.astype(int)
 
 
 def _encode_prototype_states(
@@ -207,7 +190,7 @@ def _encode_prototype_states(
         raise ValueError(f"prototypes must be 2D, got {prototypes.shape}")
 
     m = prototypes.shape[0]
-    dim = 2 ** qf.NUM_QUBITS
+    dim = 2**qf.NUM_QUBITS
 
     states = np.zeros((m, dim), dtype=np.complex128)
 
@@ -228,28 +211,28 @@ def _compute_fidelity_feature_matrix(
         K[i, j] = |<phi(x_i) | phi(proto_j)>|^2
     """
 
-    X = np.asarray(feature_matrix, dtype=float)
-    if X.ndim != 2:
-        raise ValueError(f"feature_matrix must be 2D, got {X.shape}")
+    x = np.asarray(feature_matrix, dtype=float)
+    if x.ndim != 2:
+        raise ValueError(f"feature_matrix must be 2D, got {x.shape}")
 
     proto_states = np.asarray(proto_states, dtype=np.complex128)
     if proto_states.ndim != 2:
         raise ValueError(f"proto_states must be 2D, got {proto_states.shape}")
 
-    n = X.shape[0]
+    n = x.shape[0]
     m = proto_states.shape[0]
 
     if n == 0 or m == 0:
         return np.zeros((n, m), dtype=float)
 
-    K = np.zeros((n, m), dtype=float)
+    k = np.zeros((n, m), dtype=float)
 
     for i in range(n):
-        psi = _encode_state(X[i], weights=weights)
+        psi = _encode_state(x[i], weights=weights)
         for j in range(m):
-            K[i, j] = _pure_state_fidelity(psi, proto_states[j])
+            k[i, j] = _pure_state_fidelity(psi, proto_states[j])
 
-    return K
+    return k
 
 
 def build_quantum_kernel_features(
@@ -270,11 +253,11 @@ def build_quantum_kernel_features(
 
     global _cached_proto_states, _cached_num_prototypes, _cached_seed
 
-    X = np.asarray(feature_matrix, dtype=float)
-    if X.ndim != 2:
-        raise ValueError(f"feature_matrix must be 2D, got {X.shape}")
+    x = np.asarray(feature_matrix, dtype=float)
+    if x.ndim != 2:
+        raise ValueError(f"feature_matrix must be 2D, got {x.shape}")
 
-    n, _ = X.shape
+    n, _ = x.shape
     if num_prototypes <= 0:
         raise ValueError("num_prototypes must be positive")
 
@@ -291,7 +274,7 @@ def build_quantum_kernel_features(
         proto_states = _cached_proto_states
     else:
         prototypes, _ = _select_prototypes_fixed_width(
-            X,
+            x,
             num_prototypes=num_prototypes,
             seed=seed,
         )
@@ -305,8 +288,8 @@ def build_quantum_kernel_features(
         _cached_seed = int(seed)
 
     # Compute raw kernel matrix
-    K = _compute_fidelity_feature_matrix(
-        X,
+    k = _compute_fidelity_feature_matrix(
+        x,
         proto_states,
         weights=weights,
     )
@@ -320,17 +303,15 @@ def build_quantum_kernel_features(
     # where D is a positive diagonal matrix derived from column magnitudes.
     # This preserves PSD and kernel validity while stabilizing scale.
     # -----------------------------------------------------------------
-    scale = np.maximum(np.max(K, axis=0), 1e-12)
+    scale = np.maximum(np.max(k, axis=0), 1e-12)
     inv_sqrt = 1.0 / np.sqrt(scale)
-    K_scaled = K * inv_sqrt[None, :] * inv_sqrt[None, :]
+    k_scaled = k * inv_sqrt[None, :] * inv_sqrt[None, :]
 
     # Final hard shape guarantee
-    if K_scaled.shape != (n, num_prototypes):
+    if k_scaled.shape != (n, num_prototypes):
         out = np.zeros((n, num_prototypes), dtype=float)
-        m = min(num_prototypes, K_scaled.shape[1])
-        out[:, :m] = K_scaled[:, :m]
-        K_scaled = out
+        m = min(num_prototypes, k_scaled.shape[1])
+        out[:, :m] = k_scaled[:, :m]
+        k_scaled = out
 
-    return K_scaled.astype(float)
-
-
+    return k_scaled.astype(float)
