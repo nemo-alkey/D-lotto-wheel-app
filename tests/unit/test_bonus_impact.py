@@ -5,8 +5,8 @@ Covers:
     structure, upgrade detection, the "what-if" ev_without_bonus path
     (bonus ignored), edge cases (empty wheel, unknown wheel name).
   - backtest_bonus_impact(): structured bonus-impact over draw history —
-    tiny/absent history (patched load_draws), unknown wheel, and the real
-    1-draw lotto.db (integration).
+    tiny/absent history (patched load_draws), unknown wheel, and a hermetic
+    1-draw SQLite database (integration).
 
 fetch_payouts is ALWAYS mocked (patch on prize_calculator, since backtest
 imports it lazily inside each function) — no network in tests.
@@ -255,10 +255,34 @@ class TestBacktestBonusImpact:
         assert default["total_prize_with_bonus"] == clamped["total_prize_with_bonus"]
 
     @pytest.mark.integration
-    def test_real_single_draw_database(self, mock_payouts):
-        # lotto.db ships with exactly 1 draw; run against it unpatched
-        # (fetch_payouts still mocked — no network).
-        result = backtest.backtest_bonus_impact("single1")
+    def test_real_single_draw_database(self, mock_payouts, tmp_path):
+        # Hermetic single-draw database. The original version of this test
+        # ran against the local lotto.db, which is gitignored and whose
+        # contents vary per machine (CI seeds 60 synthetic draws), making
+        # the "exactly 1 draw" assertion non-deterministic. Here we build a
+        # dedicated one-draw SQLite file; load_draws still runs unpatched
+        # through the real SQLAlchemy engine path (fetch_payouts stays
+        # mocked — no network).
+        import sqlite3
+
+        from sqlalchemy import create_engine
+
+        db_file = tmp_path / "one_draw.db"
+        conn = sqlite3.connect(db_file)
+        conn.execute(
+            "CREATE TABLE draws (draw_id INTEGER PRIMARY KEY, draw_date TEXT, "
+            "numbers TEXT, bonus INTEGER, powerball INTEGER)"
+        )
+        conn.execute(
+            "INSERT INTO draws (draw_id, draw_date, numbers, bonus, powerball) "
+            "VALUES (1, '2024-01-01', '1,2,3,4,5,6', 7, 1)"
+        )
+        conn.commit()
+        conn.close()
+
+        engine = create_engine(f"sqlite:///{db_file}")
+        with patch("lotto_wheels.get_engine", return_value=engine):
+            result = backtest.backtest_bonus_impact("single1")
         assert "error" not in result
         assert result["draws_tested"] == 1
         assert result["total_prize_with_bonus"] >= result["total_prize_without_bonus"]
