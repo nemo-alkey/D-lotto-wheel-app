@@ -1,4 +1,4 @@
-﻿## Modified By: Callam
+## Modified By: Callam
 ## Project: Lotto Generator
 ## Purpose of File: Generate Markov Transition Features (Main + Powerball)
 ## Description:
@@ -12,18 +12,24 @@
 ## - Redundancy weighting applied AFTER Markov probabilities (safe).
 ## - Fully normalized shape-(50,) output.
 
-import numpy as np                      # Numerical library for arrays and matrix math
-import logging                          # Logging system for warnings and info messages
+import logging  # Logging system for warnings and info messages
+from collections.abc import Sequence  # Abstract sequence type for cluster mappings
+from typing import Any  # Type hints for generic NumPy arrays
 
-NUM_MAIN = 40                           # Number of main lottery numbers
-NUM_POWERBALL = 10                      # Number of Powerball numbers
-NUM_TOTAL = NUM_MAIN + NUM_POWERBALL    # Total output length (50 probabilities)
+import numpy as np  # Numerical library for arrays and matrix math
+import numpy.typing as npt  # NumPy type aliases for annotations
+
+from pipeline import DataPipeline  # Pipeline type for step signatures
+
+NUM_MAIN = 40  # Number of main lottery numbers
+NUM_POWERBALL = 10  # Number of Powerball numbers
+NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Total output length (50 probabilities)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 # Configure logging format and default log level
 
 
-def generate_markov_matrix(sequence, num_states):
+def generate_markov_matrix(sequence: Sequence[int], num_states: int) -> npt.NDArray[np.float64]:
     """Build normalized transition matrix [num_states x num_states]."""
 
     mat = np.zeros((num_states, num_states), dtype=float)
@@ -57,13 +63,15 @@ def generate_markov_matrix(sequence, num_states):
     # Return the transition probability matrix
 
 
-def representative_cluster(numbers, mapping, domain_size):
+def representative_cluster(
+    numbers: Sequence[int], mapping: npt.NDArray[Any] | Sequence[int], domain_size: int
+) -> int | None:
     """
     Convert a set of numbers in a draw into ONE representative cluster ID.
     This allows us to treat each draw as a single Markov "state".
     """
 
-    clusters = []
+    clusters: list[int] = []
     # Will hold cluster IDs corresponding to numbers in this draw
 
     for n in numbers:
@@ -88,7 +96,7 @@ def representative_cluster(numbers, mapping, domain_size):
     # Return the most frequent cluster (mode) as the draw's state
 
 
-def markov_features(pipeline):
+def markov_features(pipeline: DataPipeline) -> None:
     """Produce mathematically correct Markov-based prediction features."""
 
     historical = pipeline.get_data("historical_data")
@@ -131,7 +139,7 @@ def markov_features(pipeline):
     # MAIN MARKOV CHAIN
     # =========================
 
-    main_seq = []
+    main_seq: list[int] = []
     # Sequence of representative cluster states for main draws
 
     for draw in historical:
@@ -153,7 +161,7 @@ def markov_features(pipeline):
         num_states_main = int(np.max(main_map)) + 1
         # Determine how many distinct clusters exist
 
-        T_main = generate_markov_matrix(main_seq, num_states_main)
+        t_main = generate_markov_matrix(main_seq, num_states_main)
         # Build transition probability matrix
 
         last_state = main_seq[-1]
@@ -169,7 +177,7 @@ def markov_features(pipeline):
             # Get cluster ID of number
 
             if 0 <= c < num_states_main:
-                scores_main[n] = T_main[last_state, c]
+                scores_main[n] = t_main[last_state, c]
                 # Probability of transitioning from last cluster to this number's cluster
 
         scores_main *= red_main
@@ -193,7 +201,7 @@ def markov_features(pipeline):
     # POWERBALL MARKOV CHAIN
     # =========================
 
-    power_seq = []
+    power_seq: list[int] = []
     # Sequence of Powerball cluster states
 
     for draw in historical:
@@ -209,7 +217,7 @@ def markov_features(pipeline):
 
     if len(power_seq) >= 2:
         num_states_power = int(np.max(power_map)) + 1
-        T_power = generate_markov_matrix(power_seq, num_states_power)
+        t_power = generate_markov_matrix(power_seq, num_states_power)
         last_state = power_seq[-1]
 
         scores_power = np.zeros(NUM_POWERBALL)
@@ -217,7 +225,7 @@ def markov_features(pipeline):
         for p in range(NUM_POWERBALL):
             c = power_map[p]
             if 0 <= c < num_states_power:
-                scores_power[p] = T_power[last_state, c]
+                scores_power[p] = t_power[last_state, c]
 
         scores_power *= red_power
 
@@ -248,12 +256,3 @@ def markov_features(pipeline):
 
     logging.info("Markov features integrated successfully.")
     # Log completion
-
-
-
-
-
-
-
-
-

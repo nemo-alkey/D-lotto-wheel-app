@@ -1,0 +1,138 @@
+# CD — build, push, and deploy on release
+#
+# Triggered when a GitHub Release is published. Pipeline:
+#   build             — Docker image tagged with the release version,
+#                       pushed to GitHub Container Registry (ghcr.io)
+#   deploy-staging    — SSH to staging, pull + restart, smoke-test
+#   deploy-production — same for prod, gated by a GitHub Environment
+#                       protection rule (manual approval)
+#
+# Required secrets:
+#   STAGING_HOST, STAGING_USER, STAGING_SSH_KEY, STAGING_URL
+#   PROD_HOST,    PROD_USER,    PROD_SSH_KEY,    PROD_URL
+# Required one-time setup:
+#   Settings → Environments → "production" → enable "Required reviewers"
+#   (that rule is what makes deploy-production wait for manual approval).
+
+name: CD
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write        # needed to push to ghcr.io with GITHUB_TOKEN
+
+jobs:
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build & push Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # auto-provisioned token
+
+      # Derive image tags from the release: the release tag (e.g. v1.2.0)
+      # plus :latest.
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name }}
+            type=raw,value=latest
+
+      # Layer cache is stored in the GitHub Actions cache (gha) so
+      # rebuilds only re-execute changed layers.
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      # Pull the freshly built image on the staging host and restart the
+      # container. Adjust container name/ports to your compose setup.
+      - name: Pull image & restart container over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            docker pull ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
+            docker stop lotto-app || true
+            docker rm lotto-app || true
+            docker run -d --name lotto-app \
+              -p 8000:8000 -p 8501:8501 \
+              -v lotto-data:/data \
+              ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
+
+      # Smoke test: poll the API health endpoint until it answers or the
+      # retry budget is exhausted.
+      - name: Smoke test staging
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS "${{ secrets.STAGING_URL }}/health"; then
+              echo "Staging healthy."
+              exit 0
+            fi
+            echo "Waiting for staging ($i/12)..."; sleep 10
+          done
+          echo "Staging did not become healthy."; exit 1
+
+  # ---------------------------------------------------------------------------
+  deploy-production:
+    name: Deploy to production (manual approval)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    # The "production" environment's protection rule (required reviewers)
+    # makes this job pause until a maintainer approves in the Actions UI.
+    environment: production
+    steps:
+      - name: Pull image & restart container over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            docker pull ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
+            docker stop lotto-app || true
+            docker rm lotto-app || true
+            docker run -d --name lotto-app \
+              -p 8000:8000 -p 8501:8501 \
+              -v lotto-data:/data \
+              ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
+
+      - name: Smoke test production
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS "${{ secrets.PROD_URL }}/health"; then
+              echo "Production healthy."
+              exit 0
+            fi
+            echo "Waiting for production ($i/12)..."; sleep 10
+          done
+          echo "Production did not become healthy."; exit 1
