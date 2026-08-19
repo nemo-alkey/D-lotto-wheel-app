@@ -94,9 +94,9 @@ def build_features_for_draw(
     # --- Precompute rolling stats per number ---
 
     # Counters for rolling windows
-    freq_10 = Counter()
-    freq_30 = Counter()
-    freq_all = Counter()
+    freq_10: Counter[int] = Counter()
+    freq_30: Counter[int] = Counter()
+    freq_all: Counter[int] = Counter()
 
     # Last N draws: for lag features and gaps
     last_appearance: dict[int, int] = {}  # number -> last draw index seen
@@ -105,12 +105,12 @@ def build_features_for_draw(
     lag_3: set[int] = set()
 
     # Position tracking (main numbers only)
-    position_counts: dict[int, Counter] = {n: Counter() for n in num_range}
+    position_counts: dict[int, Counter[int]] = {n: Counter() for n in num_range}
     position_sums: dict[int, float] = {n: 0.0 for n in num_range}
     position_n: dict[int, int] = {n: 0 for n in num_range}
 
     # Co-occurrence tracking (last 50 draws)
-    cooccur_counts: dict[int, Counter] = {n: Counter() for n in num_range}
+    cooccur_counts: dict[int, Counter[int]] = {n: Counter() for n in num_range}
 
     # Longest streak
     streak_current: dict[int, int] = {n: 0 for n in num_range}
@@ -231,7 +231,7 @@ def build_features_for_draw(
 
 
 def create_dataset(
-    draws: list[tuple[list[int], int, str]],
+    draws: list[tuple[Any, ...]],
     num_range: range,
     min_history: int = MIN_HISTORY,
     test_split: float = 0.2,
@@ -388,10 +388,10 @@ def _roc_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
 
 
 def predict_next(
-    draws: list[tuple[list[int], int, str]],
+    draws: list[tuple[Any, ...]],
     main_model: Any,
     pb_model: Any | None,
-) -> dict:
+) -> dict[str, Any]:
     """Generate a prediction for the next draw after the last one in *draws*.
 
     Returns dict with 'numbers' (sorted 6 ints), 'powerball' (int),
@@ -441,7 +441,7 @@ def predict_next(
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Train XGBoost models on NZ Lotto Powerball draws.",
     )

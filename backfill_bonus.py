@@ -19,8 +19,10 @@ from __future__ import annotations
 import argparse
 import os
 import random
+import sqlite3
 import sys
 import time
+from typing import Any, cast
 
 import requests
 from bs4 import BeautifulSoup
@@ -45,13 +47,11 @@ MAX_RETRIES = 10
 PAUSE_AFTER_BURST = 60  # short pause between bursts to help sliding window
 
 
-def get_connection():
-    import sqlite3
-
+def get_connection() -> sqlite3.Connection:
     return sqlite3.connect(DB_PATH)
 
 
-def get_missing_draws(conn):
+def get_missing_draws(conn: sqlite3.Connection) -> list[Any]:
     """Return list of (draw_id, draw_date) for draws missing bonus data."""
     rows = conn.execute(
         "SELECT draw_id, draw_date FROM draws WHERE bonus IS NULL OR bonus = 0 ORDER BY draw_id"
@@ -69,7 +69,7 @@ def fetch_bonus_from_nzcity(draw_id: int) -> int | None:
     bonus_img = soup.find("img", id="ctl00_ContentPlaceHolder1_bonus1")
     if bonus_img and bonus_img.get("alt"):
         # alt attribute like "Bonus number 29"
-        alt = bonus_img["alt"]
+        alt = cast(str, bonus_img["alt"])
         parts = alt.split()
         for p in parts:
             try:
@@ -94,17 +94,17 @@ def fetch_bonus_from_nzcity(draw_id: int) -> int | None:
     return None
 
 
-def update_bonus(conn, draw_id: int, bonus: int) -> bool:
+def update_bonus(conn: sqlite3.Connection, draw_id: int, bonus: int) -> bool:
     """Update bonus ball in DB. Returns True if updated."""
     cur = conn.execute(
         "UPDATE draws SET bonus = ? WHERE draw_id = ? AND (bonus IS NULL OR bonus = 0)",
         (bonus, draw_id),
     )
     conn.commit()
-    return cur.rowcount > 0
+    return bool(cur.rowcount > 0)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Backfill bonus ball data from NZCity")
     parser.add_argument("--start", type=int, default=None, help="Start from this draw_id")
     parser.add_argument(

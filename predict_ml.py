@@ -16,6 +16,7 @@ import os
 import pickle
 import sys
 from collections import Counter
+from typing import Any
 
 import numpy as np
 
@@ -61,7 +62,7 @@ def build_features_for_draw(
     draws: list[tuple[list[int], int, str]],
     target_idx: int,
     num_range: range,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Build one feature vector per number for draw *target_idx*.
 
     See train_ml_model.py for the full feature specification.
@@ -75,17 +76,17 @@ def build_features_for_draw(
     if is_pb:
         current_nums = [draws[target_idx][1]] if target_idx < len(draws) else []
 
-    freq_10: Counter = Counter()
-    freq_30: Counter = Counter()
-    freq_all: Counter = Counter()
+    freq_10: Counter[int] = Counter()
+    freq_30: Counter[int] = Counter()
+    freq_all: Counter[int] = Counter()
     last_appearance: dict[int, int] = {}
     lag_1: set[int] = set()
     lag_2: set[int] = set()
     lag_3: set[int] = set()
-    position_counts: dict[int, Counter] = {n: Counter() for n in num_range}
+    position_counts: dict[int, Counter[int]] = {n: Counter() for n in num_range}
     position_sums: dict[int, float] = {n: 0.0 for n in num_range}
     position_n: dict[int, int] = {n: 0 for n in num_range}
-    cooccur_counts: dict[int, Counter] = {n: Counter() for n in num_range}
+    cooccur_counts: dict[int, Counter[int]] = {n: Counter() for n in num_range}
     streak_current: dict[int, int] = {n: 0 for n in num_range}
     streak_max: dict[int, int] = {n: 0 for n in num_range}
     recent_50 = max(0, target_idx - 50)
@@ -172,10 +173,10 @@ def build_features_for_draw(
 
 
 def predict(
-    draws: list,
-    model_data: dict,
+    draws: list[Any],
+    model_data: dict[str, Any],
     top_n: int = 6,
-) -> dict:
+) -> dict[str, Any]:
     """Predict the next draw's numbers and Powerball."""
     main_model = model_data["main_model"]
     pb_model = model_data.get("pb_model")
@@ -227,7 +228,7 @@ def predict(
 # ---------------------------------------------------------------------------
 
 
-def print_prediction(pred: dict, top_n: int):
+def print_prediction(pred: dict[str, Any], top_n: int) -> None:
     """Pretty-print a prediction."""
     nums_str = ", ".join(f"{n:02d}" for n in pred["numbers"])
     print()
@@ -262,7 +263,7 @@ def print_prediction(pred: dict, top_n: int):
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="ML-powered NZ Lotto Powerball predictor.",
     )

@@ -39,6 +39,7 @@ import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
 from bluskov_wheel_library import (
     BOOK_REFERENCE,
@@ -68,7 +69,7 @@ GUARANTEE_TYPES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
-def load_user_wheels(path: Path | str = USER_WHEELS_PATH) -> dict[str, dict]:
+def load_user_wheels(path: Path | str = USER_WHEELS_PATH) -> dict[str, dict[str, Any]]:
     """Load user-added wheels from data/user_wheels.json (empty if missing).
 
     Same entry shape as WHEEL_REGISTRY: system_number (use 0 for custom),
@@ -78,19 +79,19 @@ def load_user_wheels(path: Path | str = USER_WHEELS_PATH) -> dict[str, dict]:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return cast(dict[str, dict[str, Any]], json.loads(p.read_text(encoding="utf-8")))
     except json.JSONDecodeError:
         logger.warning("Could not parse %s — ignoring user wheels.", p)
         return {}
 
 
-def get_all_wheels() -> dict[str, dict]:
+def get_all_wheels() -> dict[str, dict[str, Any]]:
     """Merged registry: Bluskov library + user-added wheels.
 
     Each entry gains: key, ready (combinations actually entered),
     and origin ("bluskov" | "user").
     """
-    wheels: dict[str, dict] = {}
+    wheels: dict[str, dict[str, Any]] = {}
     for key, entry in WHEEL_REGISTRY.items():
         e = dict(entry)
         e["key"] = key
@@ -109,7 +110,7 @@ def get_all_wheels() -> dict[str, dict]:
     return wheels
 
 
-def is_minimal(entry: dict) -> bool:
+def is_minimal(entry: dict[str, Any]) -> bool:
     """True if the entry is the registered minimal system for its
     (guarantee type, pool size) — i.e. it's in WHEEL_EXPLORER and its
     combinations are verified (ready)."""
@@ -132,7 +133,7 @@ def filter_wheels(
     guarantee_label: str | None = None,
     ticket_range: tuple[int, int] = (1, 500),
     search: str = "",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Filter the merged registry by sidebar criteria.
 
     Args:
@@ -172,7 +173,7 @@ def filter_wheels(
     return sorted(wheels, key=lambda w: (w["numbers"], w["tickets"]))
 
 
-def get_recommended(guarantee_label: str, pool_size: int) -> dict | None:
+def get_recommended(guarantee_label: str, pool_size: int) -> dict[str, Any] | None:
     """Auto-select the mathematically minimal system for guarantee + pool.
 
     The minimal system is the registry entry for that guarantee type with
@@ -255,12 +256,12 @@ def save_selection(
             ),
         )
         conn.commit()
-        return cur.lastrowid
+        return int(cur.lastrowid) if cur.lastrowid is not None else 0
     finally:
         conn.close()
 
 
-def load_selections(db_path: str = DEFAULT_DB_PATH) -> list[dict]:
+def load_selections(db_path: str = DEFAULT_DB_PATH) -> list[dict[str, Any]]:
     """Return all saved wheel selections, newest first."""
     conn = sqlite3.connect(db_path)
     try:
@@ -342,7 +343,7 @@ if __name__ == "__main__":
     assert is_minimal(all_wheels["double4_10"])
     assert not is_minimal(all_wheels["double4_11"])  # pending -> not verified
     rec = get_recommended("Double 4-if-4", 10)
-    assert rec["system_number"] == 88 and rec["ready"]
+    assert rec is not None and rec["system_number"] == 88 and rec["ready"]
     assert get_recommended("4-if-4", 10) is None  # no such system in library
     print("Recommended minimal system for Double 4-if-4 / 10: #88")
 

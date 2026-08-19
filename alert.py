@@ -47,6 +47,7 @@ import os
 import smtplib
 import sys
 from email.message import EmailMessage
+from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lotto_wheels import DIVISIONS, WHEELS, load_draws
@@ -56,7 +57,9 @@ from lotto_wheels import DIVISIONS, WHEELS, load_draws
 # ---------------------------------------------------------------------------
 
 
-def score_ticket(ticket_nums, wheel_pb, draw_nums, draw_pb):
+def score_ticket(
+    ticket_nums: list[int] | tuple[int, ...], wheel_pb: int, draw_nums: list[int], draw_pb: int
+) -> int | None:
     """Return division index if the ticket wins, else None.
 
     A ticket qualifies for exactly one division — the highest it satisfies.
@@ -69,7 +72,13 @@ def score_ticket(ticket_nums, wheel_pb, draw_nums, draw_pb):
     return None
 
 
-def check_wheel(name, tickets, wheel_pb, draw_nums, draw_pb):
+def check_wheel(
+    name: str,
+    tickets: list[tuple[int, ...]],
+    wheel_pb: int,
+    draw_nums: list[int],
+    draw_pb: int,
+) -> tuple[list[int], int]:
     """Check all tickets in a wheel. Returns (div_counts, total_prize)."""
     div_counts = [0] * len(DIVISIONS)
     for ticket in tickets:
@@ -85,7 +94,9 @@ def check_wheel(name, tickets, wheel_pb, draw_nums, draw_pb):
 # ---------------------------------------------------------------------------
 
 
-def build_message(results, draw_nums, draw_pb, draw_date):
+def build_message(
+    results: list[tuple[str, list[int], int]], draw_nums: list[int], draw_pb: int, draw_date: str
+) -> str:
     """Build the alert body text."""
     lines = []
     lines.append("=" * 50)
@@ -133,7 +144,7 @@ def build_message(results, draw_nums, draw_pb, draw_date):
 # ---------------------------------------------------------------------------
 
 
-def send_email(recipient, subject, body):
+def send_email(recipient: str, subject: str, body: str) -> None:
     """Send an email via SMTP (STARTTLS). Configure via env vars."""
     server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
     port = int(os.environ.get("SMTP_PORT", 587))
@@ -172,7 +183,7 @@ except ImportError:
     Client = None  # Twilio not installed — SMS falls through to placeholder
 
 
-def send_sms(recipient, message):
+def send_sms(recipient: str, message: str) -> None:
     """Send an SMS via Twilio (placeholder unless configured)."""
     if Client is not None and TWILIO_ENABLED:
         account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
@@ -200,7 +211,9 @@ def send_sms(recipient, message):
 # ---------------------------------------------------------------------------
 
 
-def check_draw(draw_nums, draw_pb, draw_date):
+def check_draw(
+    draw_nums: list[int], draw_pb: int, draw_date: str
+) -> list[tuple[str, list[int], int]]:
     """Run all wheels against a draw and return results list."""
     results = []
     for name, (tickets, wheel_pb) in WHEELS.items():
@@ -209,7 +222,7 @@ def check_draw(draw_nums, draw_pb, draw_date):
     return results
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Check the latest draw against all wheels and send alerts.",
     )

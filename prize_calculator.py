@@ -31,7 +31,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 # --- Load settings (centralised configuration) ---
 try:
@@ -139,7 +139,7 @@ def resolve_divisions(
 # ---------------------------------------------------------------------------
 
 
-def _fetch_raw() -> dict | None:
+def _fetch_raw() -> dict[str, Any] | None:
     """Fetch the latest draw's full payload from the MyLotto API.
 
     Returns the parsed JSON dict, or None on failure.
@@ -149,13 +149,13 @@ def _fetch_raw() -> dict | None:
     try:
         resp = requests.get(API_LATEST, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
     except Exception as exc:
         print(f"  [prize_calculator] API fetch failed: {exc}", file=sys.stderr)
         return None
 
 
-def _fetch_raw_by_draw_number(draw_number: int) -> dict | None:
+def _fetch_raw_by_draw_number(draw_number: int) -> dict[str, Any] | None:
     """Fetch a specific draw by its draw number."""
     import requests
 
@@ -164,7 +164,7 @@ def _fetch_raw_by_draw_number(draw_number: int) -> dict | None:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT)
         if resp.status_code != 200:
             return None
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
     except Exception:
         return None
 
@@ -174,7 +174,7 @@ def _fetch_raw_by_draw_number(draw_number: int) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def _parse_payouts(raw: dict) -> dict[str, Any]:
+def _parse_payouts(raw: dict[str, Any]) -> dict[str, Any]:
     """Extract lotto and powerball division payouts from an API response.
 
     Returns dict with keys:
@@ -226,7 +226,7 @@ def _parse_payouts(raw: dict) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _load_cache() -> dict:
+def _load_cache() -> dict[str, Any]:
     """Load cached payout data. Returns empty dict if missing or stale."""
     if not os.path.exists(CACHE_FILE):
         return {}
@@ -248,7 +248,7 @@ def _load_cache() -> dict:
     if datetime.now() - cached_at > CACHE_TTL:
         return {}  # stale
 
-    return cached
+    return cast(dict[str, Any], cached)
 
 
 def _save_cache(payouts: dict[str, Any]) -> None:
@@ -397,7 +397,7 @@ def get_prize_for_draw(
     }
 
     details = [
-        (f"Lotto {main_labels.get(lotto_div, f'Div {lotto_div}')}", main_prize),
+        (f"Lotto {main_labels.get(cast(int, lotto_div), f'Div {lotto_div}')}", main_prize),
     ]
     if pb_prize > 0:
         details.append((f"Powerball {pb_label}", pb_prize))
@@ -408,7 +408,7 @@ def get_prize_for_draw(
         "pb_prize": pb_prize,
         "main_division": lotto_div,
         "pb_division": pb_division,
-        "main_label": main_labels.get(lotto_div, f"Div {lotto_div} (no win)"),
+        "main_label": main_labels.get(cast(int, lotto_div), f"Div {lotto_div} (no win)"),
         "pb_label": pb_label,
         "is_estimated": is_estimated,
         "draw_date": draw_date_str,
@@ -481,7 +481,7 @@ def get_prize_for_matches(
 
     total = main_prize + pb_prize
 
-    details = [(f"Lotto {main_labels.get(lotto_div, f'Div {lotto_div}')}", main_prize)]
+    details = [(f"Lotto {main_labels.get(cast(int, lotto_div), f'Div {lotto_div}')}", main_prize)]
     if pb_prize > 0:
         details.append((f"Powerball {pb_label}", pb_prize))
 
@@ -522,7 +522,7 @@ try:
     LOTTO_POOL_PERCENTAGES = _st.lotto_pool_percentages
     DEFAULT_LOTTO_POOL = _st.default_lotto_pool
 except NameError:
-    LOTTO_POOL_PERCENTAGES: dict[int, float] = {
+    LOTTO_POOL_PERCENTAGES: dict[int, float] = {  # type: ignore[no-redef]  # settings fallback
         1: 34.6,
         2: 10.1,
         3: 10.5,
@@ -605,7 +605,7 @@ try:
     DIV1_CAP = _st.div1_cap
     DEFAULT_RESERVE_RATE = _st.reserve_powerball
 except NameError:
-    PB_POOL_PERCENTAGES: dict[int, float] = {
+    PB_POOL_PERCENTAGES: dict[int, float] = {  # type: ignore[no-redef]  # settings fallback
         1: 85.74,
         2: 2.23,
         3: 2.23,
@@ -614,7 +614,7 @@ except NameError:
         6: 4.56,
         7: 0.0,
     }
-    LOTTO_ALLOC_PERCENTAGES: dict[int, float] = {
+    LOTTO_ALLOC_PERCENTAGES: dict[int, float] = {  # type: ignore[no-redef]  # settings fallback
         1: 34.6,
         2: 10.1,
         3: 10.5,
@@ -1109,7 +1109,7 @@ def count_exact_matches(
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main() -> None:
     """CLI entry point for testing."""
     import argparse
 

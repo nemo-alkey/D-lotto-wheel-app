@@ -255,14 +255,14 @@ def run_bonus_impact_backtest(
             if r.division is not None:
                 report.total_wins += 1
                 draw_wins += 1
-                report.division_distribution[cast(int, r.division)] = (
-                    report.division_distribution.get(cast(int, r.division), 0) + 1
+                report.division_distribution[r.division] = (
+                    report.division_distribution.get(r.division, 0) + 1
                 )
             if r.upgraded_by_bonus:
                 report.wins_upgraded_by_bonus += 1
                 draw_upgrades += 1
-                report.upgrade_breakdown[r.division] = (
-                    report.upgrade_breakdown.get(r.division, 0) + 1
+                report.upgrade_breakdown[cast(int, r.division)] = (
+                    report.upgrade_breakdown.get(cast(int, r.division), 0) + 1
                 )
 
             draw_prize += r.prize

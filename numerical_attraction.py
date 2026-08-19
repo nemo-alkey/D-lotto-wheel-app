@@ -17,6 +17,7 @@ import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 
@@ -50,7 +51,7 @@ class AttractionProfile:
     normalized_scores: dict[tuple[int, int], float]  # 0.0 - 1.0
     hot_numbers: list[int]  # numbers in hot pairs
     cold_numbers: list[int]  # numbers rarely in pairs
-    summary: dict = field(default_factory=dict)
+    summary: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -112,8 +113,8 @@ def analyze_attraction(
     recent = draws[-lookback:] if len(draws) > lookback else draws
     total = len(recent)
 
-    consec_counter: Counter = Counter()
-    plus2_counter: Counter = Counter()
+    consec_counter: Counter[tuple[int, int]] = Counter()
+    plus2_counter: Counter[tuple[int, int]] = Counter()
 
     for draw in recent:
         c, p2 = extract_pairs_from_draw(draw)
@@ -136,7 +137,7 @@ def analyze_attraction(
         normalized = {}
 
     # Identify hot/cold numbers
-    num_freq: Counter = Counter()
+    num_freq: Counter[int] = Counter()
     for pair in all_pairs:
         num_freq.update(pair)
 
@@ -277,7 +278,7 @@ def get_attraction_constraints(
     profile: AttractionProfile,
     top_n_pairs: int = 10,
     min_score_threshold: float = 0.3,
-) -> dict:
+) -> dict[str, Any]:
     """
     Generate constraint hints for the wheel generator.
     Returns a dict that can be passed to a GA or optimizer.
@@ -337,10 +338,12 @@ def load_profile(path: Path = Path("data/attraction_profile.json")) -> Attractio
     with open(path) as f:
         data = json.load(f)
 
-    def _parse_pairs(d):
-        return {tuple(map(int, k.split(","))): v for k, v in d.items()}
+    def _parse_pairs(d: dict[str, Any]) -> dict[tuple[int, int], Any]:
+        return {cast(tuple[int, int], tuple(map(int, k.split(",")))): v for k, v in d.items()}
 
-    return AttractionProfile(
+    # NOTE: saved JSON predates the raw_attraction_scores field, so this call
+    # intentionally omits it (raw scores are recomputed, never persisted).
+    return AttractionProfile(  # type: ignore[call-arg]
         lookback_draws=data["lookback_draws"],
         total_draws_analyzed=data["total_draws_analyzed"],
         consecutive_pairs=_parse_pairs(data["consecutive_pairs"]),

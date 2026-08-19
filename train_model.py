@@ -39,6 +39,8 @@ except ImportError:
     MODEL_LIB = "sklearn.GradientBoostingRegressor"
 
 # Enriched-text → numeric feature extractors
+from typing import Any
+
 from features.enriched_features import extract_enriched_features
 from sklearn.metrics import (
     mean_absolute_error,
@@ -463,7 +465,7 @@ def train_model(
     y_val: np.ndarray,
     feature_names: list[str],
     log: logging.Logger,
-) -> tuple[object, dict]:
+) -> tuple[object, dict[str, Any]]:
     """Train XGBoost (or GradientBoosting fallback) model."""
     log.info(f"  Library: {MODEL_LIB}")
 
@@ -541,8 +543,12 @@ def train_model(
 
 
 def save_model(
-    model, metrics: dict, feature_names: list[str], model_dir: Path, log: logging.Logger
-):
+    model: Any,
+    metrics: dict[str, Any],
+    feature_names: list[str],
+    model_dir: Path,
+    log: logging.Logger,
+) -> None:
     """Save model, feature names, and metadata."""
     model_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -588,12 +594,12 @@ def save_model(
 
 
 def write_training_report(
-    metrics: dict,
+    metrics: dict[str, Any],
     feature_names: list[str],
     target_name: str,
     log_dir: Path,
     log: logging.Logger,
-):
+) -> None:
     """Write a Markdown training report to logs/."""
     log_dir.mkdir(parents=True, exist_ok=True)
     report_path = log_dir / "training_report.md"
@@ -664,7 +670,7 @@ def write_training_report(
 def main(
     data_sources: list[str] | None = None,
     target_mode: str = "position",
-):
+) -> None:
     """Run the full training pipeline."""
     if data_sources is None:
         data_sources = DATA_SOURCES
@@ -743,7 +749,9 @@ def main(
 # ---------------------------------------------------------------------------
 
 
-def cross_validate_time_series(x, y, feature_names, log, n_splits=5):
+def cross_validate_time_series(
+    x: np.ndarray, y: np.ndarray, feature_names: list[str], log: logging.Logger, n_splits: int = 5
+) -> tuple[list[dict[str, Any]], Any]:
     """5-fold time-series CV. Returns metrics list and final model."""
     import json
 
@@ -773,7 +781,7 @@ def cross_validate_time_series(x, y, feature_names, log, n_splits=5):
     return metrics, model
 
 
-def _plot_calibration(y_true, y_pred, log):
+def _plot_calibration(y_true: np.ndarray, y_pred: np.ndarray, log: logging.Logger) -> None:
     """Save calibration curve to logs/calibration.png."""
     try:
         import matplotlib

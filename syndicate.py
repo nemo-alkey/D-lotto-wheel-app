@@ -26,6 +26,7 @@ goes to the syndicate creator (created_by).
 from __future__ import annotations
 
 import json
+from typing import Any, cast
 
 from sqlalchemy import text
 
@@ -46,7 +47,7 @@ def _ensure_schema() -> None:
     initialize_database()
 
 
-def _refresh_total_contribution(conn, syndicate_id: int) -> None:
+def _refresh_total_contribution(conn: Any, syndicate_id: int) -> None:
     """Keep syndicates.total_contribution = sum of member percentages."""
     conn.execute(
         text(
@@ -99,7 +100,7 @@ def create_syndicate(name: str, created_by_user_id: int) -> int:
         return int(result.lastrowid)
 
 
-def get_syndicate(syndicate_id: int) -> dict | None:
+def get_syndicate(syndicate_id: int) -> dict[str, Any] | None:
     """Return one syndicate as a dict, or None if it doesn't exist."""
     _ensure_schema()
     with get_connection() as conn:
@@ -121,7 +122,7 @@ def get_syndicate(syndicate_id: int) -> dict | None:
     }
 
 
-def list_syndicates() -> list[dict]:
+def list_syndicates() -> list[dict[str, Any]]:
     """Return all syndicates (id, name, creator, created_at, member count)."""
     _ensure_schema()
     with get_connection() as conn:
@@ -205,7 +206,7 @@ def remove_member(syndicate_id: int, user_id: int) -> bool:
         return result.rowcount > 0
 
 
-def get_members(syndicate_id: int) -> list[dict]:
+def get_members(syndicate_id: int) -> list[dict[str, Any]]:
     """Return all members of a syndicate (user_id, contribution_pct, email)."""
     _ensure_schema()
     with get_connection() as conn:
@@ -277,14 +278,14 @@ def add_ticket(
         return int(result.lastrowid)
 
 
-def get_tickets(syndicate_id: int, draw_id: str | None = None) -> list[dict]:
+def get_tickets(syndicate_id: int, draw_id: str | None = None) -> list[dict[str, Any]]:
     """Return a syndicate's tickets, optionally filtered by draw_id."""
     _ensure_schema()
     query = (
         "SELECT id, ticket_numbers, draw_id, contributor_splits "
         "FROM syndicate_tickets WHERE syndicate_id = :sid"
     )
-    params: dict = {"sid": syndicate_id}
+    params: dict[str, Any] = {"sid": syndicate_id}
     if draw_id is not None:
         query += " AND draw_id = :did"
         params["did"] = str(draw_id)
@@ -351,7 +352,7 @@ def calculate_prize_split(syndicate_id: int, total_prize: float) -> dict[int, fl
 # ---------------------------------------------------------------------------
 
 
-def auto_notify_winners(syndicate_id: int, draw_results: dict) -> dict:
+def auto_notify_winners(syndicate_id: int, draw_results: dict[str, Any]) -> dict[str, Any]:
     """Notify all members of their prize share via notifier.py email.
 
     Args:
@@ -372,7 +373,7 @@ def auto_notify_winners(syndicate_id: int, draw_results: dict) -> dict:
 
     splits = calculate_prize_split(syndicate_id, total_prize)
     members = {m["user_id"]: m for m in get_members(syndicate_id)}
-    syndicate = get_syndicate(syndicate_id)
+    syndicate = cast(dict[str, Any], get_syndicate(syndicate_id))
 
     notified: dict[int, bool] = {}
     for user_id, amount in splits.items():

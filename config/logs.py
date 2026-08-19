@@ -8,19 +8,20 @@
 
 import time
 from datetime import datetime
+from typing import Any
 
 import tensorflow as tf
 
 from database import insert_epoch_metrics  # Uses your existing DB manager
 
 
-class EpochLogger(tf.keras.callbacks.Callback):
+class EpochLogger(tf.keras.callbacks.Callback):  # type: ignore[misc]  # tensorflow stubs are untyped
     """
     Custom Keras callback to log epoch metrics into the 'epochs' table.
     Runs after each epoch completes, ensuring metrics are stored consistently.
     """
 
-    def __init__(self, delay=0.1):
+    def __init__(self, delay: float = 0.1) -> None:
         """
         Parameters:
         - delay (float): Seconds to pause after each insert. Helps SQLite process steadily.
@@ -29,13 +30,13 @@ class EpochLogger(tf.keras.callbacks.Callback):
         self.run_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.delay = delay
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None) -> None:
         if logs is None:
             return
 
         # ---- Metric normalization layer (CRITICAL FIX) ----
 
-        def _get(*keys, default=0.0):
+        def _get(*keys: str, default: float = 0.0) -> float:
             for k in keys:
                 if k in logs:
                     return float(logs[k])
@@ -61,7 +62,7 @@ class EpochLogger(tf.keras.callbacks.Callback):
             print(f"[EpochLogger] Error inserting metrics: {e}")
 
 
-def get_run_date():
+def get_run_date() -> str:
     """
     Utility to fetch the most recent run_date string (for grouping results).
     """

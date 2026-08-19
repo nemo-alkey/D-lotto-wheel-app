@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import text
 
@@ -34,7 +35,7 @@ class DataFetcher:
 
     METHODS = ["api", "html", "selenium"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._init_stats_table()
 
     def _init_stats_table(self) -> None:
@@ -71,7 +72,7 @@ class DataFetcher:
             )
         conn.commit()
 
-    def _try_fetch(self, method: str, date: str | None = None) -> dict | None:
+    def _try_fetch(self, method: str, date: str | None = None) -> dict[str, Any] | None:
         """Try a single fetch method. Returns draw dict or None."""
         if method == "api":
             from update_draws import fetch_draw
@@ -100,7 +101,7 @@ class DataFetcher:
 
         return None
 
-    def fetch(self, draw_date: str | None = None) -> dict | None:
+    def fetch(self, draw_date: str | None = None) -> dict[str, Any] | None:
         """Fetch a draw using the priority chain.
 
         Parameters
@@ -133,7 +134,7 @@ class DataFetcher:
         _log(f"  All methods exhausted for {label}.")
         return None
 
-    def fetch_latest(self) -> dict | None:
+    def fetch_latest(self) -> dict[str, Any] | None:
         """Fetch the latest draw and insert into DB if new."""
         result = self.fetch()
         if not result:
@@ -154,8 +155,9 @@ class DataFetcher:
             self._notify_new_draw(result)
         else:
             _log(f"  Failed to insert draw {result['draw_date']}.")
+        return None
 
-    def _notify_new_draw(self, draw: dict) -> None:
+    def _notify_new_draw(self, draw: dict[str, Any]) -> None:
         """Send notification when new draw data is available."""
         try:
             from notifier import notify_new_draw
@@ -170,7 +172,7 @@ class DataFetcher:
         except ImportError:
             pass
 
-    def get_stats(self) -> list[dict]:
+    def get_stats(self) -> list[dict[str, Any]]:
         """Return recent pipeline stats."""
         engine = get_engine()
         with engine.connect() as conn:
@@ -210,7 +212,7 @@ def fetch_latest_job() -> None:
 # ---------------------------------------------------------------------------
 
 
-def validate_db() -> dict:
+def validate_db() -> dict[str, Any]:
     """Validate the database for data quality issues.
 
     Checks: duplicate draw dates, missing draws (gaps > 4 days),
@@ -224,16 +226,24 @@ def validate_db() -> dict:
 
     engine = get_engine()
     conn = engine.connect()
-    issues = {"duplicates": [], "gaps": [], "bad_numbers": [], "bad_bonus": [], "bad_pb": []}
+    issues: dict[str, list[str]] = {
+        "duplicates": [],
+        "gaps": [],
+        "bad_numbers": [],
+        "bad_bonus": [],
+        "bad_pb": [],
+    }
 
     # Duplicates
     dupes = conn.execute(
-        "SELECT draw_date, COUNT(*) FROM draws GROUP BY draw_date HAVING COUNT(*) > 1"
+        "SELECT draw_date, COUNT(*) FROM draws GROUP BY draw_date HAVING COUNT(*) > 1"  # type: ignore[call-overload]  # raw SQL string
     ).fetchall()
     issues["duplicates"] = [d[0] for d in dupes]
 
     # Date gaps (> 4 days, expecting Wed/Sat ~3-4 day gaps)
-    rows = conn.execute("SELECT draw_date FROM draws ORDER BY draw_date").fetchall()
+    rows = conn.execute(  # type: ignore[call-overload]  # raw SQL string
+        "SELECT draw_date FROM draws ORDER BY draw_date"
+    ).fetchall()
     for i in range(len(rows) - 1):
         try:
             d1 = datetime.strptime(rows[i][0], "%Y-%m-%d")
@@ -245,7 +255,9 @@ def validate_db() -> dict:
             pass
 
     # Invalid numbers
-    for row in conn.execute("SELECT draw_date, numbers, bonus, powerball FROM draws"):
+    for row in conn.execute(  # type: ignore[call-overload]  # raw SQL string
+        "SELECT draw_date, numbers, bonus, powerball FROM draws"
+    ):
         date, nums_str, bonus, pb = row
         try:
             nums = [int(x) for x in nums_str.split(",")]

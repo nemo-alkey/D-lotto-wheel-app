@@ -20,6 +20,7 @@ import json
 import os
 import sys
 from datetime import datetime
+from typing import Any, cast
 
 TICKET_STORE = "latest_tickets.json"
 CHECK_LOG = "scheduler_checks.log"
@@ -30,16 +31,16 @@ CHECK_LOG = "scheduler_checks.log"
 # ---------------------------------------------------------------------------
 
 
-def load_stored_tickets() -> list:
+def load_stored_tickets() -> list[Any]:
     """Load the latest generated tickets from the ticket store."""
     if not os.path.exists(TICKET_STORE):
         return []
     with open(TICKET_STORE, encoding="utf-8") as f:
         data = json.load(f)
-    return data.get("tickets", [])
+    return cast(list[Any], data.get("tickets", []))
 
 
-def save_tickets(tickets: list) -> None:
+def save_tickets(tickets: list[Any]) -> None:
     """Save a ticket list to the store."""
     with open(TICKET_STORE, "w", encoding="utf-8") as f:
         json.dump({"tickets": tickets, "saved_at": datetime.now().isoformat()}, f, indent=2)
@@ -50,7 +51,7 @@ def save_tickets(tickets: list) -> None:
 # ---------------------------------------------------------------------------
 
 
-def fetch_latest_draw() -> dict | None:
+def fetch_latest_draw() -> dict[str, Any] | None:
     """Fetch the latest draw from the MyLotto API.
 
     Returns a dict with keys: draw_date, numbers (list[int]), bonus (int),
@@ -99,7 +100,7 @@ def fetch_latest_draw() -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def check_tickets(tickets: list, draw: dict) -> list[dict]:
+def check_tickets(tickets: list[Any], draw: dict[str, Any]) -> list[dict[str, Any]]:
     """Compare stored tickets against a draw and return winning matches.
 
     Returns list of dicts with keys: ticket_index, matches, bonus_match,
@@ -228,7 +229,7 @@ def check_job() -> None:
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Lotto Alert Scheduler")
     parser.add_argument("--daemon", action="store_true", help="Run as background scheduler")
     args = parser.parse_args()

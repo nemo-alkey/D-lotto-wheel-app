@@ -38,6 +38,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -56,7 +57,7 @@ class CVResult:
     """Outcome of expanding_window_cv()."""
 
     weights: dict[str, float]  # optimal weights (refit on full history)
-    cv_history: list[dict]  # per-fold dicts (scores + weights)
+    cv_history: list[dict[str, Any]]  # per-fold dicts (scores + weights)
     fold_performance: pd.DataFrame  # plot-ready train/val score per fold
     mean_val_score: float
     uniform_mean_val_score: float
@@ -97,7 +98,7 @@ def _optimize_weights(p: np.ndarray, y: np.ndarray, metric: str) -> np.ndarray:
     w = res.x if res.success and np.all(np.isfinite(res.x)) else w0
     w = np.clip(w, 0.0, 1.0)
     total = w.sum()
-    return w / total if total > 0 else w0
+    return cast(np.ndarray, w / total) if total > 0 else w0
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +150,7 @@ def expanding_window_cv(
     p_all = predictions_df[predictor_cols].to_numpy(dtype=float)
 
     uniform_w = np.full(len(predictor_cols), 1.0 / len(predictor_cols))
-    cv_history: list[dict] = []
+    cv_history: list[dict[str, Any]] = []
 
     # --- Folds: train [0:i], validate [i:i+step], expand i by step ---
     fold = 0
@@ -269,7 +270,7 @@ def update_ensemble_weights(
     min_train_size: int = 20,
     step: int = 5,
     metric: str = "brier",
-) -> dict:
+) -> dict[str, Any]:
     """Read recent predictions, run expanding-window CV, persist weights.
 
     Writes config/ensemble_weights.json with the optimal weights plus the
@@ -330,13 +331,13 @@ def _make_synthetic(n: int = 80, seed: int = 42) -> pd.DataFrame:
     )
 
 
-def test_weights_sum_to_one():
+def test_weights_sum_to_one() -> None:
     result = expanding_window_cv(_make_synthetic(), min_train_size=20, step=5)
     assert abs(sum(result.weights.values()) - 1.0) < 1e-6
     assert all(w >= 0.0 for w in result.weights.values())
 
 
-def test_no_future_leakage():
+def test_no_future_leakage() -> None:
     """Fold k trains only on [0:i): appending future rows must not change it."""
     df = _make_synthetic(n=80)
     full = expanding_window_cv(df, min_train_size=20, step=5)
@@ -350,14 +351,14 @@ def test_no_future_leakage():
         assert fold_full["train_end"] <= fold_full["val_start"]
 
 
-def test_beats_uniform_weighting():
+def test_beats_uniform_weighting() -> None:
     """With one clearly-informative predictor, CV must beat uniform weights."""
     result = expanding_window_cv(_make_synthetic(), min_train_size=20, step=5)
     assert result.mean_val_score < result.uniform_mean_val_score
     assert result.weights["good"] > result.weights["bad"]
 
 
-def test_log_loss_metric_runs():
+def test_log_loss_metric_runs() -> None:
     result = expanding_window_cv(_make_synthetic(), min_train_size=20, step=5, metric="log_loss")
     assert abs(sum(result.weights.values()) - 1.0) < 1e-6
     assert result.folds > 0
