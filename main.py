@@ -9,7 +9,9 @@
 
 import argparse
 import sys
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
 # Data I/O
 from data_io import load_current_ticket
@@ -44,7 +46,7 @@ TICKET_LINES = 12
 # ============================================================
 # Utility Functions
 # ============================================================
-def verify_draw_order():
+def verify_draw_order() -> None:
     """Verify that draw_id reflects chronological order."""
     all_draws = fetch_all_draws()
     if not all_draws:
@@ -56,7 +58,7 @@ def verify_draw_order():
         print("Verification Failed: draw_id does NOT correctly reflect chronological order.")
 
 
-def get_latest_draw_date():
+def get_latest_draw_date() -> datetime | None:
     """Return the most recent draw date."""
     all_draws = fetch_all_draws()
     if not all_draws:
@@ -68,7 +70,7 @@ def get_latest_draw_date():
         return None
 
 
-def view_number_stats(pipeline):
+def view_number_stats(pipeline: DataPipeline) -> None:
     """Display frequency stats for main numbers and Powerball."""
     historical_data = pipeline.get_data("historical_data")
     if not historical_data:
@@ -109,7 +111,7 @@ def view_number_stats(pipeline):
 # ============================================================
 # Safe Execution Wrapper
 # ============================================================
-def safe_run(step_fn, pipeline, name):
+def safe_run(step_fn: Callable[[DataPipeline], Any], pipeline: DataPipeline, name: str) -> None:
     """Safely execute pipeline stage with error handling."""
     try:
         step_fn(pipeline)
@@ -121,7 +123,7 @@ def safe_run(step_fn, pipeline, name):
 # ============================================================
 # Main Program Loop
 # ============================================================
-def main():
+def main() -> None:
     initialize_database()
     verify_draw_order()
     pipeline = DataPipeline()
@@ -208,8 +210,11 @@ def main():
             pipeline.clear_pipeline()
             pipeline.add_data("historical_data", all_draws)
 
+            def _process_history(p: DataPipeline, draws: Any = all_draws) -> Any:
+                return process_historical_data({"past_results": draws}, p)
+
             safe_run(
-                lambda p, draws=all_draws: process_historical_data({"past_results": draws}, p),
+                _process_history,
                 pipeline,
                 "Historical Processing",
             )
@@ -302,12 +307,12 @@ if __name__ == "__main__":
 
             from api_fetcher import fetch_apiverve_lottery
 
-            result = fetch_apiverve_lottery(args.api_key, args.lottery)
-            if result:
-                print(f"Date:      {result['draw_date']}")
-                print(f"Numbers:   {result['main_numbers']}")
-                print(f"Bonus:     {result['bonus_ball']}")
-                print(f"Powerball: {result['powerball']}")
+            api_result = fetch_apiverve_lottery(args.api_key, args.lottery)
+            if api_result:
+                print(f"Date:      {api_result['draw_date']}")
+                print(f"Numbers:   {api_result['main_numbers']}")
+                print(f"Bonus:     {api_result['bonus_ball']}")
+                print(f"Powerball: {api_result['powerball']}")
 
         elif cmd == "import-csv":
             parser = argparse.ArgumentParser(description="Import lottery draws from CSV")

@@ -59,14 +59,14 @@ def frequency(draws: list[Draw]) -> Prediction:
 # ---------------------------------------------------------------------------
 
 
-def bayesian(draws, alpha: float = 1.0) -> dict:
+def bayesian(draws: list[Draw], alpha: float = 1.0) -> Prediction:
     """Dirichlet-Multinomial posterior mean for main numbers and Powerball.
 
     Posterior = (count_i + alpha) / (total + N * alpha)
     Picks the 6 main numbers and 1 PB with the highest posterior.
     """
-    main_counts: Counter = Counter()
-    pb_counts: Counter = Counter()
+    main_counts: Counter[int] = Counter()
+    pb_counts: Counter[int] = Counter()
     for nums, pb, _, _ in draws:
         main_counts.update(nums)
         pb_counts[pb] += 1
@@ -81,8 +81,8 @@ def bayesian(draws, alpha: float = 1.0) -> dict:
         p: (pb_counts.get(p, 0) + alpha) / (total_pb + 10 * alpha) for p in range(1, 11)
     }
 
-    top_nums = sorted(main_posterior, key=main_posterior.get, reverse=True)[:6]
-    top_pb = max(pb_posterior, key=pb_posterior.get)
+    top_nums = sorted(main_posterior, key=lambda n: main_posterior[n], reverse=True)[:6]
+    top_pb = max(pb_posterior, key=lambda p: pb_posterior[p])
 
     return {"numbers": sorted(top_nums), "powerball": top_pb}
 
@@ -92,7 +92,7 @@ def bayesian(draws, alpha: float = 1.0) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def markov(draws) -> dict:
+def markov(draws: list[Draw]) -> Prediction:
     """Build a 40×40 transition matrix from consecutive draw pairs.
     Given the last draw's numbers, pick the 6 numbers with the highest
     cumulative transition probability from those numbers.
@@ -153,7 +153,7 @@ def markov(draws) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def weighted_random(draws) -> dict:
+def weighted_random(draws: list[Draw]) -> Prediction:
     """Recency-weighted random sampling: last 20% of draws get 2× weight.
 
     Samples 6 numbers without replacement using weighted probabilities,
@@ -162,14 +162,14 @@ def weighted_random(draws) -> dict:
     n = len(draws)
     split = max(1, n // 5)  # last 20%
 
-    main_counts: Counter = Counter()
-    pb_counts: Counter = Counter()
+    main_counts: Counter[int] = Counter()
+    pb_counts: Counter[int] = Counter()
 
     for i, (nums, pb, _, _) in enumerate(draws):
         weight = 2.0 if i >= n - split else 1.0
         for x in nums:
-            main_counts[x] += weight
-        pb_counts[pb] += weight
+            main_counts[x] += weight  # type: ignore[assignment]  # Counter stores float weights
+        pb_counts[pb] += weight  # type: ignore[assignment]  # Counter stores float weights
 
     # Weighted probabilities
     total_main = sum(main_counts.values()) or 1
@@ -205,7 +205,7 @@ def weighted_random(draws) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def due_numbers(draws) -> dict:
+def due_numbers(draws: list[Draw]) -> Prediction:
     """Numbers with the largest gap since their last appearance.
 
     Gap = number of draws since the number last appeared.
@@ -218,8 +218,8 @@ def due_numbers(draws) -> dict:
     last_main = {n: -1 for n in range(1, 41)}
     last_pb = {p: -1 for p in range(1, 11)}
     # Frequency count
-    main_count: Counter = Counter()
-    pb_count: Counter = Counter()
+    main_count: Counter[int] = Counter()
+    pb_count: Counter[int] = Counter()
 
     for idx, (nums, pb, _, _) in enumerate(draws):
         for n in nums:
@@ -233,7 +233,7 @@ def due_numbers(draws) -> dict:
     gaps_pb = {p: n_draws - last_pb[p] - 1 for p in range(1, 11)}
 
     # Z-score normalisation for gap
-    def z_scores(values):
+    def z_scores(values: Mapping[int, float]) -> dict[int, float]:
         vals = list(values.values())
         mean = sum(vals) / len(vals)
         std = math.sqrt(sum((v - mean) ** 2 for v in vals) / len(vals)) or 1.0
@@ -250,8 +250,8 @@ def due_numbers(draws) -> dict:
     score_main = {n: z_gap_main[n] + z_freq_main[n] for n in range(1, 41)}
     score_pb = {p: z_gap_pb[p] + z_freq_pb[p] for p in range(1, 11)}
 
-    top_nums = sorted(score_main, key=score_main.get, reverse=True)[:6]
-    top_pb = max(score_pb, key=score_pb.get)
+    top_nums = sorted(score_main, key=lambda n: score_main[n], reverse=True)[:6]
+    top_pb = max(score_pb, key=lambda p: score_pb[p])
 
     return {"numbers": sorted(top_nums), "powerball": top_pb}
 
@@ -261,7 +261,7 @@ def due_numbers(draws) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def pattern(draws) -> dict:
+def pattern(draws: list[Draw]) -> Prediction:
     """Analyse the last 10 draws for odd/even and low(1-20)/high(21-40)
     patterns, then extrapolate a ticket that fits the most common pattern.
     """
@@ -270,7 +270,7 @@ def pattern(draws) -> dict:
     # Count odd/even per draw
     odd_counts = []
     low_counts = []
-    pb_occurrences: Counter = Counter()
+    pb_occurrences: Counter[int] = Counter()
 
     for nums, pb, _, _ in recent:
         odd_counts.append(sum(1 for n in nums if n % 2 == 1))
@@ -290,11 +290,11 @@ def pattern(draws) -> dict:
     high_nums = list(range(21, 41))
 
     # Prefer numbers that have appeared recently within each pool
-    recent_set: set = set()
+    recent_set: set[int] = set()
     for nums, _, _, _ in recent:
         recent_set.update(nums)
 
-    def pick_from_pool(pool, count, prefer_recent=True):
+    def pick_from_pool(pool: list[int], count: int, prefer_recent: bool = True) -> list[int]:
         if count <= 0:
             return []
         if prefer_recent:
@@ -367,9 +367,9 @@ def pattern(draws) -> dict:
 
 
 def ensemble(
-    draws,
-    weights: list[float] = None,
-) -> dict:
+    draws: list[Draw],
+    weights: list[float] | None = None,
+) -> Prediction:
     """Combine all 6 methods (self excluded) using weighted voting.
 
     Each method contributes its top 6 numbers and top Powerball.
@@ -377,7 +377,14 @@ def ensemble(
     5 pts for #2, …, 1 pt for #6) multiplied by the method's weight.
     Powerball is simple majority vote (each method's top PB gets its weight).
     """
-    methods = [frequency, bayesian, markov, weighted_random, due_numbers, pattern]
+    methods: list[Callable[[list[Draw]], Prediction]] = [
+        frequency,
+        bayesian,
+        markov,
+        weighted_random,
+        due_numbers,
+        pattern,
+    ]
 
     if weights is None:
         weights = [1.0] * len(methods)
@@ -399,8 +406,8 @@ def ensemble(
         # Powerball: weight goes entirely to the predicted PB
         pb_scores[result["powerball"]] += w
 
-    top_nums = sorted(main_scores, key=main_scores.get, reverse=True)[:6]
-    top_pb = max(pb_scores, key=pb_scores.get)
+    top_nums = sorted(main_scores, key=lambda n: main_scores[n], reverse=True)[:6]
+    top_pb = max(pb_scores, key=lambda p: pb_scores[p])
 
     return {"numbers": sorted(top_nums), "powerball": top_pb}
 
@@ -424,8 +431,8 @@ class BonusBayesian:
         Dirichlet prior concentration (default 1.0).
     """
 
-    def __init__(self, bonus_balls, alpha=1.0):
-        self.counts: Counter = Counter()
+    def __init__(self, bonus_balls: list[int], alpha: float = 1.0) -> None:
+        self.counts: Counter[int] = Counter()
         for b in bonus_balls:
             if 1 <= b <= 40:
                 self.counts[b] += 1
@@ -436,7 +443,7 @@ class BonusBayesian:
         for n in range(1, 41):
             self.posterior[n] = (self.counts.get(n, 0) + alpha) / denom
 
-    def predict_top_k(self, k=5):
+    def predict_top_k(self, k: int = 5) -> list[tuple[int, float]]:
         """Return top-k bonus numbers with highest posterior probability.
 
         Returns
@@ -448,7 +455,7 @@ class BonusBayesian:
         return ranked[:k]
 
 
-def bonus_gap_prediction(conn, k=5):
+def bonus_gap_prediction(conn: sqlite3.Connection, k: int = 5) -> list[tuple[int, float]]:
     """Predict top-k "due" bonus numbers using combined gap + frequency z-scores.
 
     For each bonus ball (1-40):
@@ -474,13 +481,13 @@ def bonus_gap_prediction(conn, k=5):
     rows = conn.execute("SELECT bonus, draw_id FROM draws ORDER BY draw_id ASC").fetchall()
     max_id = conn.execute("SELECT MAX(draw_id) FROM draws").fetchone()[0] or 0
 
-    counts: Counter = Counter()
+    counts: Counter[int] = Counter()
     last_seen: dict[int, int] = {}
     for bonus, draw_id in rows:
         counts[bonus] += 1
         last_seen[bonus] = draw_id
 
-    def z_score(values_dict):
+    def z_score(values_dict: Mapping[int, float]) -> dict[int, float]:
         vals = list(values_dict.values())
         mean = sum(vals) / len(vals)
         std = math.sqrt(sum((v - mean) ** 2 for v in vals) / len(vals)) or 1.0
@@ -518,10 +525,10 @@ class HierarchicalBonusPredictor:
 
     def __init__(
         self,
-        draws: list,
+        draws: list[tuple[Any, ...]],
         smoothing: float = 1.0,
         recency_halflife_days: int = 90,
-    ):
+    ) -> None:
         self.draws = draws
         self.smoothing = smoothing
         self.halflife = recency_halflife_days
@@ -529,7 +536,7 @@ class HierarchicalBonusPredictor:
         self.posterior_std: dict[int, float] = {}
 
     # ------------------------------------------------------------------
-    def fit(self):
+    def fit(self) -> None:
         """Compute recency-weighted posterior means and Dirichlet std deviations."""
         from datetime import datetime
 
@@ -580,7 +587,7 @@ class HierarchicalBonusPredictor:
                 self.posterior_std[n] = 0.0
 
     # ------------------------------------------------------------------
-    def predict_top_k(self, k: int = 5) -> list:
+    def predict_top_k(self, k: int = 5) -> list[tuple[int, float, float]]:
         """Return top-k bonus numbers with posterior mean and std.
 
         Returns
@@ -615,7 +622,7 @@ class XGBoostPredictor:
     Uses walk-forward training over the last N draws.
     """
 
-    def __init__(self, draws: list):
+    def __init__(self, draws: list[Draw]) -> None:
         """
         Parameters
         ----------
@@ -623,7 +630,7 @@ class XGBoostPredictor:
             Each tuple: ([n1..n6], powerball, bonus, draw_date).
         """
         self.draws = draws
-        self.model = None
+        self.model: XGBClassifier | None = None
         self.feature_names = [
             "freq_last_1",
             "freq_last_3",
@@ -636,7 +643,7 @@ class XGBoostPredictor:
         self._explainer = None  # cached SHAP TreeExplainer
         self._explainer_X = None  # background data used for explainer
 
-    def _build_features(self, draws_slice: list) -> tuple[np.ndarray, np.ndarray]:
+    def _build_features(self, draws_slice: list[Draw]) -> tuple[np.ndarray, np.ndarray]:
         """Build feature matrix X and target y from a slice of draws."""
         import numpy as np
 
@@ -800,7 +807,7 @@ class XGBoostPredictor:
         ranked = sorted(probs.items(), key=lambda x: x[1], reverse=True)
         return ranked[:k]
 
-    def explain_prediction(self) -> dict:
+    def explain_prediction(self) -> dict[str, Any]:
         """Compute SHAP values for feature importance.
 
         Returns dict with keys: mean_shap (per feature), top_features.
@@ -844,7 +851,7 @@ class XGBoostPredictor:
         except Exception as e:
             return {"error": str(e)}
 
-    def _get_explainer(self):
+    def _get_explainer(self) -> Any:
         """Return a cached SHAP TreeExplainer (builds once, reuses thereafter)."""
         import numpy as np
         import shap

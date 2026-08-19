@@ -15,6 +15,8 @@ import os
 import random
 import sys
 from collections import Counter
+from collections.abc import Callable
+from typing import Any
 
 from sqlalchemy import text
 
@@ -40,14 +42,14 @@ DB_PATH = os.path.expanduser("~/LottoPipeline/lotto.db")
 WORKING_DB = "lotto.db"  # unified: all components use lotto.db
 
 
-def init_working_db():
+def init_working_db() -> None:
     """Initialise the unified lotto.db schema if it doesn't exist."""
     from database import initialize_database
 
     initialize_database()
 
 
-def load_draws(limit: int = None) -> list[tuple[list[int], int, int, str]]:
+def load_draws(limit: int | None = None) -> list[tuple[list[int], int, int, str]]:
     """Load draws from the database as list of (numbers_list, powerball, bonus, date)."""
     engine = get_engine()
     with engine.connect() as conn:
@@ -71,9 +73,11 @@ def load_draws(limit: int = None) -> list[tuple[list[int], int, int, str]]:
 
 
 # ---------- 2. Albert's Lotto Code Analysis ----------
-def positive_negative_split(draws, last_n: int = 30):
+def positive_negative_split(
+    draws: list[tuple[list[int], int, int, str]], last_n: int = 30
+) -> tuple[list[int], list[int], Counter[int]]:
     recent_draws = draws[-last_n:]
-    freq = Counter()
+    freq: Counter[int] = Counter()
     for nums, _, _, _ in recent_draws:
         freq.update(nums)
     max_freq = max(freq.values()) if freq else 0
@@ -83,9 +87,11 @@ def positive_negative_split(draws, last_n: int = 30):
     return pos, neg, freq
 
 
-def block_analysis(draws, last_n: int = 30):
+def block_analysis(
+    draws: list[tuple[list[int], int, int, str]], last_n: int = 30
+) -> dict[int, dict[str, int]]:
     recent = draws[-last_n:]
-    positions = {i: [] for i in range(6)}
+    positions: dict[int, list[int]] = {i: [] for i in range(6)}
     for nums, _, _, _ in recent:
         for i, num in enumerate(nums):
             positions[i].append(num)
@@ -106,7 +112,7 @@ def block_analysis(draws, last_n: int = 30):
     return ranges
 
 
-def sum_range(draws, last_n: int = 30):
+def sum_range(draws: list[tuple[list[int], int, int, str]], last_n: int = 30) -> tuple[int, int]:
     recent = draws[-last_n:]
     sums = [sum(nums) for nums, _, _, _ in recent]
     sums.sort()
@@ -116,7 +122,7 @@ def sum_range(draws, last_n: int = 30):
     return min(trimmed), max(trimmed)
 
 
-def numerical_attraction(draws, last_n: int = 30):
+def numerical_attraction(draws: list[tuple[list[int], int, int, str]], last_n: int = 30) -> float:
     recent = draws[-last_n:]
     count_with_adjacent = 0
     for nums, _, _, _ in recent:
@@ -128,9 +134,11 @@ def numerical_attraction(draws, last_n: int = 30):
 
 
 # ---------- 3. Statistical methods ----------
-def bayesian_posterior(draws, alpha: float = 1.0):
+def bayesian_posterior(
+    draws: list[tuple[list[int], int, int, str]], alpha: float = 1.0
+) -> dict[int, float]:
     """Return posterior probability for each number (1-40) using Dirichlet-Multinomial."""
-    counts = Counter()
+    counts: Counter[int] = Counter()
     for nums, _, _, _ in draws:
         counts.update(nums)
     total = sum(counts.values())
@@ -138,7 +146,7 @@ def bayesian_posterior(draws, alpha: float = 1.0):
     return posterior
 
 
-def markov_probs(draws: list[tuple[list[int], int, str]]):
+def markov_probs(draws: list[tuple[list[int], int, str]]) -> dict[int, float]:
     """Simplified Markov: probability of each number based on last draw's numbers."""
     if len(draws) < 2:
         return {i: 1 / 40 for i in range(1, 41)}
@@ -148,9 +156,9 @@ def markov_probs(draws: list[tuple[list[int], int, str]]):
     return {i: 1 / 40 for i in range(1, 41)}  # placeholder
 
 
-def bandit_recommendation(draws):
+def bandit_recommendation(draws: list[tuple[list[int], int, int, str]]) -> list[int]:
     """Thompson sampling for each number as independent arm."""
-    counts = Counter()
+    counts: Counter[int] = Counter()
     for nums, _, _, _ in draws:
         counts.update(nums)
     total_draws = len(draws)
@@ -164,7 +172,9 @@ def bandit_recommendation(draws):
     return [num for num, _ in top6]
 
 
-def get_bonus_stats(conn, start_date=None, end_date=None):
+def get_bonus_stats(
+    conn: Any, start_date: str | None = None, end_date: str | None = None
+) -> list[dict[str, Any]]:
     """Return list of dicts with bonus ball statistics for numbers 1-40.
 
     Each dict has: number, count, frequency, last_drawn, gap, z_score.
@@ -233,7 +243,7 @@ def get_bonus_stats(conn, start_date=None, end_date=None):
 # ---------- 4. Bluskov wheels (hardcoded) ----------
 # As defined earlier
 WHEEL_20_SET1_NUMBERS = [9, 11, 12, 14, 17, 18, 28, 38, 39, 40]
-WHEEL_20_SET1 = [
+WHEEL_20_SET1: list[tuple[int, ...]] = [
     (9, 11, 12, 14, 38, 39),
     (9, 11, 12, 17, 18, 28),
     (9, 11, 12, 17, 39, 40),
@@ -257,7 +267,7 @@ WHEEL_20_SET1 = [
 ]
 
 WHEEL_20_SET2_NUMBERS = [2, 3, 5, 7, 8, 10, 13, 15, 16, 19]
-WHEEL_20_SET2 = [
+WHEEL_20_SET2: list[tuple[int, ...]] = [
     (2, 3, 5, 7, 8, 10),
     (2, 3, 5, 13, 15, 16),
     (2, 3, 5, 13, 16, 19),
@@ -281,7 +291,7 @@ WHEEL_20_SET2 = [
 ]
 
 WHEEL_88_NUMBERS = [9, 11, 12, 14, 17, 18, 28, 38, 39, 40]
-WHEEL_88 = [
+WHEEL_88: list[tuple[int, ...]] = [
     (9, 11, 12, 14, 17, 18),
     (9, 11, 12, 14, 38, 39),
     (9, 11, 12, 17, 28, 40),
@@ -315,7 +325,7 @@ WHEEL_88 = [
 ]
 
 WHEEL_11_NUMBERS = [1, 9, 11, 12, 14, 17, 18, 28, 38, 39, 40]
-WHEEL_11 = [
+WHEEL_11: list[tuple[int, ...]] = [
     (1, 9, 11, 14, 17, 28),
     (1, 9, 11, 18, 38, 40),
     (1, 9, 12, 14, 18, 38),
@@ -369,7 +379,7 @@ def get_bonus_coverage(name: str) -> int:
 
 
 # ---------- 5. CLI and main ----------
-def show_wheel(name: str):
+def show_wheel(name: str) -> None:
     if name not in WHEELS:
         print("Unknown wheel. Options:", list(WHEELS.keys()))
         return
@@ -383,7 +393,7 @@ def show_wheel(name: str):
     print(f"\nCost for NZ Lotto Powerball: {len(tickets)} x $1.50 = ${len(tickets)*1.50:.2f}")
 
 
-def generate_report(draws: list[tuple[list[int], int, str]]):
+def generate_report(draws: list[tuple[list[int], int, int, str]]) -> None:
     print("\n=== Statistical Report (last 30 draws) ===\n")
     pos, neg, freq = positive_negative_split(draws)
     print(f"Positive numbers (freq > threshold): {sorted(pos)}")
@@ -404,7 +414,7 @@ def generate_report(draws: list[tuple[list[int], int, str]]):
     print("Thompson sampling top 6 numbers:", bandit_top)
 
 
-def check_wheel(name: str, draw_numbers: str, powerball: int):
+def check_wheel(name: str, draw_numbers: str, powerball: int) -> None:
     """Check how a wheel performs against a specific draw.
 
     Parameters
@@ -506,7 +516,7 @@ def check_wheel(name: str, draw_numbers: str, powerball: int):
     roi = (net / cost * 100) if cost else 0.0
 
     # Check for wheel pool overlap
-    pool_nums = []
+    pool_nums: list[int] = []
     for t in tickets:
         pool_nums.extend(t)
     pool_set = set(pool_nums)
@@ -537,7 +547,13 @@ def check_wheel(name: str, draw_numbers: str, powerball: int):
     print(f"  ROI:          {roi:>+10.2f}%")
 
 
-def check_all_wheels(draw_nums, draw_pb, draw_bonus, draw_date, bonus_matched=False):
+def check_all_wheels(
+    draw_nums: list[int] | tuple[int, ...],
+    draw_pb: int,
+    draw_bonus: int,
+    draw_date: str,
+    bonus_matched: bool = False,
+) -> list[dict[str, Any]]:
     """Check all 5 preset wheels against the given draw.
 
     Parameters
@@ -562,7 +578,7 @@ def check_all_wheels(draw_nums, draw_pb, draw_bonus, draw_date, bonus_matched=Fa
     """
     from prize_calculator import get_prize_for_matches, resolve_divisions
 
-    def _div_label(lotto_div, pb_hit, upgraded):
+    def _div_label(lotto_div: int | None, pb_hit: bool, upgraded: bool) -> str:
         labels = {
             1: "Div 1 (6)",
             2: "Div 2 (5+bonus)",
@@ -572,7 +588,7 @@ def check_all_wheels(draw_nums, draw_pb, draw_bonus, draw_date, bonus_matched=Fa
             6: "Div 6 (3+bonus)",
             7: "Div 7 (3)",
         }
-        base = labels.get(lotto_div, f"Div {lotto_div}")
+        base = labels.get(lotto_div if lotto_div is not None else 0, f"Div {lotto_div}")
         if pb_hit:
             base += "+PB"
         if upgraded:
@@ -583,7 +599,7 @@ def check_all_wheels(draw_nums, draw_pb, draw_bonus, draw_date, bonus_matched=Fa
     results = []
     for name in ["single1", "single2", "double", "five-if-six", "jackpot7"]:
         tickets, wheel_pb = WHEELS[name]
-        pool = set()
+        pool: set[int] = set()
         for t in tickets:
             pool.update(t)
         pool_overlap = len(draw_set & pool)
@@ -633,7 +649,7 @@ def check_all_wheels(draw_nums, draw_pb, draw_bonus, draw_date, bonus_matched=Fa
     return results
 
 
-def export_wheel(name: str, output_path: str, fmt: str = "standard"):
+def export_wheel(name: str, output_path: str, fmt: str = "standard") -> None:
     """Write a wheel's tickets to a CSV file.
 
     Parameters
@@ -696,7 +712,9 @@ def export_wheel(name: str, output_path: str, fmt: str = "standard"):
 # ---------- 6. Predict Command ----------
 
 
-def predict_cmd(draws, weights=None):
+def predict_cmd(
+    draws: list[tuple[list[int], int, int, str]], weights: list[float] | None = None
+) -> None:
     """Run 6 prediction methods + ensemble and display results."""
     from predictions import (
         bayesian,
@@ -708,7 +726,7 @@ def predict_cmd(draws, weights=None):
         weighted_random,
     )
 
-    method_list = [
+    method_list: list[tuple[str, Callable[..., Any]]] = [
         ("Frequency", frequency),
         ("Bayesian", bayesian),
         ("Markov", markov),
@@ -758,7 +776,7 @@ def predict_cmd(draws, weights=None):
 # ---------- 7. Lucky Dip ----------
 
 
-def lucky_dip(draws):
+def lucky_dip(draws: list[tuple[list[int], int, int, str]]) -> None:
     """Generate a single random ticket respecting constraints from the last 30 draws.
 
     Constraints:
@@ -860,7 +878,9 @@ def lucky_dip(draws):
     _print_dip(nums, pb, (low_sum, high_sum), n_pos, n_neg)
 
 
-def _print_dip(nums, pb, sum_range, n_pos=0, n_neg=0):
+def _print_dip(
+    nums: list[int], pb: int, sum_range: tuple[int, int] | None, n_pos: int = 0, n_neg: int = 0
+) -> None:
     """Print a lucky-dip ticket and its statistics."""
     s = sum(nums)
     odd = sum(1 for n in nums if n % 2 == 1)
@@ -880,7 +900,7 @@ def _print_dip(nums, pb, sum_range, n_pos=0, n_neg=0):
     )
 
 
-def main():
+def main() -> None:
     draws = load_draws()
     if not draws:
         print("No Powerball draws found. Run init_working_db first?")

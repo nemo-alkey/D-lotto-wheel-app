@@ -17,7 +17,7 @@
 import os
 import sys
 from collections.abc import Iterable  # Abstract iterable type for overlap utility
-from typing import Any  # Type hints for pipeline-derived data
+from typing import Any, cast  # Type hints for pipeline-derived data
 
 import numpy as np  # Import NumPy for numerical operations and probabilistic sampling
 import numpy.typing as npt  # NumPy type aliases for annotations
@@ -81,14 +81,14 @@ def safe_norm(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
     It does NOT compute entropy or apply decay.
     """
 
-    x = np.asarray(x, dtype=np.float64)  # Ensure input is a NumPy float array
-    x = np.clip(x, MIN_PROBABILITY, None)  # Enforce minimum probability floor
-    s = x.sum()  # Compute total probability mass
+    arr = np.asarray(x, dtype=np.float64)  # Ensure input is a NumPy float array
+    arr = np.clip(arr, MIN_PROBABILITY, None)  # Enforce minimum probability floor
+    s = arr.sum()  # Compute total probability mass
 
     if s <= 0.0:  # Guard against degenerate vectors
-        return np.full_like(x, 1.0 / len(x))  # Fallback to uniform distribution
+        return np.full_like(arr, 1.0 / len(arr))  # Fallback to uniform distribution
 
-    return x / s  # Return properly normalised probabilities
+    return cast(npt.NDArray[np.float64], arr / s)  # Return properly normalised probabilities
 
 
 def _overlap_count(a: Iterable[int], b: Iterable[int]) -> int:

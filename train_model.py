@@ -670,7 +670,7 @@ def write_training_report(
 def main(
     data_sources: list[str] | None = None,
     target_mode: str = "position",
-) -> None:
+) -> tuple[Any, dict[str, Any]]:
     """Run the full training pipeline."""
     if data_sources is None:
         data_sources = DATA_SOURCES
@@ -781,7 +781,9 @@ def cross_validate_time_series(
     return metrics, model
 
 
-def _plot_calibration(y_true: np.ndarray, y_pred: np.ndarray, log: logging.Logger) -> None:
+def _plot_calibration(
+    y_true: Any, y_pred: Any, log: logging.Logger
+) -> None:  # y_* may be pandas Series
     """Save calibration curve to logs/calibration.png."""
     try:
         import matplotlib

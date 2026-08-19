@@ -50,8 +50,9 @@ import contextlib
 import io
 import re
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
+from typing import Any, cast
 
 # ---------------------------------------------------------------------------
 # Config
@@ -74,7 +75,7 @@ NUM_MAIN = 6
 try:
     from zoneinfo import ZoneInfo
 
-    NZ_TZ = ZoneInfo("Pacific/Auckland")
+    NZ_TZ: tzinfo = ZoneInfo("Pacific/Auckland")
 except Exception:  # pragma: no cover - Windows without tzdata
     NZ_TZ = timezone(timedelta(hours=12))  # NZST fallback (no DST!)
 
@@ -85,19 +86,19 @@ try:
     from selenium_scraper import SELENIUM_AVAILABLE, _get_driver
 except ImportError:
     SELENIUM_AVAILABLE = False
-    _get_driver = None
+    _get_driver = None  # type: ignore[assignment]  # optional dependency fallback
 
 try:
     import pytesseract
     from PIL import Image, ImageOps
 
-    OCR_ENGINE = "pytesseract"
+    OCR_ENGINE: str | None = "pytesseract"
 except ImportError:
     pytesseract = None
     try:
         from PIL import Image, ImageOps  # pillow alone is still useful
     except ImportError:
-        Image = None
+        Image = None  # type: ignore[assignment]  # optional dependency fallback
     OCR_ENGINE = None
 
 try:
@@ -205,11 +206,11 @@ def extract_numbers_ocr(image_bytes: bytes) -> tuple[list[int], int, int | None]
         img = Image.open(io.BytesIO(image_bytes))
         # Preprocess: grayscale -> upscale -> threshold (balls are white
         # digits on coloured circles)
-        img = ImageOps.grayscale(img)
-        img = img.resize((img.width * 3, img.height * 3))
-        img = img.point(lambda p: 255 if p > 140 else 0)
+        proc = ImageOps.grayscale(img)
+        proc = proc.resize((proc.width * 3, proc.height * 3))
+        proc = proc.point(lambda px: 255 if px > 140 else 0)
         raw_text = pytesseract.image_to_string(
-            img, config="--psm 6 -c tessedit_char_whitelist=0123456789"
+            proc, config="--psm 6 -c tessedit_char_whitelist=0123456789"
         )
     elif EASYOCR_AVAILABLE and Image is not None:
         reader = easyocr.Reader(["en"], gpu=False)
@@ -238,7 +239,7 @@ def extract_numbers_ocr(image_bytes: bytes) -> tuple[list[int], int, int | None]
 # ---------------------------------------------------------------------------
 
 
-def fetch_via_html_scraper(date: str | None = None) -> dict | None:
+def fetch_via_html_scraper(date: str | None = None) -> dict[str, Any] | None:
     """HTML-scrape fallback (reuses html_scraper.py)."""
     try:
         from html_scraper import scrape_my_lotto_results
@@ -255,7 +256,7 @@ def fetch_via_html_scraper(date: str | None = None) -> dict | None:
     return result
 
 
-def fetch_via_api(date: str | None = None) -> dict | None:
+def fetch_via_api(date: str | None = None) -> dict[str, Any] | None:
     """Official MyLotto API (reuses update_draws.fetch_draw)."""
     try:
         from update_draws import fetch_draw
@@ -274,7 +275,7 @@ def fetch_via_api(date: str | None = None) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def capture_results_screenshot(driver) -> bytes | None:
+def capture_results_screenshot(driver: Any) -> bytes | None:
     """Screenshot the results element on the MyLotto page."""
     from selenium.webdriver.common.by import By
 
@@ -291,13 +292,13 @@ def capture_results_screenshot(driver) -> bytes | None:
         try:
             el = driver.find_element(By.CSS_SELECTOR, sel)
             if el and el.size.get("width", 0) > 0:
-                return el.screenshot_as_png
+                return cast(bytes, el.screenshot_as_png)
         except Exception:
             continue
     return None
 
 
-def poll_once_ocr(driver) -> dict | None:
+def poll_once_ocr(driver: Any) -> dict[str, Any]:
     """One OCR poll cycle. Returns {numbers, bonus, powerball} or None."""
     driver.get(RESULTS_URL)
     time.sleep(3)  # let the page render
@@ -314,7 +315,9 @@ def poll_once_ocr(driver) -> dict | None:
 
 
 def publish_draw_event(
-    draw: dict, winners: list[dict] | None = None, source: str = "live_draw_monitor"
+    draw: dict[str, Any],
+    winners: list[dict[str, Any]] | None = None,
+    source: str = "live_draw_monitor",
 ) -> bool:
     """Announce a new draw to the API's WebSocket broadcaster (best-effort).
 
@@ -374,7 +377,7 @@ def publish_draw_event(
 # ---------------------------------------------------------------------------
 
 
-def get_latest_db_draw() -> dict | None:
+def get_latest_db_draw() -> dict[str, Any] | None:
     """The most recent draw currently in the database (via database.py)."""
     from database import fetch_recent_draws
 
@@ -387,7 +390,7 @@ def get_latest_db_draw() -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def process_new_draw(draw: dict, dry_run: bool = False) -> bool:
+def process_new_draw(draw: dict[str, Any], dry_run: bool = False) -> bool:
     """Insert a newly detected draw and fire all downstream actions.
 
     draw: {"draw_date", "numbers", "bonus", "powerball"}.
@@ -440,7 +443,7 @@ def process_new_draw(draw: dict, dry_run: bool = False) -> bool:
             log(f"  WARNING: accuracy_tracker failed (non-fatal): {e}")
 
     # 3) Check wheels and alert on wins
-    summary: list[dict] = []
+    summary: list[dict[str, Any]] = []
     try:
         from lotto_wheels import check_all_wheels
 
@@ -518,7 +521,7 @@ def run_monitor(dry_run: bool = False, once: bool = False, interval: int = POLL_
             latest_date = latest["draw_date"] if latest else None
             log(f"Polling... (latest DB draw: {latest_date})")
 
-            draw: dict | None = None
+            draw: dict[str, Any] | None = None
 
             # --- OCR path (early detection) ---
             if not use_fallback:

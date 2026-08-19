@@ -36,7 +36,7 @@ from lotto_wheels import WHEELS, load_draws
 class ProgressCallback:
     """Simple callback for long-running computations to report progress."""
 
-    def __init__(self, progress_bar=None, total_steps: int = 100):
+    def __init__(self, progress_bar: Any = None, total_steps: int = 100) -> None:
         self.progress_bar = progress_bar
         self.total_steps = total_steps
 
@@ -66,7 +66,7 @@ except ImportError:
 GUARANTEES: dict[str, tuple[str, Any, Any]] = {}
 
 
-def _register_guarantees():
+def _register_guarantees() -> None:
     """Populate GUARANTEES from wheel pool + ticket analysis."""
     for name, (tickets, _pb) in WHEELS.items():
         pool: set[int] = set()
@@ -75,37 +75,37 @@ def _register_guarantees():
 
         if name == "jackpot7":
 
-            def cond(ov):
+            def cond(ov: int) -> bool:
                 return ov >= 6
 
-            def guar(matches, ov):
+            def guar(matches: list[int], ov: int) -> bool:
                 return any(m >= 6 for m in matches)
 
             desc = "6-win when all 6 draw numbers are in the pool"
         elif name == "five-if-six":
 
-            def cond(ov):
+            def cond(ov: int) -> bool:
                 return ov >= 6
 
-            def guar(matches, ov):
+            def guar(matches: list[int], ov: int) -> bool:
                 return any(m >= 5 for m in matches)
 
             desc = "5-win when all 6 draw numbers are in the pool"
         elif name == "double":
 
-            def cond(ov):
+            def cond(ov: int) -> bool:
                 return ov >= 4
 
-            def guar(matches, ov):
+            def guar(matches: list[int], ov: int) -> bool:
                 return sum(1 for m in matches if m >= 4) >= 2
 
             desc = "Two 4-wins when 4+ draw numbers are in the pool"
         else:  # single wheels
 
-            def cond(ov):
+            def cond(ov: int) -> bool:
                 return ov >= 4
 
-            def guar(matches, ov):
+            def guar(matches: list[int], ov: int) -> bool:
                 return any(m >= 4 for m in matches)
 
             desc = "4-win when 4+ draw numbers are in the pool"
@@ -143,7 +143,9 @@ PB_DIVISION_LABELS = {
 # ---------------------------------------------------------------------------
 
 
-def score_ticket(ticket_nums, wheel_pb, draw_nums, draw_pb, draw_bonus):
+def score_ticket(
+    ticket_nums: tuple[int, ...], wheel_pb: int, draw_nums: list[int], draw_pb: int, draw_bonus: int
+) -> tuple[int, bool, bool]:
     """Return (main_matches, bonus_match, pb_hit) tuple."""
     matches = len(set(ticket_nums) & set(draw_nums))
     bonus_match = draw_bonus > 0 and draw_bonus in set(ticket_nums)
@@ -156,7 +158,7 @@ def score_ticket(ticket_nums, wheel_pb, draw_nums, draw_pb, draw_bonus):
 # ---------------------------------------------------------------------------
 
 
-def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | None = None):
+def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | None = None) -> None:
     if wheel_name not in WHEELS:
         print(f"Unknown wheel: '{wheel_name}'")
         print(f"Available: {', '.join(WHEELS)}")
@@ -465,7 +467,7 @@ def backtest_bonus_impact(wheel_name: str, num_draws: int | None = None) -> dict
     total_prize_wo = 0.0
     bonus_upgrades = 0
     bonus_added = 0.0
-    upgrade_breakdown = {}
+    upgrade_breakdown: dict[str, int] = {}
 
     for draw_nums, draw_pb, draw_bonus, _draw_date in recent:
         for ticket in tickets:
@@ -539,7 +541,9 @@ def build_prize_lookup() -> dict[tuple[int, bool, bool], float]:
     return lookup
 
 
-def compute_analytical_ev(wheel_tickets: list, wheel_pb: int, prize_lookup: dict) -> float:
+def compute_analytical_ev(
+    wheel_tickets: list[Any], wheel_pb: int, prize_lookup: dict[Any, Any]
+) -> float:
     """Compute expected value analytically using hypergeometric probabilities.
 
     Parameters
@@ -581,12 +585,12 @@ def compute_analytical_ev(wheel_tickets: list, wheel_pb: int, prize_lookup: dict
 
 # ---------------------------------------------------------------------------
 def simulate_bonus_ev(
-    wheel,
-    num_sims=1_000_000,
-    conn=None,
+    wheel: Any,
+    num_sims: int = 1_000_000,
+    conn: Any = None,
     use_pool_allocation: bool = False,
     total_turnover: float | None = None,
-):
+) -> dict[str, Any]:
     """Monte Carlo simulation of bonus ball premium for a wheel.
 
     For each simulated draw, randomly generates 6 main numbers (1-40,
@@ -756,18 +760,18 @@ def simulate_bonus_ev(
     prize_w = [[[0.0, 0.0] for _ in range(2)] for _ in range(7)]
     prize_wo = [[[0.0, 0.0] for _ in range(2)] for _ in range(7)]
     for m in range(7):
-        for bm in (0, 1):
-            for pb in (0, 1):
-                ld_w, pd_w = resolve_divisions(m, bool(bm), bool(pb))
+        for bmi in (0, 1):
+            for pbi in (0, 1):
+                ld_w, pd_w = resolve_divisions(m, bool(bmi), bool(pbi))
                 pw = (lotto_prizes.get(ld_w, 0) if ld_w else 0) + (
                     pb_prizes.get(pd_w, 0) if pd_w else 0
                 )
-                prize_w[m][bm][pb] = pw
-                ld_wo, pd_wo = resolve_divisions(m, False, bool(pb))
+                prize_w[m][bmi][pbi] = pw
+                ld_wo, pd_wo = resolve_divisions(m, False, bool(pbi))
                 pwo = (lotto_prizes.get(ld_wo, 0) if ld_wo else 0) + (
                     pb_prizes.get(pd_wo, 0) if pd_wo else 0
                 )
-                prize_wo[m][bm][pb] = pwo
+                prize_wo[m][bmi][pbi] = pwo
 
     # --- Generate random draws ---
     rng = np.random.default_rng()
@@ -795,11 +799,11 @@ def simulate_bonus_ev(
             if count == 0:
                 continue
             m = idx // 4
-            bm = (idx % 4) // 2
-            pb = idx % 2
-            total_with += count * prize_w[m][bm][pb]
-            total_without += count * prize_wo[m][bm][pb]
-            if prize_w[m][bm][pb] > prize_wo[m][bm][pb]:
+            bmi = (idx % 4) // 2
+            pbi = idx % 2
+            total_with += count * prize_w[m][bmi][pbi]
+            total_without += count * prize_wo[m][bmi][pbi]
+            if prize_w[m][bmi][pbi] > prize_wo[m][bmi][pbi]:
                 upgrade_count += count
 
     ev_with = total_with / num_sims
@@ -1141,7 +1145,7 @@ def _paired_ttest(a: list[float], b: list[float]) -> float:
         # Normal approximation
         from math import erf, sqrt
 
-        def norm_cdf(x):
+        def norm_cdf(x: float) -> float:
             return 0.5 * (1.0 + erf(x / sqrt(2.0)))
 
         p = 2.0 * (1.0 - norm_cdf(abs(t_stat)))
@@ -1198,7 +1202,7 @@ def generate_backtest_summary(
     wheel_names: list[str] | None = None,
     num_draws: int | None = None,
     n_bootstrap: int = 1000,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Generate backtest summary with bootstrap CIs and paired t-tests.
 
     Each wheel is backtested over the same draw window.  Per-draw prize
@@ -1232,19 +1236,19 @@ def generate_backtest_summary(
         return []
 
     # Find best method by mean
-    best_name = max(per_draw_data, key=lambda n: np.mean(per_draw_data[n]))
+    best_name = max(per_draw_data, key=lambda n: float(np.mean(per_draw_data[n])))
     best_data = per_draw_data[best_name]
 
     rows = []
     for name in wheel_names:
-        data = per_draw_data.get(name)
-        if data is None:
+        wheel_data = per_draw_data.get(name)
+        if wheel_data is None:
             continue
-        mean_val = round(float(np.mean(data)), 4)
-        ci_lo, ci_hi = _bootstrap_ci(data, n_resamples=n_bootstrap)
+        mean_val = round(float(np.mean(wheel_data)), 4)
+        ci_lo, ci_hi = _bootstrap_ci(wheel_data, n_resamples=n_bootstrap)
 
         # Paired t-test vs best
-        p_val = 1.0 if name == best_name else _paired_ttest(data, best_data)
+        p_val = 1.0 if name == best_name else _paired_ttest(wheel_data, best_data)
 
         rows.append(
             {
@@ -1265,7 +1269,7 @@ def generate_backtest_summary(
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Backtest a lotto wheel against historical draws.",
     )

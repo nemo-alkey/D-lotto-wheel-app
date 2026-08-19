@@ -53,6 +53,7 @@ import smtplib
 import sqlite3
 import sys
 from collections import Counter
+from collections.abc import Sequence
 from datetime import datetime
 from email.message import EmailMessage
 from typing import Any, cast
@@ -70,7 +71,9 @@ ALPHA = 1.0  # Dirichlet prior concentration
 # ---------------------------------------------------------------------------
 
 
-def load_draws(db_path: str = WORKING_DB) -> list[tuple[tuple[int, ...], Any, int, str]]:
+def load_draws(
+    db_path: str = WORKING_DB,
+) -> list[tuple[list[int] | tuple[int, ...], Any, int, str]]:
     """Return list of (numbers_tuple, powerball, bonus, date) from the DB."""
     if not os.path.exists(db_path):
         print(f"Error: database '{db_path}' not found.")
@@ -83,7 +86,7 @@ def load_draws(db_path: str = WORKING_DB) -> list[tuple[tuple[int, ...], Any, in
     ).fetchall()
     conn.close()
 
-    draws: list[tuple[tuple[int, ...], Any, int, str]] = []
+    draws: list[tuple[list[int] | tuple[int, ...], Any, int, str]] = []
     for r in rows:
         try:
             nums = tuple(int(x.strip()) for x in r["numbers"].split(","))
@@ -101,7 +104,7 @@ def load_draws(db_path: str = WORKING_DB) -> list[tuple[tuple[int, ...], Any, in
 
 
 def bayesian_posterior(
-    draws: list[tuple[tuple[int, ...], Any, int, str]], alpha: float = ALPHA
+    draws: Sequence[tuple[list[int] | tuple[int, ...], Any, int, str]], alpha: float = ALPHA
 ) -> dict[int, float]:
     """Dirichlet-Multinomial posterior P(number) for 1-40.
 
@@ -125,7 +128,7 @@ def bayesian_posterior(
 
 
 def bonus_bayesian_predictor(
-    draws: list[tuple[tuple[int, ...], Any, int, str]], k: int = 3
+    draws: list[tuple[list[int] | tuple[int, ...], Any, int, str]], k: int = 3
 ) -> list[tuple[int, float]]:
     """Return top-k bonus ball predictions using Dirichlet-Multinomial.
 

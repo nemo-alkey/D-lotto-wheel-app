@@ -24,8 +24,10 @@ Pipeline stages:
 """
 
 import logging  # Standard Python logging
+from typing import cast  # For NumPy return casts
 
 import numpy as np  # Core numerical array library used throughout
+import numpy.typing as npt  # NumPy type aliases for annotations
 import tensorflow as tf  # TensorFlow backend used for training and tensor ops
 from tensorflow import keras  # Keras API for model definition/training
 
@@ -37,6 +39,7 @@ from config.quantum_features import (  # Imports quantum feature utilities/const
     train_quantum_encoder,  # Trains/tunes the quantum encoder parameters
 )
 from config.quantum_kernels import build_quantum_kernel_features  # Builds kernel features
+from pipeline import DataPipeline  # Pipeline type for step signatures
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -130,7 +133,7 @@ def weighted_bce(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 # ===================== Shape utilities ===================== #
 
 
-def _ensure_2d(x, name):
+def _ensure_2d(x: npt.ArrayLike, name: str) -> npt.NDArray[np.float64]:
     """
     Ensure input is a 2D NumPy array.
     """
@@ -142,7 +145,7 @@ def _ensure_2d(x, name):
     return x  # Returns 2D matrix
 
 
-def _force_width(mat, width, name):
+def _force_width(mat: npt.ArrayLike, width: int, name: str) -> npt.NDArray[np.float64]:
     """
     Enforce fixed feature width via deterministic pad/trim.
     """
@@ -162,7 +165,7 @@ def _force_width(mat, width, name):
     return out  # Returns width-fixed matrix
 
 
-def _prob_norm_vec(x, name):
+def _prob_norm_vec(x: npt.ArrayLike, name: str) -> npt.NDArray[np.float64]:
     """
     Sum-normalise a probability-like vector.
 
@@ -171,26 +174,26 @@ def _prob_norm_vec(x, name):
         - non-negative
         - sums to 1 (or uniform fallback)
     """
-    x = np.asarray(x, dtype=float).ravel()  # Flattens to 1D float array
+    v = np.asarray(x, dtype=float).ravel()  # Flattens to 1D float array
 
-    if x.size != NUM_TOTAL:  # Enforces expected output width (50)
+    if v.size != NUM_TOTAL:  # Enforces expected output width (50)
         raise ValueError(
-            f"{name} expected len {NUM_TOTAL}, got {x.size}"
+            f"{name} expected len {NUM_TOTAL}, got {v.size}"
         )  # Fail loud if wrong size
 
-    x = np.clip(x, 0.0, None)  # Probabilities must not be negative
-    s = float(x.sum())  # Total mass
+    v = np.clip(v, 0.0, None)  # Probabilities must not be negative
+    s = float(v.sum())  # Total mass
 
     if s <= 0.0:  # If vector is all zeros (or invalid), fallback to uniform
         return np.ones(NUM_TOTAL, dtype=float) / NUM_TOTAL  # Uniform distribution across 50 bins
 
-    return x / s  # Normalise to sum 1
+    return cast(npt.NDArray[np.float64], v / s)  # Normalise to sum 1
 
 
 # ===================== Main entry ===================== #
 
 
-def deep_learning_prediction(pipeline):
+def deep_learning_prediction(pipeline: DataPipeline) -> None:
     """
     End-to-end deep learning prediction stage.
 
@@ -439,8 +442,8 @@ def deep_learning_prediction(pipeline):
         )  # Add Gaussian noise in feature space
         ya.append(y_train)  # Keep labels unchanged (noise is only on features)
 
-    xa = np.vstack(xa).astype(float)  # Stack augmented training matrices vertically
-    ya = np.vstack(ya).astype(float)  # Stack labels to match augmented rows
+    xa_arr = np.vstack(xa).astype(float)  # Stack augmented training matrices vertically
+    ya_arr = np.vstack(ya).astype(float)  # Stack labels to match augmented rows
 
     # ---------- Step 11: Model definition ---------- #
 
@@ -481,8 +484,8 @@ def deep_learning_prediction(pipeline):
     # ---------- Step 12: Training ---------- #
 
     model.fit(
-        xa,  # Augmented training feature matrix (original + noisy copies)
-        ya,  # Augmented training labels (duplicated to match xa)
+        xa_arr,  # Augmented training feature matrix (original + noisy copies)
+        ya_arr,  # Augmented training labels (duplicated to match xa)
         epochs=EPOCH_SIZE,  # Maximum number of training epochs (upper bound)
         batch_size=BATCH_SIZE,  # Mini-batch size per gradient update step
         validation_data=(xf_val, y_val),  # Validation uses clean (non-augmented) fused features
