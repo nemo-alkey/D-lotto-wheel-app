@@ -11,6 +11,7 @@ import logging
 
 import numpy as np
 
+from pipeline import DataPipeline
 from settings import settings
 
 DECAY_PER_DRAW = settings.decay_per_draw
@@ -23,7 +24,7 @@ NUM_POWERBALL = 10
 TOTAL_NUMBERS = NUM_MAIN + NUM_POWERBALL  # 50
 
 
-def calculate_decay_factors(pipeline, decay_rate: float = DECAY_PER_DRAW):
+def calculate_decay_factors(pipeline: DataPipeline, decay_rate: float = DECAY_PER_DRAW) -> None:
     """
     Calculates decay-weighted frequency distributions for main numbers (1-40)
     and Powerball numbers (1-10), normalizes separately, and concatenates into

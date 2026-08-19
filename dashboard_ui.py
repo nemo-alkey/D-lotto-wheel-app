@@ -46,6 +46,9 @@ uploaded_files = st.sidebar.file_uploader(
 per_race: list[tuple[str, pd.DataFrame]] = []
 data_source: str | None = None
 
+# `f` is reused below as both an UploadedFile loop var and a file handle.
+f: Any
+
 if uploaded_files:
     for f in uploaded_files:
         per_race.append((f.name, pd.read_csv(f)))
@@ -388,7 +391,6 @@ import yaml  # type: ignore[import-untyped]
 from services.prediction_service import PredictionService
 
 # Load config
-f: Any  # reused as both an UploadedFile loop var (above) and a file handle (below)
 with open("config/reynolds_config.yaml") as f:
     config = yaml.safe_load(f)
 

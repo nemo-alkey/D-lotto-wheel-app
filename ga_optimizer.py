@@ -24,6 +24,7 @@ import math
 import random
 import sqlite3
 from copy import deepcopy
+from typing import Any
 
 
 class WheelOptimizerGA:
@@ -57,13 +58,13 @@ class WheelOptimizerGA:
         self.generations = generations
         self.quick = quick
         self.num_sims = self.QUICK_SIMS if quick else self.FULL_SIMS
-        self.population: list[dict] = []
-        self.best_individual: dict | None = None
+        self.population: list[dict[str, Any]] = []
+        self.best_individual: dict[str, Any] | None = None
         self.best_fitness: float = -float("inf")
-        self.history: list[dict] = []  # generation stats
+        self.history: list[dict[str, Any]] = []  # generation stats
 
     # ------------------------------------------------------------------
-    def _random_individual(self) -> dict:
+    def _random_individual(self) -> dict[str, Any]:
         """Generate a random parameter set."""
         return {
             "pool_size": random.randint(8, 20),
@@ -73,7 +74,7 @@ class WheelOptimizerGA:
             "include_bonus_coverage": random.choice([True, False]),
         }
 
-    def _mutate(self, ind: dict) -> dict:
+    def _mutate(self, ind: dict[str, Any]) -> dict[str, Any]:
         """Mutate an individual with small perturbations."""
         mutant = deepcopy(ind)
         if random.random() < 0.3:
@@ -92,15 +93,15 @@ class WheelOptimizerGA:
             mutant["include_bonus_coverage"] = not mutant["include_bonus_coverage"]
         return mutant
 
-    def _crossover(self, a: dict, b: dict) -> dict:
+    def _crossover(self, a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
         """Uniform crossover between two parents."""
-        child = {}
+        child: dict[str, Any] = {}
         for key in a:
             child[key] = a[key] if random.random() < 0.5 else b[key]
         return child
 
     # ------------------------------------------------------------------
-    def _build_wheel(self, ind: dict) -> list:
+    def _build_wheel(self, ind: dict[str, Any]) -> list[tuple[int, ...]]:
         """Generate a wheel from parameter set using Albert-optimised pool."""
         from albert_analysis import get_recommended_pool
         from wheel_generator import generate_abbreviated_wheel
@@ -123,7 +124,7 @@ class WheelOptimizerGA:
         return tickets
 
     # ------------------------------------------------------------------
-    def _fitness(self, ind: dict) -> float:
+    def _fitness(self, ind: dict[str, Any]) -> float:
         """Compute fitness = EV with bonus via simulate_bonus_ev."""
         tickets = self._build_wheel(ind)
         if not tickets:
@@ -132,7 +133,7 @@ class WheelOptimizerGA:
         from backtest import simulate_bonus_ev
 
         result = simulate_bonus_ev(tickets, num_sims=self.num_sims)
-        return result["ev_with_bonus"]
+        return float(result["ev_with_bonus"])
 
     # ------------------------------------------------------------------
     def _tournament_select(self, fitnesses: list[float], k: int = 3) -> int:
@@ -141,7 +142,7 @@ class WheelOptimizerGA:
         return max(candidates, key=lambda i: fitnesses[i])
 
     # ------------------------------------------------------------------
-    def evolve(self) -> dict:
+    def evolve(self) -> dict[str, Any]:
         """Run the GA and return the best individual + fitness + history.
 
         Returns

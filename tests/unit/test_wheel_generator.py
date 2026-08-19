@@ -9,13 +9,13 @@ import pytest
 from wheel_generator import generate_abbreviated_wheel
 
 
-def _ticket_sets(tickets):
+def _ticket_sets(tickets: list[tuple[int, ...]]) -> list[set[int]]:
     return [set(t) for t in tickets]
 
 
 class TestValidGeneration:
     @pytest.mark.parametrize("pool_size", [8, 10, 12])
-    def test_tickets_are_valid_six_number_combos(self, pool_size):
+    def test_tickets_are_valid_six_number_combos(self, pool_size: int) -> None:
         pool = list(range(1, pool_size + 1))
         tickets, desc = generate_abbreviated_wheel(pool, "4 if 4")
 
@@ -28,7 +28,7 @@ class TestValidGeneration:
         # Greedy cover must not exceed the ticket cap
         assert len(tickets) <= 200
 
-    def test_guarantee_description_returned(self):
+    def test_guarantee_description_returned(self) -> None:
         pool = list(range(1, 11))
         tickets, desc = generate_abbreviated_wheel(pool, "4 if 4")
 
@@ -37,7 +37,7 @@ class TestValidGeneration:
         # Description reflects the actual pool size
         assert "10" in desc
 
-    def test_4if4_covering_property_holds(self):
+    def test_4if4_covering_property_holds(self) -> None:
         """Every 4-subset of the pool must be contained in some ticket."""
         pool = list(range(1, 11))  # C(10,4) = 210 trigger combos
         tickets, desc = generate_abbreviated_wheel(pool, "4 if 4")
@@ -55,7 +55,7 @@ class TestValidGeneration:
 
 
 class TestInputHandling:
-    def test_duplicate_numbers_are_deduplicated(self):
+    def test_duplicate_numbers_are_deduplicated(self) -> None:
         tickets, desc = generate_abbreviated_wheel([8, 3, 5, 3, 1, 8, 2, 4, 6, 7, 5], "4 if 4")
         # Effective pool is sorted(set(...)) == [1..8]
         assert tickets
@@ -67,30 +67,30 @@ class TestInputHandling:
         "bad_guarantee",
         ["garbage", "", "4", "4 if four", "7 if 7", "4 if 3", "1 if 1"],
     )
-    def test_invalid_guarantees_raise_value_error(self, bad_guarantee):
+    def test_invalid_guarantees_raise_value_error(self, bad_guarantee: str) -> None:
         with pytest.raises(ValueError):
             generate_abbreviated_wheel(list(range(1, 11)), bad_guarantee)
 
-    def test_pool_smaller_than_trigger_returns_empty(self):
+    def test_pool_smaller_than_trigger_returns_empty(self) -> None:
         tickets, desc = generate_abbreviated_wheel([1, 2, 3], "4 if 4")
         assert tickets == []
         assert isinstance(desc, str) and desc
 
-    def test_pool_smaller_than_ticket_size_returns_empty(self):
+    def test_pool_smaller_than_ticket_size_returns_empty(self) -> None:
         tickets, desc = generate_abbreviated_wheel([1, 2, 3, 4, 5], "4 if 4")
         assert tickets == []
         assert isinstance(desc, str) and desc
 
 
 class TestSumRangeFilter:
-    def test_sum_range_filters_candidate_tickets(self):
+    def test_sum_range_filters_candidate_tickets(self) -> None:
         pool = list(range(5, 15))  # 10 numbers, sums can span 39..75+
         tickets, desc = generate_abbreviated_wheel(pool, "4 if 4", sum_range=(45, 60))
         assert tickets
         for ticket in tickets:
             assert 45 <= sum(ticket) <= 60
 
-    def test_impossible_sum_range_returns_empty(self):
+    def test_impossible_sum_range_returns_empty(self) -> None:
         pool = list(range(1, 11))  # max possible sum is 5+6+7+8+9+10 = 45
         tickets, desc = generate_abbreviated_wheel(pool, "4 if 4", sum_range=(90, 180))
         assert tickets == []
@@ -98,7 +98,7 @@ class TestSumRangeFilter:
 
 
 class TestExcludeNumbers:
-    def test_exclude_numbers_strips_pool(self):
+    def test_exclude_numbers_strips_pool(self) -> None:
         pool = list(range(1, 11))
         tickets, desc = generate_abbreviated_wheel(pool, "4 if 4", exclude_numbers=[1, 2])
         assert tickets
@@ -110,7 +110,7 @@ class TestExcludeNumbers:
 
 
 class TestFullWheel:
-    def test_full_wheel_returns_all_combinations(self):
+    def test_full_wheel_returns_all_combinations(self) -> None:
         pool = list(range(1, 8))  # C(7,6) = 7 <= max_tickets
         tickets, desc = generate_abbreviated_wheel(pool, "6 if 6")
 
@@ -118,13 +118,13 @@ class TestFullWheel:
         assert len(tickets) == 7
         assert set(tickets) == expected
 
-    def test_full_wheel_larger_pool(self):
+    def test_full_wheel_larger_pool(self) -> None:
         pool = list(range(1, 9))  # C(8,6) = 28
         tickets, _ = generate_abbreviated_wheel(pool, "6 if 6")
         assert len(tickets) == 28
         assert set(tickets) == set(itertools.combinations(pool, 6))
 
-    def test_full_wheel_over_max_tickets_returns_empty(self):
+    def test_full_wheel_over_max_tickets_returns_empty(self) -> None:
         pool = list(range(1, 11))  # C(10,6) = 210 > 200
         tickets, desc = generate_abbreviated_wheel(pool, "6 if 6")
         assert tickets == []

@@ -11,7 +11,11 @@ explicitly unauthenticated checks.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import cast
+
 import pytest
+from fastapi.testclient import TestClient
 
 import api
 
@@ -19,7 +23,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(autouse=True)
-def _reset_rate_limiter():
+def _reset_rate_limiter() -> Iterator[None]:
     """Clear slowapi's in-memory storage so per-IP limits don't accumulate."""
     try:
         storage = api.limiter.limiter.storage
@@ -31,10 +35,10 @@ def _reset_rate_limiter():
     yield
 
 
-def _first_wheel_name(client) -> str:
+def _first_wheel_name(client: TestClient) -> str:
     resp = client.get("/wheels")
     assert resp.status_code == 200
-    return next(iter(resp.json()["wheels"]))
+    return cast(str, next(iter(resp.json()["wheels"])))
 
 
 # ---------------------------------------------------------------------------
@@ -42,14 +46,14 @@ def _first_wheel_name(client) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_root(authenticated_client):
+def test_root(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     resp = client.get("/")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
 
-def test_health(authenticated_client):
+def test_health(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     resp = client.get("/health")
     assert resp.status_code == 200
@@ -64,7 +68,7 @@ def test_health(authenticated_client):
 # ---------------------------------------------------------------------------
 
 
-def test_list_wheels(authenticated_client):
+def test_list_wheels(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     resp = client.get("/wheels")
     assert resp.status_code == 200
@@ -75,7 +79,7 @@ def test_list_wheels(authenticated_client):
         assert meta["pool_size"] > 0
 
 
-def test_get_wheel_valid(authenticated_client):
+def test_get_wheel_valid(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     name = _first_wheel_name(client)
     resp = client.get(f"/wheel/{name}")
@@ -88,7 +92,7 @@ def test_get_wheel_valid(authenticated_client):
         assert len(ticket) == 6
 
 
-def test_get_wheel_invalid_returns_404(authenticated_client):
+def test_get_wheel_invalid_returns_404(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     resp = client.get("/wheel/no-such-wheel")
     assert resp.status_code == 404
@@ -99,7 +103,7 @@ def test_get_wheel_invalid_returns_404(authenticated_client):
 # ---------------------------------------------------------------------------
 
 
-def test_check_wheel(authenticated_client):
+def test_check_wheel(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     name = _first_wheel_name(client)
     resp = client.post(
@@ -114,7 +118,9 @@ def test_check_wheel(authenticated_client):
     assert body["wheel"] == name
 
 
-def test_check_wheel_duplicate_draw_numbers_400(authenticated_client):
+def test_check_wheel_duplicate_draw_numbers_400(
+    authenticated_client: tuple[TestClient, str],
+) -> None:
     client, _ = authenticated_client
     name = _first_wheel_name(client)
     resp = client.post(
@@ -129,7 +135,7 @@ def test_check_wheel_duplicate_draw_numbers_400(authenticated_client):
 # ---------------------------------------------------------------------------
 
 
-def test_leaderboard(authenticated_client):
+def test_leaderboard(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     resp = client.get("/leaderboard")
     assert resp.status_code == 200
@@ -143,7 +149,7 @@ def test_leaderboard(authenticated_client):
 
 
 @pytest.mark.slow
-def test_predict_ensemble(authenticated_client):
+def test_predict_ensemble(authenticated_client: tuple[TestClient, str]) -> None:
     client, _ = authenticated_client
     resp = client.get("/predict/ensemble", params={"main": 5, "bonus": 2, "pb": 1})
     assert resp.status_code == 200
@@ -158,13 +164,13 @@ def test_predict_ensemble(authenticated_client):
 # ---------------------------------------------------------------------------
 
 
-def test_me_anonymous(client):
+def test_me_anonymous(client: TestClient) -> None:
     resp = client.get("/me")
     assert resp.status_code == 200
     assert resp.json() == {"authenticated": False}
 
 
-def test_me_authenticated(authenticated_client):
+def test_me_authenticated(authenticated_client: tuple[TestClient, str]) -> None:
     client, username = authenticated_client
     resp = client.get("/me")
     assert resp.status_code == 200

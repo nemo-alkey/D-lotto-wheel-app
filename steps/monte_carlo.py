@@ -8,7 +8,7 @@
 ##   then simulates draws and returns a shape-(50,) probability vector.
 
 import logging  # Logging for runtime diagnostics and monitoring
-from typing import Any  # Type hints for generic NumPy arrays
+from typing import Any, cast  # Type hints for generic NumPy arrays
 
 import numpy as np  # Numerical operations and random sampling
 import numpy.typing as npt  # NumPy type aliases for annotations
@@ -58,9 +58,9 @@ def adjust_probabilities(
     out = np.clip(out, MIN_PROBABILITY, None)  # Prevent zeros
     s = out.sum()  # Sum for normalization
     if s <= 0 or not np.isfinite(s):  # Safety fallback
-        return np.ones_like(out) / len(out)
+        return cast(npt.NDArray[np.float64], np.ones_like(out) / len(out))
     out /= s  # Normalize to sum 1
-    return out  # Return adjusted distribution
+    return cast(npt.NDArray[np.float64], out)  # Return adjusted distribution
 
 
 def run_main_simulations(numbers_prob: npt.ArrayLike, mc_sims: int) -> npt.NDArray[Any]:

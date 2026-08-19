@@ -19,7 +19,7 @@ os.environ.setdefault("DEBUG", "true")
 
 
 @pytest.fixture
-def db_connection():
+def db_connection() -> Iterator[sqlite3.Connection]:
     """In-memory SQLite connection with the draws schema.
 
     Rolled back and closed after each test — no state leaks between tests.
@@ -40,7 +40,7 @@ def db_connection():
 
 
 @pytest.fixture
-def sample_draws():
+def sample_draws() -> list[tuple[list[int], int, int, str]]:
     """50 synthetic draws with realistic patterns.
 
     Shape matches lotto_wheels.load_draws(): (numbers, powerball, bonus, date).
@@ -52,12 +52,12 @@ def sample_draws():
 
     draws = []
     for i in range(50):
-        nums = set()
-        while len(nums) < 6:
+        num_set: set[int] = set()
+        while len(num_set) < 6:
             pick = rng.choices(range(1, 41), weights=weights, k=1)[0]
-            nums.add(pick)
+            num_set.add(pick)
         # Inject a consecutive pair into every third draw
-        nums = sorted(nums)
+        nums = sorted(num_set)
         if i % 3 == 0 and nums[-1] < 40:
             nums[-1] = nums[-2] + 1 if nums[-2] + 1 not in nums else nums[-1]
         draws.append(
@@ -72,7 +72,7 @@ def sample_draws():
 
 
 @pytest.fixture
-def sample_wheel():
+def sample_wheel() -> list[tuple[int, ...]]:
     """A valid small wheel: 4 tickets of 6 unique numbers each (1-40)."""
     return [
         (1, 7, 13, 22, 28, 35),
@@ -83,7 +83,7 @@ def sample_wheel():
 
 
 @pytest.fixture
-def client():
+def client() -> Iterator[TestClient]:
     """FastAPI TestClient (runs the app lifespan)."""
 
     from api import app
@@ -93,7 +93,9 @@ def client():
 
 
 @pytest.fixture
-def authenticated_client(client, tmp_path, monkeypatch):
+def authenticated_client(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[TestClient, str]]:
     """TestClient with a valid JWT; users go to a temp DB, not lotto.db.
 
     Yields (client, username) with the Authorization header preset.

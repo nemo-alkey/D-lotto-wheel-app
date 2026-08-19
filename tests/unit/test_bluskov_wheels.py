@@ -22,16 +22,16 @@ from bluskov_wheel_library import (
 
 
 class TestSystem88Structure:
-    def test_exactly_30_tickets(self):
+    def test_exactly_30_tickets(self) -> None:
         assert len(DOUBLE_4IF4_10) == 30
 
-    def test_each_ticket_has_6_unique_numbers_in_range(self):
+    def test_each_ticket_has_6_unique_numbers_in_range(self) -> None:
         for ticket in DOUBLE_4IF4_10:
             assert len(ticket) == 6
             assert len(set(ticket)) == 6, f"duplicates in {ticket}"
             assert all(1 <= n <= 10 for n in ticket)
 
-    def test_validate_balance_passes_with_full_pair_coverage(self):
+    def test_validate_balance_passes_with_full_pair_coverage(self) -> None:
         valid, stats = validate_balance(DOUBLE_4IF4_10, pool_size=10)
 
         assert valid is True
@@ -39,7 +39,7 @@ class TestSystem88Structure:
         assert stats["total_pairs_covered"] == 45  # C(10,2)
         assert stats["tickets"] == 30
 
-    def test_documented_balance_each_number_in_18_combinations(self):
+    def test_documented_balance_each_number_in_18_combinations(self) -> None:
         freq = Counter(n for ticket in DOUBLE_4IF4_10 for n in ticket)
         assert set(freq) == set(range(1, 11))
         for number in range(1, 11):
@@ -47,7 +47,7 @@ class TestSystem88Structure:
 
 
 class TestSystem88Guarantee:
-    def test_two_4wins_guarantee_brute_force(self):
+    def test_two_4wins_guarantee_brute_force(self) -> None:
         """Every 4-subset of 1..10 must appear in at least TWO tickets."""
         ticket_sets = [set(t) for t in DOUBLE_4IF4_10]
         failures = []
@@ -57,7 +57,7 @@ class TestSystem88Guarantee:
                 failures.append((combo, hits))
         assert failures == [], f"guarantee violated: {failures[:5]}"
 
-    def test_documented_pair_balance_10_combinations_each(self):
+    def test_documented_pair_balance_10_combinations_each(self) -> None:
         pair_freq = Counter(
             pair for ticket in DOUBLE_4IF4_10 for pair in itertools.combinations(sorted(ticket), 2)
         )
@@ -67,7 +67,7 @@ class TestSystem88Guarantee:
 
 
 class TestSubstituteNumbers:
-    def test_maps_generic_indices_onto_user_numbers(self):
+    def test_maps_generic_indices_onto_user_numbers(self) -> None:
         user = [3, 7, 12, 14, 18, 22, 29, 33, 40, 46]
         tickets = substitute_numbers(DOUBLE_4IF4_10, user)
 
@@ -77,19 +77,19 @@ class TestSubstituteNumbers:
         for original, mapped in zip(DOUBLE_4IF4_10, tickets, strict=False):
             assert mapped == [user[pos - 1] for pos in original]
 
-    def test_wrong_length_user_list_raises(self):
+    def test_wrong_length_user_list_raises(self) -> None:
         with pytest.raises(ValueError):
             substitute_numbers(DOUBLE_4IF4_10, [1, 2, 3])
         with pytest.raises(ValueError):
             substitute_numbers(DOUBLE_4IF4_10, list(range(1, 12)))
 
-    def test_empty_wheel_raises(self):
+    def test_empty_wheel_raises(self) -> None:
         with pytest.raises(ValueError):
             substitute_numbers(DOUBLE_4IF4_11, list(range(1, 12)))
 
 
 class TestGetOptimalWheel:
-    def test_double_4if4_10_is_ready_system_88(self):
+    def test_double_4if4_10_is_ready_system_88(self) -> None:
         entry = get_optimal_wheel("double-4-if-4", 10)
         assert entry["system_number"] == 88
         assert entry["ready"] is True
@@ -106,8 +106,8 @@ class TestGetOptimalWheel:
         ],
     )
     def test_pending_systems_not_ready_with_empty_wheels(
-        self, guarantee_type, pool_size, expected_wheel
-    ):
+        self, guarantee_type: str, pool_size: int, expected_wheel: list[list[int]]
+    ) -> None:
         entry = get_optimal_wheel(guarantee_type, pool_size)
         assert entry["ready"] is False
         assert entry["wheel"] == []
@@ -122,13 +122,13 @@ class TestGetOptimalWheel:
             ("nonsense", 10),  # unknown guarantee type
         ],
     )
-    def test_unregistered_combos_raise_key_error(self, guarantee_type, pool_size):
+    def test_unregistered_combos_raise_key_error(self, guarantee_type: str, pool_size: int) -> None:
         with pytest.raises(KeyError):
             get_optimal_wheel(guarantee_type, pool_size)
 
 
 class TestWheelRegistryConsistency:
-    def test_tickets_field_matches_wheel_length_when_non_empty(self):
+    def test_tickets_field_matches_wheel_length_when_non_empty(self) -> None:
         for key, entry in WHEEL_REGISTRY.items():
             wheel = entry["wheel"]
             if wheel:
@@ -136,7 +136,7 @@ class TestWheelRegistryConsistency:
                     f"{key}: tickets={entry['tickets']} but " f"len(wheel)={len(wheel)}"
                 )
 
-    def test_explorer_keys_exist_in_registry(self):
+    def test_explorer_keys_exist_in_registry(self) -> None:
         for guarantee_type, sizes in WHEEL_EXPLORER.items():
             for pool_size, key in sizes.items():
                 assert key in WHEEL_REGISTRY, (

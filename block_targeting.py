@@ -31,6 +31,7 @@ Usage:
 from __future__ import annotations
 
 from collections import Counter
+from typing import Any
 
 # Albert's original blocks: block_id -> (block range, Albert's favored sub-range)
 BLOCKS: dict[int, dict[str, tuple[int, int]]] = {
@@ -56,7 +57,7 @@ def block_of(number: int) -> int:
 
 def analyze_block_distribution(
     draws: list[list[int]], lookback: int = DEFAULT_LOOKBACK
-) -> dict[int, dict]:
+) -> dict[int, dict[str, Any]]:
     """Analyze how draw numbers distribute across Albert's five blocks.
 
     For each block, counts how many drawn numbers fell into it over the
@@ -75,12 +76,12 @@ def analyze_block_distribution(
     """
     recent = draws[-lookback:] if len(draws) > lookback else draws
 
-    result: dict[int, dict] = {}
+    result: dict[int, dict[str, Any]] = {}
     for block_id, cfg in BLOCKS.items():
         lo, hi = cfg["range"]
         numbers = list(range(lo, hi + 1))
 
-        freq: Counter = Counter()
+        freq: Counter[int] = Counter()
         for draw in recent:
             freq.update(n for n in draw if lo <= n <= hi)
 
@@ -111,7 +112,9 @@ def analyze_block_distribution(
     return result
 
 
-def score_wheel_blocks(wheel: list[int], block_analysis: dict[int, dict]) -> tuple[float, str]:
+def score_wheel_blocks(
+    wheel: list[int], block_analysis: dict[int, dict[str, Any]]
+) -> tuple[float, str]:
     """Score a wheel/ticket by how many numbers sit in their block's hot zone.
 
     Args:
@@ -153,7 +156,7 @@ def score_wheel_blocks(wheel: list[int], block_analysis: dict[int, dict]) -> tup
     )
 
 
-def generate_block_constraints(block_analysis: dict[int, dict]) -> dict:
+def generate_block_constraints(block_analysis: dict[int, dict[str, Any]]) -> dict[str, Any]:
     """Build wheel-generator constraints from a block analysis.
 
     Returns:

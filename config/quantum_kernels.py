@@ -16,6 +16,8 @@ This module constructs a fixed-width quantum kernel feature matrix by:
 
 from __future__ import annotations  # Enable modern type hints safely
 
+from typing import Any, cast
+
 import numpy as np  # Numerical arrays and linear algebra
 import pennylane as qml  # Quantum circuit framework
 
@@ -33,8 +35,8 @@ from config import quantum_features as qf
 _kernel_dev = qml.device("default.qubit", wires=qf.NUM_QUBITS, shots=None)
 
 
-@qml.qnode(_kernel_dev)
-def _state_circuit(angles: np.ndarray, weights: np.ndarray):
+@qml.qnode(_kernel_dev)  # type: ignore[misc]  # pennylane decorators are untyped
+def _state_circuit(angles: np.ndarray, weights: np.ndarray) -> Any:
     """
     Prepare the variational quantum state |phi(x)>.
 
@@ -103,9 +105,9 @@ def _encode_state(classical_vec: np.ndarray, weights: np.ndarray | None = None) 
     # Explicit normalization for numerical safety
     norm = np.linalg.norm(state)
     if norm <= 0.0:
-        return state
+        return cast(np.ndarray, state)
 
-    return state / norm
+    return cast(np.ndarray, state / norm)
 
 
 def _pure_state_fidelity(psi: np.ndarray, phi: np.ndarray) -> float:
@@ -271,7 +273,7 @@ def build_quantum_kernel_features(
     )
 
     if can_use_cache:
-        proto_states = _cached_proto_states
+        proto_states = cast(np.ndarray, _cached_proto_states)
     else:
         prototypes, _ = _select_prototypes_fixed_width(
             x,
@@ -314,4 +316,4 @@ def build_quantum_kernel_features(
         out[:, :m] = k_scaled[:, :m]
         k_scaled = out
 
-    return k_scaled.astype(float)
+    return cast(np.ndarray, k_scaled.astype(float))

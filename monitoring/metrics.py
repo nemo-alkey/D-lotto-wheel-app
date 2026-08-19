@@ -29,7 +29,7 @@ import threading
 import time
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import prometheus_client
 from prometheus_client import Counter, Gauge, Histogram
@@ -112,7 +112,7 @@ class HealthCollector:
         self._db_path = db_path
         self._redis_url = redis_url
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         ok = GaugeMetricFamily(
             "health_check_ok",
             "1 if the check passed, 0 otherwise.",
@@ -171,12 +171,12 @@ def render_metrics() -> bytes:
 CONTENT_TYPE_LATEST = prometheus_client.CONTENT_TYPE_LATEST
 
 
-def route_template(request) -> str:
+def route_template(request: Request) -> str:
     """Best-effort route template for metric labels (avoids cardinality
     explosion from raw paths like /wheel/single1)."""
     route = request.scope.get("route")
     path = getattr(route, "path", None)
-    return path if path else "unmatched"
+    return cast(str, path) if path else "unmatched"
 
 
 class Timer:
@@ -186,11 +186,11 @@ class Timer:
         self._operation = operation
         self._start = 0.0
 
-    def __enter__(self):
+    def __enter__(self) -> Timer:
         self._start = time.perf_counter()
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *exc: object) -> Literal[False]:
         DB_QUERY_DURATION.labels(operation=self._operation).observe(
             time.perf_counter() - self._start
         )

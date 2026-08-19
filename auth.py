@@ -19,6 +19,7 @@ import re
 import sqlite3
 import threading
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -145,7 +146,7 @@ def _init_users_table() -> None:
     conn.close()
 
 
-def _get_user(username: str) -> dict | None:
+def _get_user(username: str) -> dict[str, Any] | None:
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute(
         "SELECT username, hashed_password, is_admin FROM users WHERE username = ?",
@@ -157,7 +158,7 @@ def _get_user(username: str) -> dict | None:
     return None
 
 
-def get_user_record(username: str) -> dict | None:
+def get_user_record(username: str) -> dict[str, Any] | None:
     """Public lookup of a user record (username, is_admin) for token refresh."""
     _init_users_table()
     return _get_user(username)
@@ -194,11 +195,11 @@ def _hash_password(password: str) -> str:
     )
 
 
-def _create_token(data: dict, expires_delta: timedelta, token_type: str) -> str:
+def _create_token(data: dict[str, Any], expires_delta: timedelta, token_type: str) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + expires_delta
     to_encode.update({"exp": expire, "type": token_type})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return cast(str, jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM))
 
 
 def create_access_token(username: str, is_admin: bool) -> str:
@@ -219,14 +220,14 @@ def create_refresh_token(username: str) -> str:
     )
 
 
-def verify_refresh_token(token: str) -> dict | None:
+def verify_refresh_token(token: str) -> dict[str, Any] | None:
     """Decode a refresh token and return its payload, or None if invalid.
 
     Only tokens with type == "refresh" are accepted — access tokens are
     rejected to keep the two flows separate.
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload: dict[str, Any] = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         return None
     if payload.get("type") != "refresh" or not payload.get("sub"):
@@ -290,7 +291,7 @@ def register_user(username: str, password: str) -> bool:
     return _create_user(username, hashed)
 
 
-def authenticate_user(username: str, password: str) -> dict | None:
+def authenticate_user(username: str, password: str) -> dict[str, Any] | None:
     """Authenticate user and return a token dict, or None if invalid.
 
     Returns:
@@ -316,8 +317,8 @@ def get_current_user(
     if token is None:
         return None
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        payload: dict[str, Any] = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = cast(str | None, payload.get("sub"))
         if username is None:
             return None
         # Refresh tokens must not authenticate API requests.

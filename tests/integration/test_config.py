@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from fastapi.testclient import TestClient
 
 pytestmark = pytest.mark.integration
 
 
-def test_config_endpoint(client):
+def test_config_endpoint(client: TestClient) -> None:
     resp = client.get("/config")
     assert resp.status_code == 200
     body = resp.json()

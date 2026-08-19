@@ -12,6 +12,8 @@ import logging
 
 import numpy as np
 
+from pipeline import DataPipeline
+
 # Number of standard lottery balls
 NUM_MAIN = 40
 
@@ -25,7 +27,7 @@ NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # = 50
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-def shannon_entropy_features(pipeline):
+def shannon_entropy_features(pipeline: DataPipeline) -> None:
     """
     Compute Shannon entropy contributions for each number (1–50).
 

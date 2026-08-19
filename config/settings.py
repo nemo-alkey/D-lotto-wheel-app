@@ -98,7 +98,7 @@ class Settings(BaseSettings):
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def _split_cors(cls, v):
+    def _split_cors(cls, v: object) -> object:
         """Accept comma-separated strings as well as JSON lists."""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]

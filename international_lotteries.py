@@ -40,6 +40,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any, cast
 
 CONFIG_PATH = Path(__file__).parent / "config" / "lottery_games.json"
 
@@ -49,13 +50,13 @@ CONFIG_PATH = Path(__file__).parent / "config" / "lottery_games.json"
 # ---------------------------------------------------------------------------
 
 
-def load_game_configs(config_path: Path | str | None = None) -> dict:
+def load_game_configs(config_path: Path | str | None = None) -> dict[str, Any]:
     """Load game configs from JSON (empty dict if the file is missing)."""
     path = Path(config_path) if config_path else CONFIG_PATH
     if not path.exists():
         return {}
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
 # ---------------------------------------------------------------------------
@@ -71,9 +72,9 @@ class BasePrizeCalculator(ABC):
     """
 
     game_code: str = ""
-    DEFAULT_CONFIG: dict = {}
+    DEFAULT_CONFIG: dict[str, Any] = {}
 
-    def __init__(self, config: dict | None = None) -> None:
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         cfg = dict(config or self.DEFAULT_CONFIG)
         self.name: str = cfg.get("name", self.game_code)
         self.currency: str = cfg.get("currency", "")
@@ -152,7 +153,7 @@ class BasePrizeCalculator(ABC):
 class ConfigDrivenCalculator(BasePrizeCalculator):
     """Prize calculator driven entirely by a config dict/JSON entry."""
 
-    def __init__(self, game_code: str | None = None, config: dict | None = None) -> None:
+    def __init__(self, game_code: str | None = None, config: dict[str, Any] | None = None) -> None:
         if game_code:
             self.game_code = game_code
         super().__init__(config)
@@ -168,7 +169,7 @@ class ConfigDrivenCalculator(BasePrizeCalculator):
             if div == division:
                 if prize == "jackpot":
                     return float(jackpot_amount or self.jackpot_estimate)
-                return float(prize)
+                return float(cast(Any, prize))
         return 0.0
 
     def validate_numbers(self, numbers: Sequence[int], bonus: Sequence[int]) -> bool:

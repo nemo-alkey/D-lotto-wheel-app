@@ -55,6 +55,7 @@ import sys
 from collections import Counter
 from datetime import datetime
 from email.message import EmailMessage
+from typing import Any, cast
 
 WORKING_DB = "lotto.db"  # unified schema: numbers TEXT, bonus, powerball
 ROTATION_DB = "rotation_scheduler.db"
@@ -69,7 +70,7 @@ ALPHA = 1.0  # Dirichlet prior concentration
 # ---------------------------------------------------------------------------
 
 
-def load_draws(db_path: str = WORKING_DB) -> list[tuple]:
+def load_draws(db_path: str = WORKING_DB) -> list[tuple[tuple[int, ...], Any, int, str]]:
     """Return list of (numbers_tuple, powerball, bonus, date) from the DB."""
     if not os.path.exists(db_path):
         print(f"Error: database '{db_path}' not found.")
@@ -82,7 +83,7 @@ def load_draws(db_path: str = WORKING_DB) -> list[tuple]:
     ).fetchall()
     conn.close()
 
-    draws = []
+    draws: list[tuple[tuple[int, ...], Any, int, str]] = []
     for r in rows:
         try:
             nums = tuple(int(x.strip()) for x in r["numbers"].split(","))
@@ -99,7 +100,9 @@ def load_draws(db_path: str = WORKING_DB) -> list[tuple]:
 # ---------------------------------------------------------------------------
 
 
-def bayesian_posterior(draws: list[tuple], alpha: float = ALPHA) -> dict[int, float]:
+def bayesian_posterior(
+    draws: list[tuple[tuple[int, ...], Any, int, str]], alpha: float = ALPHA
+) -> dict[int, float]:
     """Dirichlet-Multinomial posterior P(number) for 1-40.
 
     Posterior mean:  (count_i + alpha) / (total + 40 * alpha)
@@ -121,7 +124,9 @@ def bayesian_posterior(draws: list[tuple], alpha: float = ALPHA) -> dict[int, fl
 # ---------------------------------------------------------------------------
 
 
-def bonus_bayesian_predictor(draws: list[tuple], k: int = 3) -> list[tuple[int, float]]:
+def bonus_bayesian_predictor(
+    draws: list[tuple[tuple[int, ...], Any, int, str]], k: int = 3
+) -> list[tuple[int, float]]:
     """Return top-k bonus ball predictions using Dirichlet-Multinomial.
 
     Extracts bonus balls from draws and applies a symmetric Dirichlet prior
@@ -137,8 +142,10 @@ def bonus_bayesian_predictor(draws: list[tuple], k: int = 3) -> list[tuple[int, 
     if not bonus_balls:
         return []
 
-    model = BonusBayesian(bonus_balls, alpha=1.0)
-    return model.predict_top_k(k)
+    model: Any = BonusBayesian(  # type: ignore[no-untyped-call]  # predictions.py is untyped
+        bonus_balls, alpha=1.0
+    )
+    return cast(list[tuple[int, float]], model.predict_top_k(k))
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +188,7 @@ def build_rotation(posterior: dict[int, float]) -> list[list[int]]:
 def print_plan(
     schedule: list[list[int]],
     posterior: dict[int, float],
-    bonus_picks: list[tuple[int, float]] | None = None,
+    bonus_picks: list[tuple[Any, ...]] | None = None,
 ) -> None:
     """Print the rotation plan as a formatted table."""
     print()
@@ -247,7 +254,7 @@ def print_plan(
 def save_plan_csv(
     schedule: list[list[int]],
     path: str = "rotation_plan.csv",
-    bonus_picks: list[tuple[int, float]] | None = None,
+    bonus_picks: list[tuple[Any, ...]] | None = None,
 ) -> None:
     """Save the rotation plan to a CSV file."""
     with open(path, "w", newline="") as f:
@@ -285,7 +292,7 @@ def save_plan_csv(
 def save_plan_json(
     schedule: list[list[int]],
     path: str = "rotation_plan.json",
-    bonus_picks: list[tuple[int, float]] | None = None,
+    bonus_picks: list[tuple[Any, ...]] | None = None,
 ) -> None:
     """Save the rotation plan as a structured JSON file."""
     from datetime import timedelta
@@ -295,7 +302,7 @@ def save_plan_json(
     for i, nums in enumerate(schedule, 1):
         period_start = start + timedelta(weeks=i - 1)
         period_end = period_start + timedelta(days=13)
-        entry = {
+        entry: dict[str, Any] = {
             "start_date": period_start.strftime("%Y-%m-%d"),
             "end_date": period_end.strftime("%Y-%m-%d"),
             "main_pool": nums,

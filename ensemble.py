@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import sqlite3
 from collections import Counter
+from collections.abc import Callable
+from typing import Any
 
 
 class EnsemblePredictor:
@@ -43,7 +45,7 @@ class EnsemblePredictor:
         self.weight_history: list[dict[str, float]] = []
 
     # ------------------------------------------------------------------
-    def _load_draws(self) -> list:
+    def _load_draws(self) -> list[tuple[list[int], int, int, str]]:
         """Load draws from the database."""
         cursor = self.conn.execute(
             "SELECT numbers, powerball, bonus, draw_date " "FROM draws ORDER BY draw_date ASC"
@@ -70,11 +72,13 @@ class EnsemblePredictor:
         return total / 40.0
 
     # ------------------------------------------------------------------
-    def _sub_predictor_prob(self, method: str, train_draws: list) -> dict[int, float]:
+    def _sub_predictor_prob(
+        self, method: str, train_draws: list[tuple[list[int], int, int, str]]
+    ) -> dict[int, float]:
         """Return probability dict {number: prob} for a sub-predictor."""
         from predictions import bayesian, due_numbers, frequency, markov
 
-        fn_map = {
+        fn_map: dict[str, Callable[..., Any]] = {
             "frequency": frequency,
             "bayesian": bayesian,
             "markov": markov,
@@ -98,7 +102,7 @@ class EnsemblePredictor:
         return probs
 
     # ------------------------------------------------------------------
-    def fit_weights(self, validation_draws: int = 10):
+    def fit_weights(self, validation_draws: int = 10) -> None:
         """Walk-forward validation to calibrate sub-predictor weights.
 
         For each of the last `validation_draws` draws, trains each
@@ -157,7 +161,7 @@ class EnsemblePredictor:
                 self.weights[m] = 1.0 / len(self.method_names)
 
     # ------------------------------------------------------------------
-    def predict_main_numbers(self, top_n: int = 15) -> list:
+    def predict_main_numbers(self, top_n: int = 15) -> list[tuple[int, float]]:
         """Return top-n main numbers with ensemble probabilities.
 
         Returns
@@ -181,7 +185,9 @@ class EnsemblePredictor:
         return [(n, round(prob, 6)) for n, prob in ranked[:top_n]]
 
     # ------------------------------------------------------------------
-    def predict_all(self, main_top: int = 15, bonus_top: int = 5, pb_top: int = 3) -> dict:
+    def predict_all(
+        self, main_top: int = 15, bonus_top: int = 5, pb_top: int = 3
+    ) -> dict[str, Any]:
         """Return ensemble predictions for mains, bonus, and Powerball.
 
         Parameters
@@ -208,12 +214,12 @@ class EnsemblePredictor:
             from predictions import HierarchicalBonusPredictor
 
             hbp = HierarchicalBonusPredictor(bonus_draws, recency_halflife_days=90)
-            hbp.fit()
+            hbp.fit()  # type: ignore[no-untyped-call]  # predictions.py is untyped
             top_b = hbp.predict_top_k(k=bonus_top)
             bonus = [(n, round(p, 6)) for n, p, _ in top_b]
 
         # Powerball: frequency-based
-        pb_counts: Counter = Counter()
+        pb_counts: Counter[int] = Counter()
         for _, pb, _, _ in self.draws:
             if 1 <= pb <= 10:
                 pb_counts[pb] += 1

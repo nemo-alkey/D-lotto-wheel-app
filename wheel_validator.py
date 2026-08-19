@@ -10,6 +10,8 @@ many tickets cover each pair of pool numbers.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 
@@ -39,7 +41,7 @@ class WheelValidator:
         self._resolve_guarantee()
 
     # ------------------------------------------------------------------
-    def _resolve_guarantee(self):
+    def _resolve_guarantee(self) -> None:
         """Infer the guarantee description and validation function."""
         if self.name == "jackpot7":
             self.claim = "6-if-6 (jackpot)"
@@ -63,7 +65,7 @@ class WheelValidator:
             self._min_tickets = 1
 
     # ------------------------------------------------------------------
-    def validate_guarantee(self, num_simulations: int = 10_000) -> dict:
+    def validate_guarantee(self, num_simulations: int = 10_000) -> dict[str, Any]:
         """Run Monte Carlo simulation to verify the wheel's guarantee.
 
         Randomly draws sets of 6 numbers from the pool, checks every ticket

@@ -10,8 +10,12 @@
 ## - No injected bias. If mechanics signal is not significant, collapse mechanics -> uniform.
 
 import logging  # Logging for diagnostics and status messages
+from typing import Any
 
 import numpy as np  # Numerical operations for probability math
+import numpy.typing as npt
+
+from pipeline import DataPipeline
 
 logging.basicConfig(  # Configure logging format and verbosity
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -26,7 +30,9 @@ NUM_POWERBALL = 10  # Powerball number count (1–10)
 TOTAL_NUMBERS = NUM_MAIN + NUM_POWERBALL  # Total probability vector size (50)
 
 
-def _estimate_mechanics_dirichlet_from_history(historical_data, alpha=1.0):
+def _estimate_mechanics_dirichlet_from_history(
+    historical_data: list[dict[str, Any]], alpha: float = 1.0
+) -> tuple[npt.NDArray[np.float64], float, int]:
     """
     Estimate mechanics vector (length 40) from historical draws using a Dirichlet posterior.
     Only for main numbers. Returns:
@@ -63,13 +69,13 @@ def _estimate_mechanics_dirichlet_from_history(historical_data, alpha=1.0):
 
 
 def bayesian_fusion_with_mechanics(
-    pipeline,
-    alpha=1.0,
-    chi2_threshold=_CHI2_CRIT_DF39_0P05,
-    use_mechanics_if_significant=True,
-    verbose=False,
-    weights=(1.0, 1.0, 1.0),
-):
+    pipeline: DataPipeline,
+    alpha: float = 1.0,
+    chi2_threshold: float = _CHI2_CRIT_DF39_0P05,
+    use_mechanics_if_significant: bool = True,
+    verbose: bool = False,
+    weights: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> npt.NDArray[np.float64]:
     """
     Combine frequency, decay, and mechanics into normalized posterior of shape 50.
     Main numbers: uses mechanics + frequency + decay.

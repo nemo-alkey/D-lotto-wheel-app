@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -32,7 +34,7 @@ DRAW = {
 
 
 class TestInsertDraw:
-    def test_insert_draw_round_trip(self, db_connection):
+    def test_insert_draw_round_trip(self, db_connection: sqlite3.Connection) -> None:
         from update_draws import insert_draw
 
         assert insert_draw(db_connection, DRAW) is True
@@ -46,13 +48,13 @@ class TestInsertDraw:
         assert row[2] == 9
         assert row[3] == 4
 
-    def test_draw_exists_and_duplicate_rejected(self, db_connection):
+    def test_draw_exists_and_duplicate_rejected(self, db_connection: sqlite3.Connection) -> None:
         from update_draws import draw_exists, insert_draw
 
-        assert draw_exists(db_connection, DRAW["draw_date"]) is False
+        assert draw_exists(db_connection, cast(str, DRAW["draw_date"])) is False
         assert insert_draw(db_connection, DRAW) is True
 
-        assert draw_exists(db_connection, DRAW["draw_date"]) is True
+        assert draw_exists(db_connection, cast(str, DRAW["draw_date"])) is True
         # Same date again -> UNIQUE constraint -> insert_draw returns False
         assert insert_draw(db_connection, DRAW) is False
 
@@ -69,7 +71,7 @@ class TestInsertDraw:
 class TestRealSchema:
     EXPECTED_COLUMNS = ["draw_id", "draw_date", "numbers", "bonus", "powerball"]
 
-    def test_draws_table_and_columns(self):
+    def test_draws_table_and_columns(self) -> None:
         assert os.path.exists(LOTTO_DB), "lotto.db must exist for this test"
         # Open read-only via URI so the test can never mutate the real DB
         conn = sqlite3.connect(f"file:{LOTTO_DB}?mode=ro", uri=True)
@@ -91,7 +93,7 @@ class TestRealSchema:
 
 
 class TestPosNegPersistence:
-    def test_save_classification_round_trip(self, tmp_path):
+    def test_save_classification_round_trip(self, tmp_path: Path) -> None:
         from pos_neg_tracker import save_classification
 
         db_path = str(tmp_path / "test_pos_neg.db")
@@ -125,7 +127,7 @@ class TestPosNegPersistence:
 class TestFetchDraws:
     REQUIRED_KEYS = {"draw_date", "numbers", "bonus", "powerball"}
 
-    def _check_rows(self, rows):
+    def _check_rows(self, rows: list[dict[str, object]]) -> None:
         assert isinstance(rows, list)
         assert len(rows) >= 1, "lotto.db should contain at least one draw"
         for row in rows:
@@ -134,12 +136,12 @@ class TestFetchDraws:
             assert isinstance(row["numbers"], list)
             assert all(isinstance(n, int) for n in row["numbers"])
 
-    def test_fetch_all_draws(self):
+    def test_fetch_all_draws(self) -> None:
         from database import fetch_all_draws
 
         self._check_rows(fetch_all_draws())
 
-    def test_fetch_recent_draws(self):
+    def test_fetch_recent_draws(self) -> None:
         from database import fetch_recent_draws
 
         rows = fetch_recent_draws(limit=5)

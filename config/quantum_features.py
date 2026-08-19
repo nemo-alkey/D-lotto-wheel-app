@@ -19,6 +19,7 @@ Important correctness notes:
 """
 
 import math  # Math utilities (sin/cos/ceil/pi)
+from typing import Any, cast  # Typing helpers for strict mypy
 
 import numpy as np  # Numerical arrays and operations
 import pennylane as qml  # Quantum circuit framework (PennyLane)
@@ -58,7 +59,7 @@ _global_weights = np.random.normal(
 
 # ===================== Deterministic Classical Projection ===================== #
 # We cache projection matrices by (num_qubits, d) to avoid rebuilding them in loops.
-_PROJ_CACHE = {}  # Cache dict for projection matrices
+_PROJ_CACHE: dict[tuple[int, int], np.ndarray] = {}  # Cache dict for projection matrices
 
 
 def _build_projection_matrix(
@@ -101,7 +102,7 @@ def _structured_projection(
 
     m = _build_projection_matrix(num_qubits, d)  # Get projection matrix for this dimension
     v = (m @ x) / float(d)  # Apply linear mix and normalize by d
-    return v.astype(float)  # Return float vector
+    return cast(np.ndarray, v.astype(float))  # Return float vector
 
 
 def _preprocess_to_angles(
@@ -130,10 +131,10 @@ def _preprocess_to_angles(
 # =========================== Quantum Feature Map =========================== #
 
 
-@qml.qnode(dev)  # Bind the circuit function to the device
+@qml.qnode(dev)  # type: ignore[misc]  # pennylane decorators are untyped; bind circuit to device
 def _feature_map_circuit(
     angles: np.ndarray, weights: np.ndarray
-):  # Quantum circuit: angles + weights -> Z expectations
+) -> Any:  # Quantum circuit: angles + weights -> Z expectations
     """
     Variational quantum feature map producing Z expectations per qubit.
 
@@ -161,7 +162,7 @@ def _feature_map_circuit(
 
 
 def compute_quantum_features(
-    classical_vec: np.ndarray, weights: np.ndarray = None
+    classical_vec: np.ndarray, weights: np.ndarray | None = None
 ) -> np.ndarray:  # Compute one feature vector
     """
     Quantum features for one row.
@@ -185,11 +186,13 @@ def compute_quantum_features(
     l2_sq = float(np.sum(z**2))  # Squared L2 norm of Z vector
 
     extra = np.array([mean, std, l1, l2_sq], dtype=float)  # Pack summary stats into array
-    return np.concatenate([z, extra]).astype(float)  # Concatenate Z vector + stats and return
+    return cast(
+        np.ndarray, np.concatenate([z, extra]).astype(float)
+    )  # Concatenate Z vector + stats
 
 
 def compute_quantum_matrix(
-    feature_matrix: np.ndarray, weights: np.ndarray = None
+    feature_matrix: np.ndarray, weights: np.ndarray | None = None
 ) -> np.ndarray:  # Compute batch quantum features
     """
     Quantum feature matrix for a batch.
@@ -225,7 +228,7 @@ def train_quantum_encoder(  # Train the quantum encoder (circuit weights)
     label_matrix: np.ndarray,  # Label matrix Y
     steps: int = _Q_SPSA_STEPS,  # Number of SPSA steps
     batch_size: int = _Q_SPSA_BATCH_SIZE,  # Mini-batch size
-):
+) -> None:
     """
     Train circuit weights θ using SPSA to reduce supervised label-MSE.
 
@@ -384,7 +387,7 @@ def train_quantum_predictor(  # Train Keras head on quantum features
     label_matrix: np.ndarray,  # Label matrix (n,50)
     epochs: int = 20,  # Training epochs
     batch_size: int = 32,  # Training batch size
-):
+) -> None:
     """
     Train predictive head on quantum features.
 
@@ -449,7 +452,7 @@ def compute_quantum_prediction_matrix(
             f"Quantum predictor returned bad shape {preds.shape}, expected (n,50)"
         )  # Raise on mismatch
 
-    return preds  # Return prediction matrix
+    return cast(np.ndarray, preds)  # Return prediction matrix
 
 
 def compute_quantum_predictions(
@@ -462,7 +465,7 @@ def compute_quantum_predictions(
         p: shape (50,)
     """
     p = compute_quantum_prediction_matrix(feature_matrix)  # Compute batch predictions
-    return np.mean(p, axis=0).astype(float)  # Average across samples and return vector
+    return cast(np.ndarray, np.mean(p, axis=0).astype(float))  # Average across samples
 
 
 # =========================== Baseline Hooks =========================== #
@@ -487,4 +490,4 @@ def compute_random_fourier_baseline(
     w = rng.normal(0, 1.0, size=(d, out_dim))  # Sample random projection weights
     b = rng.uniform(0, 2 * np.pi, size=(out_dim,))  # Sample random phase offsets
     r = np.sqrt(2.0 / out_dim) * np.cos(x @ w + b)  # Compute random Fourier features
-    return r.astype(float)  # Return baseline features as float
+    return cast(np.ndarray, r.astype(float))  # Return baseline features as float

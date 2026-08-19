@@ -18,6 +18,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -105,7 +106,7 @@ def analyze_barrier_bias(
 
     # ---- Aggregate by barrier ---------------------------------------------
     barrier_groups = subset.groupby("barrier_num")
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
 
     for barrier, grp in barrier_groups:
         n = len(grp)
@@ -223,7 +224,7 @@ def get_barrier_adjustment(
     def _lengths_to_multiplier(adv: float) -> float:
         if pd.isna(adv):
             return 1.0
-        return round(1.0 + np.tanh(adv / 3.0) * 0.35, 4)
+        return round(float(1.0 + np.tanh(adv / 3.0) * 0.35), 4)
 
     merged["barrier_adj"] = merged["adv_lengths"].apply(_lengths_to_multiplier)
     result = merged.set_index("_idx").sort_index()["barrier_adj"]

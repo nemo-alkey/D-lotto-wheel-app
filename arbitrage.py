@@ -296,7 +296,7 @@ def scan_opportunities(
 
     live = fetch_current_jackpots(games, api_key=api_key)
 
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for code, cfg in games.items():
         ticket_price = float(cfg["ticket_price_usd"])
         if code in live:
@@ -356,18 +356,18 @@ def scan_opportunities(
 
 
 def probability_tree(
-    game_cfg: dict,
+    game_cfg: dict[str, Any],
     jackpot: float,
     tax_rate: float = 0.0,
     lump_sum_ratio: float = 1.0,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Per-division breakdown of the EV math for one game.
 
     Returns one dict per division: division, match (e.g. "5 + 1"),
     probability, one_in (odds as 1-in-N), prize, ev_contribution
     (after tax/lump-sum adjustments).
     """
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     for d in game_cfg["divisions"]:
         div = int(d["division"])
         p = division_probability(

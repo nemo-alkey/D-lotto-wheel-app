@@ -26,6 +26,7 @@ when using the exact published combinations from Bluskov's book.
 from __future__ import annotations
 
 from collections import Counter
+from typing import Any
 
 #: Source for all systems in this library. Systems are indexed by number
 #: (e.g., System #89); page numbers vary by edition, so locate each system
@@ -167,7 +168,7 @@ SIX_4IF5_12: list[list[int]] = []  # TODO: 44 combinations, Bluskov System #119
 # ---------------------------------------------------------------------------
 # Registry for easy lookup
 # ---------------------------------------------------------------------------
-WHEEL_REGISTRY: dict[str, dict] = {
+WHEEL_REGISTRY: dict[str, dict[str, Any]] = {
     "double4_10": {
         "system_number": 88,
         "numbers": 10,
@@ -235,7 +236,7 @@ WHEEL_EXPLORER: dict[str, dict[int, str]] = {
 }
 
 
-def get_optimal_wheel(guarantee_type: str, pool_size: int) -> dict:
+def get_optimal_wheel(guarantee_type: str, pool_size: int) -> dict[str, Any]:
     """
     Look up the minimal wheel for a guarantee type and pool size.
 
@@ -301,7 +302,7 @@ def validate_balance(
     wheel: list[list[int]],
     pool_size: int,
     verbose: bool = False,
-) -> tuple[bool, dict]:
+) -> tuple[bool, dict[str, Any]]:
     """
     Sanity-check a wheel's balance properties (number frequency, pair coverage).
 
@@ -320,8 +321,8 @@ def validate_balance(
 
     ticket_len = len(wheel[0])
     total_pairs = pool_size * (pool_size - 1) // 2
-    pair_counter: Counter = Counter()
-    num_counter: Counter = Counter()
+    pair_counter: Counter[tuple[int, int]] = Counter()
+    num_counter: Counter[int] = Counter()
 
     for ticket in wheel:
         num_counter.update(ticket)

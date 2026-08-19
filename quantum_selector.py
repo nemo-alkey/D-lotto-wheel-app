@@ -59,6 +59,7 @@ import time
 from datetime import datetime
 from itertools import combinations
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ def build_attraction_profile(
 
 def _wheel_pair_coverage(tickets: list[list[int]], pool_size: int) -> float:
     """Fraction of all C(pool_size, 2) pairs covered by at least one ticket."""
-    covered = set()
+    covered: set[tuple[int, int]] = set()
     for t in tickets:
         covered.update(combinations(sorted(t), 2))
     total = math.comb(pool_size, 2)
@@ -159,7 +160,7 @@ def wheel_energy(
     tickets: list[list[int]],
     pool_size: int = 40,
     attraction_profile: dict[tuple[int, int], float] | None = None,
-    block_constraints: dict | None = None,
+    block_constraints: dict[str, Any] | None = None,
     sum_range: tuple[int, int] | None = None,
     lambda_penalty: float = 1.0,
     attraction_weight: float = ATTRACTION_WEIGHT,
@@ -195,7 +196,7 @@ def quantum_anneal_wheel(
     cooling_rate: float = 0.9995,
     lambda_penalty: float = 1.0,
     attraction_profile: dict[tuple[int, int], float] | None = None,
-    block_constraints: dict | None = None,
+    block_constraints: dict[str, Any] | None = None,
     sum_range: tuple[int, int] | None = None,
     attraction_weight: float = ATTRACTION_WEIGHT,
     seed: int | None = None,
@@ -302,7 +303,7 @@ def benchmark_quantum_vs_ga(
     db_path: str = "lotto.db",
     out_path: Path | str = BENCHMARK_PATH,
     seed: int | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Run quantum_anneal_wheel and WheelOptimizerGA on shared constraints.
 
     Both wheels are scored with the SAME energy model (pair coverage,
@@ -356,7 +357,7 @@ def benchmark_quantum_vs_ga(
     q_energy = wheel_energy(q_wheel, 40, attraction_profile, block_constraints, sum_range)
 
     # --- GA run (existing optimizer; EV-fitness, its own wheel builder) ---
-    ga_result: dict = {"error": None}
+    ga_result: dict[str, Any] = {"error": None}
     ga_wheel: list[list[int]] = []
     ga_time = 0.0
     conn = sqlite3.connect(db_path)
@@ -417,7 +418,7 @@ def benchmark_quantum_vs_ga(
 
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    history: list[dict] = []
+    history: list[dict[str, Any]] = []
     if out.exists():
         try:
             history = json.loads(out.read_text(encoding="utf-8"))

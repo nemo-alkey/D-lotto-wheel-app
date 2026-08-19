@@ -6,8 +6,12 @@ or any st.error elements.
 """
 
 import os
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from streamlit.testing.v1 import AppTest
 
 pytestmark = pytest.mark.slow
 
@@ -18,7 +22,7 @@ DASHBOARD_PATH = os.path.join(
 
 
 @pytest.fixture(scope="module")
-def app():
+def app() -> "AppTest":
     """Run the dashboard script once via AppTest and return the result."""
     from streamlit.testing.v1 import AppTest
 
@@ -27,23 +31,23 @@ def app():
     return at
 
 
-def test_dashboard_file_exists():
+def test_dashboard_file_exists() -> None:
     assert os.path.isfile(DASHBOARD_PATH), f"dashboard.py not found at {DASHBOARD_PATH}"
 
 
-def test_dashboard_runs_without_exception(app):
+def test_dashboard_runs_without_exception(app: "AppTest") -> None:
     assert not app.exception, "dashboard.py raised an exception during run: " + "; ".join(
         str(e.value) for e in app.exception
     )
 
 
-def test_dashboard_renders_no_error_elements(app):
+def test_dashboard_renders_no_error_elements(app: "AppTest") -> None:
     assert not app.error, "dashboard.py rendered st.error elements: " + "; ".join(
         e.value for e in app.error
     )
 
 
-def test_dashboard_renders_landing_page(app):
+def test_dashboard_renders_landing_page(app: "AppTest") -> None:
     """The default page ('Wheels & Tickets') renders expected chrome."""
     # Main header rendered via st.markdown
     markdown_texts = [m.value for m in app.markdown]

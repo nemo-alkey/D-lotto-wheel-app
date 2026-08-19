@@ -343,7 +343,7 @@ WHEEL_11 = [
 JACKPOT_7_NUMBERS = [9, 11, 12, 14, 38, 39, 40]
 JACKPOT_7 = list(itertools.combinations(JACKPOT_7_NUMBERS, 6))
 
-WHEELS = {
+WHEELS: dict[str, tuple[list[tuple[int, ...]], int]] = {
     "single1": (WHEEL_20_SET1, 3),
     "single2": (WHEEL_20_SET2, 6),
     "double": (WHEEL_88, 3),

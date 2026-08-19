@@ -217,7 +217,7 @@ def generate_abbreviated_wheel(
 
     # --- Greedy set cover ---
     uncovered = set(range(n_triggers))
-    selected_tickets = []
+    selected_tickets: list[tuple[int, ...]] = []
     # Sort descending by coverage size — good heuristic that speeds early iterations
     seen_numbers: set[int] = set()
     ticket_coverage.sort(key=lambda x: len(x[1]), reverse=True)
@@ -303,9 +303,9 @@ def _heuristic_wheel(
 
     # Sample trigger combos to estimate coverage (can't enumerate all)
     # For heuristic, we just pick balanced-looking tickets.
-    selected = set()
+    selected: set[tuple[int, ...]] = set()
     attempts = 0
-    seen_tickets: set = set()
+    seen_tickets: set[tuple[int, ...]] = set()
 
     while len(selected) < max_tickets and attempts < max_tickets * 500:
         attempts += 1

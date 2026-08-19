@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import Response
+from httpx2 import Response
 from pydantic import ValidationError
 
 import api
@@ -205,7 +205,7 @@ def test_docs_page_gets_cdn_friendly_csp(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_draw_create_rejects_duplicate_numbers():
+def test_draw_create_rejects_duplicate_numbers() -> None:
     with pytest.raises(ValidationError):
         api.DrawCreate(
             draw_number=1,
@@ -215,7 +215,7 @@ def test_draw_create_rejects_duplicate_numbers():
         )
 
 
-def test_draw_create_sorts_numbers():
+def test_draw_create_sorts_numbers() -> None:
     draw = api.DrawCreate(
         draw_number=1,
         date="2024-01-01",
@@ -225,7 +225,7 @@ def test_draw_create_sorts_numbers():
     assert draw.main_numbers == [3, 11, 19, 27, 33, 40]
 
 
-def test_draw_create_rejects_future_date():
+def test_draw_create_rejects_future_date() -> None:
     with pytest.raises(ValidationError):
         api.DrawCreate(
             draw_number=1,
@@ -235,17 +235,17 @@ def test_draw_create_rejects_future_date():
         )
 
 
-def test_wheel_request_rejects_html_in_guarantee():
+def test_wheel_request_rejects_html_in_guarantee() -> None:
     with pytest.raises(ValidationError):
         api.WheelRequest(pool_size=10, guarantee_type="<script>alert(1)</script>")
 
 
-def test_backtest_rejects_future_dates():
+def test_backtest_rejects_future_dates() -> None:
     with pytest.raises(ValidationError):
         api.BacktestRequest(start_date="2999-01-01", wheel_type="single1")
 
 
-def test_check_request_strips_and_sanitizes_wheel_name():
+def test_check_request_strips_and_sanitizes_wheel_name() -> None:
     req = api.CheckRequest(wheel="  single1  ", draw=[3, 11, 19, 27, 33, 40], powerball=5)
     assert req.wheel == "single1"
     with pytest.raises(ValidationError):

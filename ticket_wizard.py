@@ -27,7 +27,7 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 
 
-def _step_method():
+def _step_method() -> bool:
     st.markdown("### Step 1: Selection Method")
     method = st.radio(
         "How should numbers be chosen?",
@@ -38,7 +38,7 @@ def _step_method():
     return True  # always valid
 
 
-def _step_numbers():
+def _step_numbers() -> bool:
     st.markdown("### Step 2: Number Picker")
     method = st.session_state["wizard"]["method"]
     numbers = st.session_state["wizard"].get("pool", [])
@@ -90,7 +90,7 @@ def _step_numbers():
     return True
 
 
-def _step_wheel():
+def _step_wheel() -> bool:
     st.markdown("### Step 3: Wheel Selection")
     wheel_type = st.radio(
         "Wheel template",
@@ -117,7 +117,7 @@ def _step_wheel():
     return True
 
 
-def _step_constraints():
+def _step_constraints() -> bool:
     st.markdown("### Step 4: Constraints")
     use_block = st.checkbox("Enforce block analysis", value=True, key="wiz_block")
     use_sum = st.checkbox("Enforce sum range", value=True, key="wiz_sum")
@@ -133,7 +133,7 @@ def _step_constraints():
     return True
 
 
-def _step_powerball():
+def _step_powerball() -> bool:
     st.markdown("### Step 5: Powerball")
     pb_mode = st.radio(
         "Powerball selection",
@@ -151,7 +151,7 @@ def _step_powerball():
     return True
 
 
-def _step_budget():
+def _step_budget() -> bool:
     st.markdown("### Step 6: Budget")
     max_lines = st.number_input(
         "Number of lines (tickets)",
@@ -167,7 +167,7 @@ def _step_budget():
     return True
 
 
-def _step_review():
+def _step_review() -> bool:
     st.markdown("### Step 7: Review & Generate")
     wiz = st.session_state["wizard"]
     pool = wiz.get("pool", [])
@@ -237,7 +237,7 @@ def _step_review():
     return True
 
 
-def _step_output():
+def _step_output() -> bool:
     st.markdown("### Step 8: Output")
     wiz = st.session_state["wizard"]
     tickets = wiz.get("generated_tickets", [])
@@ -303,7 +303,7 @@ STEPS = [
 ]
 
 
-def render_wizard():
+def render_wizard() -> None:
     """Render the full multi‑step wizard inside the current Streamlit page."""
     st.markdown(
         '<h2 class="section-header">🎫 Generate Tickets Wizard</h2>', unsafe_allow_html=True

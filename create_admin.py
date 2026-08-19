@@ -12,7 +12,7 @@ import sys
 from auth import _create_user, _hash_password, _init_users_table
 
 
-def main():
+def main() -> None:
     username = os.environ.get("JWT_ADMIN_USERNAME", "admin")
     password = os.environ.get("JWT_ADMIN_PASSWORD")
 

@@ -323,7 +323,7 @@ def get_notifier_setting(key: str, default: str = "") -> str:
     )
     row = result.fetchone()
     conn.close()
-    return row[0] if row else default
+    return str(row[0]) if row else default
 
 
 def set_notifier_setting(key: str, value: str) -> None:

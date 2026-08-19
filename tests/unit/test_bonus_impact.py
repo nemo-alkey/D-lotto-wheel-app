@@ -14,6 +14,8 @@ imports it lazily inside each function) — no network in tests.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -74,13 +76,13 @@ FLAT_PAYOUTS = {
 
 
 @pytest.fixture
-def mock_payouts():
+def mock_payouts() -> Iterator[None]:
     with patch("prize_calculator.fetch_payouts", return_value=dict(MOCK_PAYOUTS)):
         yield
 
 
 @pytest.fixture
-def flat_payouts():
+def flat_payouts() -> Iterator[None]:
     with patch("prize_calculator.fetch_payouts", return_value=dict(FLAT_PAYOUTS)):
         yield
 
@@ -100,23 +102,25 @@ class TestSimulateBonusEvStructure:
         "avg_prize_without",
     }
 
-    def test_returns_expected_keys(self, mock_payouts, sample_wheel):
+    def test_returns_expected_keys(
+        self, mock_payouts: None, sample_wheel: list[tuple[int, ...]]
+    ) -> None:
         result = backtest.simulate_bonus_ev(sample_wheel, num_sims=500)
         assert set(result) >= self.EXPECTED_KEYS
         assert result["ev_with_bonus"] >= 0.0
         assert result["ev_without_bonus"] >= 0.0
         assert result["upgrade_count"] >= 0
 
-    def test_wheel_accepts_name_string(self, mock_payouts):
+    def test_wheel_accepts_name_string(self, mock_payouts: None) -> None:
         # A wheel name (key in WHEELS) resolves via lotto_wheels.WHEELS.
         result = backtest.simulate_bonus_ev("single1", num_sims=500)
         assert set(result) >= self.EXPECTED_KEYS
 
-    def test_unknown_wheel_name_raises(self, mock_payouts):
+    def test_unknown_wheel_name_raises(self, mock_payouts: None) -> None:
         with pytest.raises(ValueError, match="Unknown wheel"):
             backtest.simulate_bonus_ev("no-such-wheel", num_sims=100)
 
-    def test_empty_wheel_returns_zeros(self, mock_payouts):
+    def test_empty_wheel_returns_zeros(self, mock_payouts: None) -> None:
         result = backtest.simulate_bonus_ev([], num_sims=100)
         assert result == {
             "ev_with_bonus": 0.0,
@@ -134,7 +138,9 @@ class TestSimulateBonusEvStructure:
 
 
 class TestSimulateBonusEvUpgrades:
-    def test_bonus_never_reduces_ev(self, mock_payouts, sample_wheel):
+    def test_bonus_never_reduces_ev(
+        self, mock_payouts: None, sample_wheel: list[tuple[int, ...]]
+    ) -> None:
         # Cell-by-cell the with-bonus prize is >= the without-bonus prize
         # (every bonus-upgraded division pays more), so this inequality is
         # deterministic regardless of the random draws.
@@ -142,7 +148,7 @@ class TestSimulateBonusEvUpgrades:
         assert result["ev_with_bonus"] >= result["ev_without_bonus"]
         assert result["upgrade_count"] >= 0
 
-    def test_upgrades_detected_over_sims(self, mock_payouts):
+    def test_upgrades_detected_over_sims(self, mock_payouts: None) -> None:
         # single1 has 20 tickets; over 5 000 sims the expected number of
         # bonus-upgrade hits is large enough that zero is effectively
         # impossible, so a strict > 0 assertion is safe.
@@ -153,7 +159,9 @@ class TestSimulateBonusEvUpgrades:
         assert result["ev_with_bonus"] > result["ev_without_bonus"]
         assert result["bonus_premium_percent"] > 0.0
 
-    def test_premium_percent_internally_consistent(self, mock_payouts, sample_wheel):
+    def test_premium_percent_internally_consistent(
+        self, mock_payouts: None, sample_wheel: list[tuple[int, ...]]
+    ) -> None:
         result = backtest.simulate_bonus_ev(sample_wheel, num_sims=2_000)
         ev_w = result["ev_with_bonus"]
         ev_wo = result["ev_without_bonus"]
@@ -163,7 +171,9 @@ class TestSimulateBonusEvUpgrades:
         else:
             assert result["bonus_premium_percent"] == 0.0
 
-    def test_without_bonus_path_ignores_bonus(self, flat_payouts, sample_wheel):
+    def test_without_bonus_path_ignores_bonus(
+        self, flat_payouts: None, sample_wheel: list[tuple[int, ...]]
+    ) -> None:
         # "What-if" / standard-lotto mode: ev_without_bonus is always scored
         # with bonus_matched=False.  With FLAT_PAYOUTS the bonus divisions
         # pay the same as their non-bonus counterparts, so both paths must
@@ -177,7 +187,9 @@ class TestSimulateBonusEvUpgrades:
         # (not per-sim), so it is 0.0 whenever no upgrades occurred.
         assert result["avg_prize_with"] == 0.0
 
-    def test_pool_allocation_mode_smoke(self, mock_payouts, sample_wheel):
+    def test_pool_allocation_mode_smoke(
+        self, mock_payouts: None, sample_wheel: list[tuple[int, ...]]
+    ) -> None:
         # use_pool_allocation=True routes prizes through allocate_pool()
         # per simulated draw; keep the sim count tiny (per-sim Python loop).
         result = backtest.simulate_bonus_ev(
@@ -193,7 +205,7 @@ class TestSimulateBonusEvUpgrades:
         assert result["upgrade_count"] >= 0
 
     @pytest.mark.slow
-    def test_premium_positive_with_larger_sample(self, mock_payouts):
+    def test_premium_positive_with_larger_sample(self, mock_payouts: None) -> None:
         result = backtest.simulate_bonus_ev("single1", num_sims=50_000)
         assert result["upgrade_count"] > 0
         assert result["bonus_premium_percent"] > 0.0
@@ -206,18 +218,22 @@ class TestSimulateBonusEvUpgrades:
 
 
 class TestBacktestBonusImpact:
-    def test_no_draws_returns_error(self, mock_payouts):
+    def test_no_draws_returns_error(self, mock_payouts: None) -> None:
         with patch("backtest.load_draws", return_value=[]):
             result = backtest.backtest_bonus_impact("single1")
         assert result == {"error": "No draws found."}
 
-    def test_unknown_wheel_returns_error(self, mock_payouts, sample_draws):
+    def test_unknown_wheel_returns_error(
+        self, mock_payouts: None, sample_draws: list[tuple[list[int], int, int, str]]
+    ) -> None:
         with patch("backtest.load_draws", return_value=sample_draws):
             result = backtest.backtest_bonus_impact("no-such-wheel")
         assert "error" in result
         assert "Unknown wheel" in result["error"]
 
-    def test_tiny_history_returns_structured_result(self, mock_payouts, sample_draws):
+    def test_tiny_history_returns_structured_result(
+        self, mock_payouts: None, sample_draws: list[tuple[list[int], int, int, str]]
+    ) -> None:
         tiny = sample_draws[:5]
         with patch("backtest.load_draws", return_value=tiny):
             result = backtest.backtest_bonus_impact("single1", num_draws=3)
@@ -244,7 +260,9 @@ class TestBacktestBonusImpact:
             assert "->" in key
             assert count > 0
 
-    def test_num_draws_defaults_to_all_and_clamps(self, mock_payouts, sample_draws):
+    def test_num_draws_defaults_to_all_and_clamps(
+        self, mock_payouts: None, sample_draws: list[tuple[list[int], int, int, str]]
+    ) -> None:
         tiny = sample_draws[:5]
         with patch("backtest.load_draws", return_value=tiny):
             default = backtest.backtest_bonus_impact("single1")
@@ -255,7 +273,7 @@ class TestBacktestBonusImpact:
         assert default["total_prize_with_bonus"] == clamped["total_prize_with_bonus"]
 
     @pytest.mark.integration
-    def test_real_single_draw_database(self, mock_payouts, tmp_path):
+    def test_real_single_draw_database(self, mock_payouts: None, tmp_path: Path) -> None:
         # Hermetic single-draw database. The original version of this test
         # ran against the local lotto.db, which is gitignored and whose
         # contents vary per machine (CI seeds 60 synthetic draws), making

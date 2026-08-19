@@ -11,6 +11,7 @@ Integrates with: backtest.py, prize_calculator.py, dashboard.py
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any, cast
 
 # ---------------------------------------------------------------------------
 # Config
@@ -68,7 +69,7 @@ class BonusImpactReport:
     bonus_premium_pct: float  # % of total EV from bonus
     upgrade_breakdown: dict[int, int] = field(default_factory=dict)  # div -> count
     division_distribution: dict[int, int] = field(default_factory=dict)
-    per_draw_impact: list[dict] = field(default_factory=list)
+    per_draw_impact: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -118,8 +119,8 @@ def evaluate_ticket(
     elif div is not None and div_no_bonus is None:
         upgraded = True  # bonus turned a non-win into a win
 
-    prize = prize_lookup.get(div, 0.0) if prize_lookup else 0.0
-    prize_no = prize_lookup.get(div_no_bonus, 0.0) if prize_lookup else 0.0
+    prize = prize_lookup.get(cast(int, div), 0.0) if prize_lookup else 0.0
+    prize_no = prize_lookup.get(cast(int, div_no_bonus), 0.0) if prize_lookup else 0.0
 
     return TicketResult(
         ticket_numbers=ticket,
@@ -170,8 +171,8 @@ def what_if_bonus_override(
             break
 
     div_no_bonus = check_division_without_bonus(main_matches)
-    prize = prize_lookup.get(div, 0.0) if prize_lookup else 0.0
-    prize_no = prize_lookup.get(div_no_bonus, 0.0) if prize_lookup else 0.0
+    prize = prize_lookup.get(cast(int, div), 0.0) if prize_lookup else 0.0
+    prize_no = prize_lookup.get(cast(int, div_no_bonus), 0.0) if prize_lookup else 0.0
 
     upgraded = False
     if div is not None and div_no_bonus is not None:
@@ -254,8 +255,8 @@ def run_bonus_impact_backtest(
             if r.division is not None:
                 report.total_wins += 1
                 draw_wins += 1
-                report.division_distribution[r.division] = (
-                    report.division_distribution.get(r.division, 0) + 1
+                report.division_distribution[cast(int, r.division)] = (
+                    report.division_distribution.get(cast(int, r.division), 0) + 1
                 )
             if r.upgraded_by_bonus:
                 report.wins_upgraded_by_bonus += 1
@@ -354,7 +355,7 @@ def standard_lotto_results(
         elif main_matches == 3:
             std_div = 4
 
-        prize = prize_lookup.get(std_div, 0.0) if prize_lookup else 0.0
+        prize = prize_lookup.get(cast(int, std_div), 0.0) if prize_lookup else 0.0
 
         results.append(
             TicketResult(
@@ -382,7 +383,7 @@ if __name__ == "__main__":
     ]
     draws_main = [[1, 2, 3, 4, 5, 40], [1, 2, 3, 4, 5, 6]]
     draws_bonus = [6, 7]
-    prizes = {1: 1_000_000, 2: 50_000, 3: 5_000, 4: 500, 5: 50, 6: 20, 7: 10}
+    prizes: dict[int, float] = {1: 1_000_000, 2: 50_000, 3: 5_000, 4: 500, 5: 50, 6: 20, 7: 10}
 
     report = run_bonus_impact_backtest(tickets, draws_main, draws_bonus, prizes)
     print(report_to_markdown(report))

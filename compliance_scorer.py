@@ -8,6 +8,9 @@ composite score (0–100).  Higher = better compliance.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 # Buckets for block analysis
 BUCKETS: list[tuple[int, int]] = [(1, 10), (11, 20), (21, 30), (31, 40)]
 
@@ -19,7 +22,7 @@ def _bucket_index(value: int) -> int:
     return -1
 
 
-def _has_adjacent(nums: list[int]) -> bool:
+def _has_adjacent(nums: Sequence[int]) -> bool:
     """Return True if any two numbers differ by 1 or 2."""
     for i in range(len(nums)):
         for j in range(i + 1, len(nums)):
@@ -29,8 +32,8 @@ def _has_adjacent(nums: list[int]) -> bool:
 
 
 def score_wheel(
-    wheel_combinations: list,
-    albert_state: dict,
+    wheel_combinations: Sequence[Sequence[int]],
+    albert_state: dict[str, Any],
 ) -> float:
     """Compute a 0-100 compliance score for a wheel.
 
@@ -115,9 +118,9 @@ def score_wheel(
 
 
 def get_score_breakdown(
-    wheel_combinations: list,
-    albert_state: dict,
-) -> dict:
+    wheel_combinations: Sequence[Sequence[int]],
+    albert_state: dict[str, Any],
+) -> dict[str, Any]:
     """Return a detailed breakdown of each scoring dimension.
 
     Parameters

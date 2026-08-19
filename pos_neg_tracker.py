@@ -363,11 +363,10 @@ if __name__ == "__main__":
                 numbers TEXT, bonus INTEGER, powerball INTEGER
             )
         """)
-        draw: list[int]
-        for i, draw in enumerate(phase1 + phase2, start=1):
+        for i, draw_row in enumerate(phase1 + phase2, start=1):
             conn.execute(
                 "INSERT INTO draws VALUES (?, ?, ?, 1, 1)",
-                (i, f"2024-01-{i:02d}", ",".join(map(str, draw))),
+                (i, f"2024-01-{i:02d}", ",".join(map(str, draw_row))),
             )
         conn.commit()
         conn.close()

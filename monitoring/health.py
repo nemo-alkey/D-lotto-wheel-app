@@ -26,7 +26,7 @@ from typing import Any
 try:
     import psutil as psutil  # explicit re-export for monitoring.metrics
 except ImportError:  # pragma: no cover - psutil is a pinned dependency
-    psutil = None  # type: ignore[assignment]
+    psutil = None
 
 # Thresholds
 DISK_WARN_FREE_RATIO = 0.10  # warn if < 10% free

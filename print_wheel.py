@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lotto_wheels import WHEELS
 
 
-def build_pdf(wheel_name: str, output_path: str):
+def build_pdf(wheel_name: str, output_path: str) -> None:
     """Generate an A4 PDF playslip for *wheel_name* and save to *output_path*."""
     if wheel_name not in WHEELS:
         print(f"Unknown wheel: '{wheel_name}'")
@@ -116,7 +116,7 @@ def build_pdf(wheel_name: str, output_path: str):
     print(f"PDF saved to {output_path}")
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python print_wheel.py <wheel_name> [output.pdf]")
         print(f"  wheel_name: {', '.join(WHEELS)}")

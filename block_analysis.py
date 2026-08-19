@@ -12,6 +12,7 @@ Buckets: (1-10), (11-20), (21-30), (31-40).
 from __future__ import annotations
 
 from collections import Counter
+from typing import Any
 
 BUCKETS: list[tuple[int, int]] = [(1, 10), (11, 20), (21, 30), (31, 40)]
 
@@ -30,7 +31,9 @@ def _bucket_label(idx: int) -> str:
     return f"{lo}-{hi}"
 
 
-def compute_block_ranges(draws: list, window_draws: int = 30) -> dict:
+def compute_block_ranges(
+    draws: list[tuple[list[int], int, int, str]], window_draws: int = 30
+) -> dict[str, dict[str, Any]]:
     """Compute positional block statistics from historical draws.
 
     For each position (1st to 6th, sorted ascending), computes which bucket
@@ -61,7 +64,7 @@ def compute_block_ranges(draws: list, window_draws: int = 30) -> dict:
     n = len(recent)
 
     # Accumulate: positions[slot][bucket] = count
-    positions: list[Counter] = [Counter() for _ in range(6)]
+    positions: list[Counter[int]] = [Counter() for _ in range(6)]
 
     for nums, _, _, _ in recent:
         sorted_nums = sorted(nums)
@@ -71,7 +74,7 @@ def compute_block_ranges(draws: list, window_draws: int = 30) -> dict:
             if b_idx >= 0:
                 positions[slot][b_idx] += 1
 
-    result: dict = {}
+    result: dict[str, dict[str, Any]] = {}
     for slot in range(6):
         total = sum(positions[slot].values())
         if total == 0:
@@ -97,7 +100,7 @@ def compute_block_ranges(draws: list, window_draws: int = 30) -> dict:
 
 def validate_positional_ranges(
     ticket: list[int],
-    block_ranges: dict,
+    block_ranges: dict[str, dict[str, Any]],
     min_positions: int = 4,
 ) -> bool:
     """Check whether a ticket satisfies positional block expectations.
@@ -135,7 +138,9 @@ def validate_positional_ranges(
     return matches >= min_positions
 
 
-def build_position_heatmap_data(draws: list, window_draws: int = 30) -> tuple[list, list, list]:
+def build_position_heatmap_data(
+    draws: list[tuple[list[int], int, int, str]], window_draws: int = 30
+) -> tuple[list[Any], list[Any], list[Any]]:
     """Build data for a positional block heatmap.
 
     Returns (z_data, x_labels, y_labels) suitable for plotly heatmap.

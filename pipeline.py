@@ -8,6 +8,7 @@
 
 import logging  # Standard logging module
 import os  # OS utilities used for environment setup
+from collections.abc import Callable  # For callable step signatures
 from typing import Any  # Type hinting for better clarity and error checking
 
 # Constants defining the lottery structure
@@ -27,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def get_dynamic_params(num_draws: int) -> tuple[int, int]:
+def get_dynamic_params(num_draws: int) -> tuple[int | None, int]:
     """
     Dynamic parameter helper.
 
@@ -98,16 +99,19 @@ class DataPipeline:
         logging.info("Pipeline cleared.")
 
 
-def source_from_db() -> dict:
+def source_from_db() -> dict[str, Any]:
     """Load all draws from the database into ``past_results``."""
     from database import fetch_all_draws
 
     return {"past_results": fetch_all_draws()}
 
 
-def run_pipeline(steps: list, initial_state: dict | None = None) -> dict:
+def run_pipeline(
+    steps: list[Callable[[dict[str, Any]], dict[str, Any]]],
+    initial_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Run a list of step functions in order, threading state through each."""
-    state: dict = initial_state or {}
+    state: dict[str, Any] = initial_state or {}
     for step in steps:
         state = step(state)
     return state

@@ -23,6 +23,8 @@ import json
 import os
 from typing import Any, cast
 
+from prometheus_client.core import Metric
+
 try:
     import requests
 except ImportError:  # pragma: no cover - requests is a pinned dependency
@@ -62,7 +64,7 @@ DISK_FULL_USED_RATIO = 0.90
 # ---------------------------------------------------------------------------
 
 
-def _counter_value(metric_family, labels: dict[str, str]) -> float:
+def _counter_value(metric_family: Metric, labels: dict[str, str]) -> float:
     """Sum counter samples matching all given labels."""
     total = 0.0
     for sample in metric_family.samples:
@@ -178,7 +180,7 @@ def evaluate_rules() -> list[dict[str, Any]]:
 def _load_state() -> dict[str, bool]:
     try:
         with open(_STATE_FILE, encoding="utf-8") as fh:
-            return json.load(fh)
+            return cast(dict[str, bool], json.load(fh))
     except Exception:
         return {}
 
