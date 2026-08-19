@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx2 import Response
+from httpx import Response
 from pydantic import ValidationError
 
 import api
