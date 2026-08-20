@@ -30,7 +30,14 @@ EXCLUDE_DIRS = {
     "Include",
     "share",
 }
-EXCLUDE_STARTS = {"data/raw", "data/processed", "data/races", "logs", "results", "models"}
+EXCLUDE_STARTS = {
+    "data/raw",
+    "data/processed",
+    "data/races",
+    "logs",
+    "results",
+    "models",
+}
 
 PROTECTED = {
     "README.md",
@@ -117,7 +124,9 @@ def scan_project(root: Path) -> list[tuple[Path, str, str]]:
             continue
 
         # Protected
-        if file.name in PROTECTED or file.name.lower() in {n.lower() for n in PROTECTED}:
+        if file.name in PROTECTED or file.name.lower() in {
+            n.lower() for n in PROTECTED
+        }:
             continue
 
         # Special: data/*.csv with actual data
@@ -127,7 +136,8 @@ def scan_project(root: Path) -> list[tuple[Path, str, str]]:
         if is_blank(file):
             action = (
                 "DELETE"
-                if file.stat().st_size == 0 or file.read_text(encoding="utf-8-sig").strip() == ""
+                if file.stat().st_size == 0
+                or file.read_text(encoding="utf-8-sig").strip() == ""
                 else "FLAG"
             )
             findings.append((file, "blank (empty file)", action))
@@ -199,7 +209,9 @@ ROOT = Path(__file__).resolve().parent
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Cleanup blank/placeholder files")
-    parser.add_argument("--dry-run", action="store_true", help="Report only, no deletion")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Report only, no deletion"
+    )
     parser.add_argument("--delete", action="store_true", help="Delete eligible files")
     args = parser.parse_args()
 

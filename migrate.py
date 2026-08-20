@@ -76,7 +76,9 @@ def check_schema_version() -> tuple[str | None, str | None]:
     try:
         with engine.connect() as conn:
             try:
-                row = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                row = conn.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).fetchone()
             except Exception:
                 row = None  # table missing — DB never migrated
         current = row[0] if row else None
@@ -114,7 +116,9 @@ def main() -> None:
     sub.add_parser("current", help="Show current schema version")
     sub.add_parser("history", help="Show migration history")
 
-    p_stamp = sub.add_parser("stamp", help="Stamp DB as at a revision without migrating")
+    p_stamp = sub.add_parser(
+        "stamp", help="Stamp DB as at a revision without migrating"
+    )
     p_stamp.add_argument("revision", nargs="?", default="head")
 
     sub.add_parser("check", help="Warn if the DB schema is behind the latest migration")

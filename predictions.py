@@ -17,7 +17,7 @@ import math
 import random
 from collections import Counter
 from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING, Any, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Any, TypeAlias, TypedDict, cast
 
 if TYPE_CHECKING:
     import sqlite3
@@ -75,7 +75,8 @@ def bayesian(draws: list[Draw], alpha: float = 1.0) -> Prediction:
     total_pb = sum(pb_counts.values())
 
     main_posterior = {
-        n: (main_counts.get(n, 0) + alpha) / (total_main + 40 * alpha) for n in range(1, 41)
+        n: (main_counts.get(n, 0) + alpha) / (total_main + 40 * alpha)
+        for n in range(1, 41)
     }
     pb_posterior = {
         p: (pb_counts.get(p, 0) + alpha) / (total_pb + 10 * alpha) for p in range(1, 11)
@@ -294,7 +295,9 @@ def pattern(draws: list[Draw]) -> Prediction:
     for nums, _, _, _ in recent:
         recent_set.update(nums)
 
-    def pick_from_pool(pool: list[int], count: int, prefer_recent: bool = True) -> list[int]:
+    def pick_from_pool(
+        pool: list[int], count: int, prefer_recent: bool = True
+    ) -> list[int]:
         if count <= 0:
             return []
         if prefer_recent:
@@ -353,7 +356,9 @@ def pattern(draws: list[Draw]) -> Prediction:
         chosen = rng.choice(candidates)
     else:
         # Fallback: just pick any numbers matching odd/even and low/high
-        chosen = pick_from_pool(odd_nums, target_odd) + pick_from_pool(even_nums, target_even)
+        chosen = pick_from_pool(odd_nums, target_odd) + pick_from_pool(
+            even_nums, target_even
+        )
 
     # PB: most common in recent draws
     top_pb = pb_occurrences.most_common(1)[0][0]
@@ -455,7 +460,9 @@ class BonusBayesian:
         return ranked[:k]
 
 
-def bonus_gap_prediction(conn: sqlite3.Connection, k: int = 5) -> list[tuple[int, float]]:
+def bonus_gap_prediction(
+    conn: sqlite3.Connection, k: int = 5
+) -> list[tuple[int, float]]:
     """Predict top-k "due" bonus numbers using combined gap + frequency z-scores.
 
     For each bonus ball (1-40):
@@ -478,7 +485,9 @@ def bonus_gap_prediction(conn: sqlite3.Connection, k: int = 5) -> list[tuple[int
     list[tuple[int, float]]
         Sorted ascending by combined score: [(bonus_number, score), ...]
     """
-    rows = conn.execute("SELECT bonus, draw_id FROM draws ORDER BY draw_id ASC").fetchall()
+    rows = conn.execute(
+        "SELECT bonus, draw_id FROM draws ORDER BY draw_id ASC"
+    ).fetchall()
     max_id = conn.execute("SELECT MAX(draw_id) FROM draws").fetchone()[0] or 0
 
     counts: Counter[int] = Counter()
@@ -599,7 +608,11 @@ class HierarchicalBonusPredictor:
             return []
         ranked = sorted(self.posterior_mean.items(), key=lambda x: x[1], reverse=True)
         return [
-            (n, round(self.posterior_mean[n], 6), round(self.posterior_std.get(n, 0), 6))
+            (
+                n,
+                round(self.posterior_mean[n], 6),
+                round(self.posterior_std.get(n, 0), 6),
+            )
             for n, _ in ranked[:k]
         ]
 
@@ -639,9 +652,9 @@ class XGBoostPredictor:
             "cold_streak",
             "rolling_avg_10",
         ]
-        self.shap_values = None
-        self._explainer = None  # cached SHAP TreeExplainer
-        self._explainer_X = None  # background data used for explainer
+        self.shap_values: dict[str, Any] | None = None
+        self._explainer: Any = None  # cached SHAP TreeExplainer
+        self._explainer_X: Any = None  # background data used for explainer
 
     def _build_features(self, draws_slice: list[Draw]) -> tuple[np.ndarray, np.ndarray]:
         """Build feature matrix X and target y from a slice of draws."""
@@ -670,8 +683,16 @@ class XGBoostPredictor:
             for num in range(1, 41):
                 # Frequencies over windows
                 freq1 = sum(1 for s in past_sets[-1:] if num in s)
-                freq3 = sum(1 for s in past_sets[-3:] if num in s) if len(past_sets) >= 3 else 0
-                freq5 = sum(1 for s in past_sets[-5:] if num in s) if len(past_sets) >= 5 else 0
+                freq3 = (
+                    sum(1 for s in past_sets[-3:] if num in s)
+                    if len(past_sets) >= 3
+                    else 0
+                )
+                freq5 = (
+                    sum(1 for s in past_sets[-5:] if num in s)
+                    if len(past_sets) >= 5
+                    else 0
+                )
 
                 # Recency (days since last appearance)
                 last_idx = None
@@ -791,7 +812,9 @@ class XGBoostPredictor:
                     streak += 1
                 else:
                     break
-            avg10 = sum(1 for s in draw_sets[-10:] if num in s) / min(10, len(draw_sets))
+            avg10 = sum(1 for s in draw_sets[-10:] if num in s) / min(
+                10, len(draw_sets)
+            )
 
             feats = np.array(
                 [[freq1, freq3, freq5, recency, streak, avg10, num / 40.0]], dtype=float
@@ -843,7 +866,9 @@ class XGBoostPredictor:
             self.shap_values = {
                 "values": shap_vals.tolist(),
                 "features": all_features,
-                "mean_abs": [float(abs(shap_vals[:, i]).mean()) for i in range(len(all_features))],
+                "mean_abs": [
+                    float(abs(shap_vals[:, i]).mean()) for i in range(len(all_features))
+                ],
             }
             return self.shap_values
         except ImportError:
@@ -921,7 +946,9 @@ class XGBoostPredictor:
         for j in range(len(draw_sets) - 1, -1, -1):
             if number in draw_sets[j]:
                 try:
-                    d_last = datetime.strptime(draw_dates[min(j, len(draw_dates) - 1)], "%Y-%m-%d")
+                    d_last = datetime.strptime(
+                        draw_dates[min(j, len(draw_dates) - 1)], "%Y-%m-%d"
+                    )
                     d_cur = datetime.strptime(draw_dates[-1], "%Y-%m-%d")
                     recency = (d_cur - d_last).days
                 except Exception:
@@ -960,14 +987,16 @@ class XGBoostPredictor:
         # shap.plots.force with matplotlib=False returns an object;
         # extract the HTML string via its _repr_html_() or html() method.
         if hasattr(force_vis, "html"):
-            return force_vis.html()
+            return cast(str, force_vis.html())
         elif hasattr(force_vis, "_repr_html_"):
-            return force_vis._repr_html_()
+            return cast(str, force_vis._repr_html_())
         else:
             # Fallback: wrap in a simple HTML container
             return f"<div>{force_vis}</div>"
 
-    def save_shap_summary_plot(self, save_path: str = "data/plots/shap_summary.png") -> str | None:
+    def save_shap_summary_plot(
+        self, save_path: str = "data/plots/shap_summary.png"
+    ) -> str | None:
         """Generate a SHAP summary plot (global feature importance) as PNG.
 
         Renders shap.summary_plot (beeswarm, matplotlib backend) over the

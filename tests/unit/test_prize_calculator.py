@@ -105,7 +105,9 @@ class TestResolveDivisionsLottoOnly:
             (3, False, 7),
         ],
     )
-    def test_lotto_only_mapping(self, main: int, bonus: bool, expected_lotto_div: int) -> None:
+    def test_lotto_only_mapping(
+        self, main: int, bonus: bool, expected_lotto_div: int
+    ) -> None:
         lotto_div, pb_div = pc.resolve_divisions(main, bonus, False)
         assert lotto_div == expected_lotto_div
         assert pb_div is None
@@ -137,10 +139,18 @@ class TestGetPrizeForMatches:
         ],
     )
     def test_all_seven_powerball_divisions_pay_lotto_plus_pb(
-        self, mock_payouts: MagicMock, main: int, bonus: bool, pb: bool, expected_div: int
+        self,
+        mock_payouts: MagicMock,
+        main: int,
+        bonus: bool,
+        pb: bool,
+        expected_div: int,
     ) -> None:
         info = pc.get_prize_for_matches(main, bonus, pb)
-        expected = MOCK_PAYOUTS["lotto"][expected_div] + MOCK_PAYOUTS["powerball"][expected_div]
+        expected = (
+            MOCK_PAYOUTS["lotto"][expected_div]
+            + MOCK_PAYOUTS["powerball"][expected_div]
+        )
         assert info["main_division"] == expected_div
         assert info["pb_division"] == expected_div
         assert info["main_prize"] == MOCK_PAYOUTS["lotto"][expected_div]
@@ -151,7 +161,9 @@ class TestGetPrizeForMatches:
         assert info["draw_date"] == "2024-01-01"
 
     @pytest.mark.parametrize("main", [0, 1, 2])
-    def test_fewer_than_3_mains_pays_zero(self, mock_payouts: MagicMock, main: int) -> None:
+    def test_fewer_than_3_mains_pays_zero(
+        self, mock_payouts: MagicMock, main: int
+    ) -> None:
         info = pc.get_prize_for_matches(main, True, True)
         assert info["total_prize"] == 0.0
         assert info["main_prize"] == 0.0
@@ -289,7 +301,9 @@ class TestAllocatePool:
         )
         assert result["div7_fixed_total"] == pytest.approx(10 * pc.DIV7_PB_PRIZE)
         assert result["per_winner"][7] == pc.DIV7_PB_PRIZE
-        assert result["remaining_pool"] == pytest.approx(1_000_000.0 - 10 * pc.DIV7_PB_PRIZE)
+        assert result["remaining_pool"] == pytest.approx(
+            1_000_000.0 - 10 * pc.DIV7_PB_PRIZE
+        )
 
     def test_single_winning_division_collects_whole_remaining_pool(self) -> None:
         # Reserve 25%, 100 Div 7 winners, then only Div 3 has winners —
@@ -346,11 +360,15 @@ class TestCalculateLottoOnlyPrize:
             (3, False, 7),
         ],
     )
-    def test_lotto_only_divisions(self, main: int, bonus: bool, expected_div: int) -> None:
+    def test_lotto_only_divisions(
+        self, main: int, bonus: bool, expected_div: int
+    ) -> None:
         pool = 215_000.0
         info = pc.calculate_lotto_only_prize(main, bonus, pool_amount=pool)
         assert info["division"] == expected_div
-        expected_prize = round(pool * pc.LOTTO_POOL_PERCENTAGES[expected_div] / 100.0, 2)
+        expected_prize = round(
+            pool * pc.LOTTO_POOL_PERCENTAGES[expected_div] / 100.0, 2
+        )
         assert info["prize"] == pytest.approx(expected_prize)
 
     def test_lotto_only_no_win_under_3_matches(self) -> None:

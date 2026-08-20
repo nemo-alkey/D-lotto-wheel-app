@@ -128,7 +128,9 @@ class HealthCollector:
             ok.add_metric([name], 1.0 if result == "ok" else 0.0)
         yield ok
 
-        age = GaugeMetricFamily("last_draw_age_hours", "Hours since the most recent draw.")
+        age = GaugeMetricFamily(
+            "last_draw_age_hours", "Hours since the most recent draw."
+        )
         age_value = _health.last_draw_age_hours(self._db_path)
         age.add_metric([], age_value if age_value is not None else -1.0)
         yield age

@@ -43,7 +43,9 @@ def load_stored_tickets() -> list[Any]:
 def save_tickets(tickets: list[Any]) -> None:
     """Save a ticket list to the store."""
     with open(TICKET_STORE, "w", encoding="utf-8") as f:
-        json.dump({"tickets": tickets, "saved_at": datetime.now().isoformat()}, f, indent=2)
+        json.dump(
+            {"tickets": tickets, "saved_at": datetime.now().isoformat()}, f, indent=2
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +187,10 @@ def check_job() -> None:
 
     with open(CHECK_LOG, "a", encoding="utf-8") as f:
         f.write(result_line + "\n")
-    log_alert(f"Check complete: {len(winners)} winner(s) out of {len(tickets)} tickets.", "INFO")
+    log_alert(
+        f"Check complete: {len(winners)} winner(s) out of {len(tickets)} tickets.",
+        "INFO",
+    )
 
     # --- Build structured results summary for notify_draw_results ---
     if winners:
@@ -231,7 +236,9 @@ def check_job() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lotto Alert Scheduler")
-    parser.add_argument("--daemon", action="store_true", help="Run as background scheduler")
+    parser.add_argument(
+        "--daemon", action="store_true", help="Run as background scheduler"
+    )
     args = parser.parse_args()
 
     if args.daemon:
@@ -241,7 +248,12 @@ def main() -> None:
             scheduler = BackgroundScheduler()
             # Thursday 8am and Sunday 8am
             scheduler.add_job(
-                check_job, "cron", day_of_week="thu,sun", hour=8, minute=0, id="lotto_check"
+                check_job,
+                "cron",
+                day_of_week="thu,sun",
+                hour=8,
+                minute=0,
+                id="lotto_check",
             )
             scheduler.start()
             print("Scheduler started. Checks run Thu/Sun at 8am. Press Ctrl+C to stop.")

@@ -104,7 +104,8 @@ def load_draws(
 
 
 def bayesian_posterior(
-    draws: Sequence[tuple[list[int] | tuple[int, ...], Any, int, str]], alpha: float = ALPHA
+    draws: Sequence[tuple[list[int] | tuple[int, ...], Any, int, str]],
+    alpha: float = ALPHA,
 ) -> dict[int, float]:
     """Dirichlet-Multinomial posterior P(number) for 1-40.
 
@@ -145,9 +146,7 @@ def bonus_bayesian_predictor(
     if not bonus_balls:
         return []
 
-    model: Any = BonusBayesian(  # type: ignore[no-untyped-call]  # predictions.py is untyped
-        bonus_balls, alpha=1.0
-    )
+    model: Any = BonusBayesian(bonus_balls, alpha=1.0)
     return cast(list[tuple[int, float]], model.predict_top_k(k))
 
 

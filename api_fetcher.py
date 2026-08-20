@@ -80,7 +80,10 @@ def fetch_apiverve_lottery(
 
             # Extract fields
             draw_date = (
-                result.get("drawDate") or result.get("draw_date") or result.get("date") or ""
+                result.get("drawDate")
+                or result.get("draw_date")
+                or result.get("date")
+                or ""
             )
             numbers_raw = (
                 result.get("numbers")
@@ -93,7 +96,11 @@ def fetch_apiverve_lottery(
 
             # Normalise numbers to list of ints
             if isinstance(numbers_raw, str):
-                numbers = [int(x.strip()) for x in numbers_raw.split(",") if x.strip().isdigit()]
+                numbers = [
+                    int(x.strip())
+                    for x in numbers_raw.split(",")
+                    if x.strip().isdigit()
+                ]
             elif isinstance(numbers_raw, list):
                 numbers = [int(n) for n in numbers_raw]
             else:
@@ -138,7 +145,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Fetch lottery results via APIVerve.")
     parser.add_argument("--lottery", default="powerball", help="Lottery name")
-    parser.add_argument("--api-key", default=None, help="API key (or set APIVERVE_API_KEY env var)")
+    parser.add_argument(
+        "--api-key", default=None, help="API key (or set APIVERVE_API_KEY env var)"
+    )
     args = parser.parse_args()
 
     print(f"Fetching {args.lottery} from APIVerve...")

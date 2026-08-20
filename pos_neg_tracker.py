@@ -272,7 +272,8 @@ def run_rebalance_check(
             return None
         latest_draw_id = rows[0][0]
         draws = [
-            [int(x) for x in str(numbers).replace(",", " ").split()] for _draw_id, numbers in rows
+            [int(x) for x in str(numbers).replace(",", " ").split()]
+            for _draw_id, numbers in rows
         ]
         prev_row = conn.execute(
             "SELECT classification_json FROM pos_neg_history ORDER BY id DESC LIMIT 1"
@@ -327,8 +328,12 @@ if __name__ == "__main__":
     print("Phase 1 (1-13 hot):")
     print(f"  positive: {cls_prev['positive']}")
     print(f"  negative: {cls_prev['negative']}")
-    assert set(range(1, 14)).issubset(set(cls_prev["positive"]) | set(cls_prev["neutral"]))
-    assert not set(range(28, 41)) & set(cls_prev["positive"]), "cold numbers should not be Positive"
+    assert set(range(1, 14)).issubset(
+        set(cls_prev["positive"]) | set(cls_prev["neutral"])
+    )
+    assert not set(range(28, 41)) & set(
+        cls_prev["positive"]
+    ), "cold numbers should not be Positive"
 
     # --- Phase 2: polarity reverses — 28-40 become hot, 1-13 cold ---
     phase2: list[list[int]] = []
@@ -393,7 +398,9 @@ if __name__ == "__main__":
         ).fetchone()
         conn.close()
         assert n_rows >= 2 and last[0] >= 3 and last[1]
-        print(f"pos_neg_history persisted {n_rows} snapshots; latest shift count {last[0]}.")
+        print(
+            f"pos_neg_history persisted {n_rows} snapshots; latest shift count {last[0]}."
+        )
 
     # --- Timeline ---
     # Per-draw steps are gradual (a sliding window swaps one draw at a
@@ -403,14 +410,19 @@ if __name__ == "__main__":
     random.seed(5)
     flip: list[list[int]] = []
     for _ in range(10):
-        flip.append(sorted(random.sample(range(1, 14), 3) + random.sample(range(14, 28), 3)))
+        flip.append(
+            sorted(random.sample(range(1, 14), 3) + random.sample(range(14, 28), 3))
+        )
     for _ in range(10):
-        flip.append(sorted(random.sample(range(28, 41), 3) + random.sample(range(14, 28), 3)))
+        flip.append(
+            sorted(random.sample(range(28, 41), 3) + random.sample(range(14, 28), 3))
+        )
 
     timeline = shift_timeline(flip, window=5)
     peak = max(t["shift_count"] for t in timeline)
     print(
-        f"\nTimeline: {len(timeline)} points, peak shift count {peak} " f"around the polarity flip."
+        f"\nTimeline: {len(timeline)} points, peak shift count {peak} "
+        f"around the polarity flip."
     )
     assert peak >= 3, "a sharp polarity flip must show up in the timeline"
 

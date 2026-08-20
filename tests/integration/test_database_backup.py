@@ -111,7 +111,9 @@ def test_restore_from_gzipped(source_db: Path, backup_dir: Path) -> None:
     assert dbk._table_row_counts(target) == {"draws": 10}
 
 
-def test_restore_rejects_invalid_file(source_db: Path, backup_dir: Path, tmp_path: Path) -> None:
+def test_restore_rejects_invalid_file(
+    source_db: Path, backup_dir: Path, tmp_path: Path
+) -> None:
     bogus = tmp_path / "bogus.db"
     bogus.write_text("not a database")
     assert dbk.restore_backup(bogus, source_db) is False

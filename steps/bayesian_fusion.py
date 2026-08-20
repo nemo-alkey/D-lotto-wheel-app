@@ -22,7 +22,9 @@ logging.basicConfig(  # Configure logging format and verbosity
 )
 
 # Chi-square critical for df=39, alpha=0.05
-_CHI2_CRIT_DF39_0P05 = 55.758  # Threshold to decide if observed bias differs from uniform
+_CHI2_CRIT_DF39_0P05 = (
+    55.758  # Threshold to decide if observed bias differs from uniform
+)
 
 # Constants
 NUM_MAIN = 40  # Main number count (1–40)
@@ -57,9 +59,13 @@ def _estimate_mechanics_dirichlet_from_history(
 
     mechanics = (counts + alpha) / denom  # Dirichlet posterior mean estimate
 
-    expected = total_counts / NUM_MAIN if total_counts > 0 else 1.0  # Expected count under uniform
+    expected = (
+        total_counts / NUM_MAIN if total_counts > 0 else 1.0
+    )  # Expected count under uniform
     with np.errstate(divide="ignore", invalid="ignore"):  # Suppress divide warnings
-        chi2 = np.nansum(((counts - expected) ** 2) / (expected + 1e-12))  # Chi-square statistic
+        chi2 = np.nansum(
+            ((counts - expected) ** 2) / (expected + 1e-12)
+        )  # Chi-square statistic
 
     return (
         mechanics,
@@ -82,7 +88,9 @@ def bayesian_fusion_with_mechanics(
     Powerball: uniform mechanics (or optionally separate mechanics in the future).
     """
     # --- Retrieve pipeline data ---
-    freq = pipeline.get_data("number_frequency_combined")  # Get historical frequency probabilities
+    freq = pipeline.get_data(
+        "number_frequency_combined"
+    )  # Get historical frequency probabilities
     if freq is None or len(freq) != TOTAL_NUMBERS:  # Validate shape
         logging.warning("Frequency missing/invalid; using uniform.")
         freq = np.ones(TOTAL_NUMBERS) / TOTAL_NUMBERS
@@ -111,7 +119,9 @@ def bayesian_fusion_with_mechanics(
 
     if use_mechanics_if_significant:  # Only apply mechanics if statistically meaningful
         if total_obs == 0 or chi2_stat < chi2_threshold:
-            mechanics_used = np.ones(NUM_MAIN) / NUM_MAIN  # Collapse to uniform if weak signal
+            mechanics_used = (
+                np.ones(NUM_MAIN) / NUM_MAIN
+            )  # Collapse to uniform if weak signal
             mechanics_is_uniform = True
             if verbose:
                 logging.info(
@@ -157,7 +167,9 @@ def bayesian_fusion_with_mechanics(
     if total > 0:
         posterior /= total  # Convert to probability distribution
     else:
-        logging.warning("Posterior sum is zero after fusion. Falling back to uniform distribution.")
+        logging.warning(
+            "Posterior sum is zero after fusion. Falling back to uniform distribution."
+        )
         posterior = np.ones(TOTAL_NUMBERS) / TOTAL_NUMBERS
 
     # Max-normalize for DL features

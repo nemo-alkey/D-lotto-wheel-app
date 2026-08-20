@@ -56,7 +56,9 @@ class TestValidGeneration:
 
 class TestInputHandling:
     def test_duplicate_numbers_are_deduplicated(self) -> None:
-        tickets, desc = generate_abbreviated_wheel([8, 3, 5, 3, 1, 8, 2, 4, 6, 7, 5], "4 if 4")
+        tickets, desc = generate_abbreviated_wheel(
+            [8, 3, 5, 3, 1, 8, 2, 4, 6, 7, 5], "4 if 4"
+        )
         # Effective pool is sorted(set(...)) == [1..8]
         assert tickets
         assert "8" in desc  # pool size 8 in description
@@ -100,7 +102,9 @@ class TestSumRangeFilter:
 class TestExcludeNumbers:
     def test_exclude_numbers_strips_pool(self) -> None:
         pool = list(range(1, 11))
-        tickets, desc = generate_abbreviated_wheel(pool, "4 if 4", exclude_numbers=[1, 2])
+        tickets, desc = generate_abbreviated_wheel(
+            pool, "4 if 4", exclude_numbers=[1, 2]
+        )
         assert tickets
         for ticket in tickets:
             assert 1 not in ticket

@@ -16,14 +16,18 @@ import numpy.typing as npt  # NumPy type aliases for annotations
 from pipeline import DataPipeline  # Pipeline type for step signatures
 
 # Configure logging format and default level
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 NUM_MAIN = 40  # Total possible main numbers
 NUM_POWERBALL = 10  # Total possible Powerball numbers
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Combined vector length (50)
 NUM_PICK = 6  # Number of main numbers drawn per ticket line
 CLUSTER_MULTIPLIER = 1.2  # Base weight applied to clustering influence
-MIN_PROBABILITY = 1e-8  # Ensures probabilities never become zero (avoids dead categories)
+MIN_PROBABILITY = (
+    1e-8  # Ensures probabilities never become zero (avoids dead categories)
+)
 ENABLE_RANDOM_SEED = True
 RANDOM_SEED = 42  # Fixed seed for reproducibility if enabled
 
@@ -52,7 +56,9 @@ def adjust_probabilities(
     centroids = np.asarray(centroids, dtype=np.float64)  # Cluster centroid strengths
     clusters = np.asarray(clusters, dtype=np.int64)  # Cluster assignment per number
 
-    weights = CLUSTER_MULTIPLIER + centroids[clusters]  # Compute cluster-based weight per number
+    weights = (
+        CLUSTER_MULTIPLIER + centroids[clusters]
+    )  # Compute cluster-based weight per number
     out = fusion_probs * weights  # Apply weight to fusion probabilities
 
     out = np.clip(out, MIN_PROBABILITY, None)  # Prevent zeros
@@ -68,7 +74,9 @@ def run_main_simulations(numbers_prob: npt.ArrayLike, mc_sims: int) -> npt.NDArr
     numbers_prob = np.asarray(numbers_prob, dtype=float)  # Ensure float probabilities
     numbers = np.arange(1, NUM_MAIN + 1)  # Possible numbers 1..40
 
-    picks_matrix = np.empty((mc_sims, NUM_PICK), dtype=int)  # Storage for all simulations
+    picks_matrix = np.empty(
+        (mc_sims, NUM_PICK), dtype=int
+    )  # Storage for all simulations
     for i in range(mc_sims):  # Repeat simulation mc_sims times
         picks_matrix[i] = np.random.choice(  # Random draw
             numbers,
@@ -79,7 +87,9 @@ def run_main_simulations(numbers_prob: npt.ArrayLike, mc_sims: int) -> npt.NDArr
     return picks_matrix.flatten()  # Flatten for frequency counting
 
 
-def run_powerball_simulations(power_prob: npt.ArrayLike, mc_sims: int) -> npt.NDArray[Any]:
+def run_powerball_simulations(
+    power_prob: npt.ArrayLike, mc_sims: int
+) -> npt.NDArray[Any]:
     """Monte Carlo draws of 1 Powerball per simulation."""
     power_prob = np.asarray(power_prob, dtype=float)  # Ensure float probabilities
     numbers = np.arange(1, NUM_POWERBALL + 1)  # Possible PB numbers 1..10
@@ -92,7 +102,9 @@ def run_powerball_simulations(power_prob: npt.ArrayLike, mc_sims: int) -> npt.ND
     return picks  # Return drawn PB numbers
 
 
-def calculate_distribution(picks_array: npt.ArrayLike, num_total: int) -> npt.NDArray[np.float64]:
+def calculate_distribution(
+    picks_array: npt.ArrayLike, num_total: int
+) -> npt.NDArray[np.float64]:
     """
     Convert simulated picks into a probability distribution.
     """
@@ -123,7 +135,9 @@ def monte_carlo_simulation(pipeline: DataPipeline) -> None:
     num_draws = len(historical_data)  # Count historical draws
     mc_sims = compute_mc_sims(num_draws)  # Determine simulation count
 
-    fusion_50 = pipeline.get_data("bayesian_fusion")  # Base probabilities from fusion stage
+    fusion_50 = pipeline.get_data(
+        "bayesian_fusion"
+    )  # Base probabilities from fusion stage
     clusters = pipeline.get_data("clusters")  # Cluster assignments
     centroids = pipeline.get_data("centroids")  # Cluster centroid strengths
 

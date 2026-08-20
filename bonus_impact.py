@@ -283,9 +283,13 @@ def run_bonus_impact_backtest(
             }
         )
 
-    report.bonus_premium_value = report.total_prize_with_bonus - report.total_prize_without_bonus
+    report.bonus_premium_value = (
+        report.total_prize_with_bonus - report.total_prize_without_bonus
+    )
     if report.total_prize_with_bonus > 0:
-        report.bonus_premium_pct = report.bonus_premium_value / report.total_prize_with_bonus * 100
+        report.bonus_premium_pct = (
+            report.bonus_premium_value / report.total_prize_with_bonus * 100
+        )
 
     return report
 
@@ -314,7 +318,9 @@ def report_to_markdown(report: BonusImpactReport) -> str:
     if report.upgrade_breakdown:
         lines.extend(["", "## Upgrades Triggered by Bonus"])
         for div in sorted(report.upgrade_breakdown.keys()):
-            lines.append(f"- Upgraded to Division {div}: {report.upgrade_breakdown[div]} times")
+            lines.append(
+                f"- Upgraded to Division {div}: {report.upgrade_breakdown[div]} times"
+            )
 
     lines.extend(["", "## Per-Draw Summary (last 5)"])
     for d in report.per_draw_impact[-5:]:
@@ -383,10 +389,22 @@ if __name__ == "__main__":
     ]
     draws_main = [[1, 2, 3, 4, 5, 40], [1, 2, 3, 4, 5, 6]]
     draws_bonus = [6, 7]
-    prizes: dict[int, float] = {1: 1_000_000, 2: 50_000, 3: 5_000, 4: 500, 5: 50, 6: 20, 7: 10}
+    prizes: dict[int, float] = {
+        1: 1_000_000,
+        2: 50_000,
+        3: 5_000,
+        4: 500,
+        5: 50,
+        6: 20,
+        7: 10,
+    }
 
     report = run_bonus_impact_backtest(tickets, draws_main, draws_bonus, prizes)
     print(report_to_markdown(report))
     print("\n--- What-If Demo ---")
-    r = what_if_bonus_override([1, 2, 3, 4, 5, 40], [1, 2, 3, 4, 5, 6], 40, True, prizes)
-    print(f"Forced bonus match: Div {r.division}, upgraded={r.upgraded_by_bonus}, prize=${r.prize}")
+    r = what_if_bonus_override(
+        [1, 2, 3, 4, 5, 40], [1, 2, 3, 4, 5, 6], 40, True, prizes
+    )
+    print(
+        f"Forced bonus match: Div {r.division}, upgraded={r.upgraded_by_bonus}, prize=${r.prize}"
+    )

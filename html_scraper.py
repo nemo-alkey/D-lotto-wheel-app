@@ -39,7 +39,9 @@ def _parse_draw_card(card: Tag) -> dict[str, Any] | None:
     """
     # --- Date ---
     date_el = (
-        card.find("time") or card.find(class_=re.compile(r"draw.?date", re.I)) or card.find("h3")
+        card.find("time")
+        or card.find(class_=re.compile(r"draw.?date", re.I))
+        or card.find("h3")
     )
     date_str = date_el.get_text(strip=True) if date_el else None
     if not date_str:
@@ -147,11 +149,15 @@ def scrape_my_lotto_results(draw_date: str | None = None) -> dict[str, Any] | No
             resp.raise_for_status()
             break  # success, exit retry loop
         except requests.ConnectionError as e:
-            print(f"  HTML scraper connection error (attempt {attempt}/{len(retry_delays)}): {e}")
+            print(
+                f"  HTML scraper connection error (attempt {attempt}/{len(retry_delays)}): {e}"
+            )
             if attempt < len(retry_delays):
                 time.sleep(delay)
         except requests.Timeout as e:
-            print(f"  HTML scraper timeout (attempt {attempt}/{len(retry_delays)}): {e}")
+            print(
+                f"  HTML scraper timeout (attempt {attempt}/{len(retry_delays)}): {e}"
+            )
             if attempt < len(retry_delays):
                 time.sleep(delay)
         except requests.HTTPError:

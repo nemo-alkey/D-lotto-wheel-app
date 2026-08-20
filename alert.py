@@ -58,7 +58,10 @@ from lotto_wheels import DIVISIONS, WHEELS, load_draws
 
 
 def score_ticket(
-    ticket_nums: list[int] | tuple[int, ...], wheel_pb: int, draw_nums: list[int], draw_pb: int
+    ticket_nums: list[int] | tuple[int, ...],
+    wheel_pb: int,
+    draw_nums: list[int],
+    draw_pb: int,
 ) -> int | None:
     """Return division index if the ticket wins, else None.
 
@@ -95,7 +98,10 @@ def check_wheel(
 
 
 def build_message(
-    results: list[tuple[str, list[int], int]], draw_nums: list[int], draw_pb: int, draw_date: str
+    results: list[tuple[str, list[int], int]],
+    draw_nums: list[int],
+    draw_pb: int,
+    draw_date: str,
 ) -> str:
     """Build the alert body text."""
     lines = []
@@ -103,7 +109,9 @@ def build_message(
     lines.append("  NZ Lotto Powerball — Wheel Alert")
     lines.append("=" * 50)
     lines.append("")
-    lines.append(f"  Draw:  {', '.join(f'{n:02d}' for n in draw_nums)}  |  PB {draw_pb}")
+    lines.append(
+        f"  Draw:  {', '.join(f'{n:02d}' for n in draw_nums)}  |  PB {draw_pb}"
+    )
     if draw_date:
         lines.append(f"  Date:  {draw_date}")
     lines.append("")
@@ -153,7 +161,10 @@ def send_email(recipient: str, subject: str, body: str) -> None:
     from_addr = os.environ.get("SMTP_FROM", username)
 
     if not username or not password:
-        print("Error: SMTP_USERNAME and SMTP_PASSWORD environment variables " "must be set.")
+        print(
+            "Error: SMTP_USERNAME and SMTP_PASSWORD environment variables "
+            "must be set."
+        )
         sys.exit(1)
 
     msg = EmailMessage()
@@ -217,7 +228,9 @@ def check_draw(
     """Run all wheels against a draw and return results list."""
     results = []
     for name, (tickets, wheel_pb) in WHEELS.items():
-        div_counts, total_prize = check_wheel(name, tickets, wheel_pb, draw_nums, draw_pb)
+        div_counts, total_prize = check_wheel(
+            name, tickets, wheel_pb, draw_nums, draw_pb
+        )
         results.append((name, div_counts, total_prize))
     return results
 
@@ -301,7 +314,10 @@ def main() -> None:
         print(f"Email sent to {args.email}")
 
     if args.sms:
-        send_sms(args.sms, f"Lotto: ${total_all:,.0f} won" if total_all > 0 else "Lotto: No wins")
+        send_sms(
+            args.sms,
+            f"Lotto: ${total_all:,.0f} won" if total_all > 0 else "Lotto: No wins",
+        )
 
 
 if __name__ == "__main__":

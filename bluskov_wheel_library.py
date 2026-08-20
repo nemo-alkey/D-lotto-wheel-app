@@ -31,7 +31,9 @@ from typing import Any
 #: Source for all systems in this library. Systems are indexed by number
 #: (e.g., System #89); page numbers vary by edition, so locate each system
 #: by its number in the book's tables.
-BOOK_REFERENCE = "Iliya Bluskov, 'Combinatorial Lottery Systems (Wheels) with " "Guaranteed Wins'"
+BOOK_REFERENCE = (
+    "Iliya Bluskov, 'Combinatorial Lottery Systems (Wheels) with " "Guaranteed Wins'"
+)
 
 # ---------------------------------------------------------------------------
 # System #88 — 10 numbers, 30 combinations
@@ -258,7 +260,8 @@ def get_optimal_wheel(guarantee_type: str, pool_size: int) -> dict[str, Any]:
         key = WHEEL_EXPLORER[guarantee_type][pool_size]
     except KeyError:
         raise KeyError(
-            f"No system registered for guarantee {guarantee_type!r} " f"with pool size {pool_size}."
+            f"No system registered for guarantee {guarantee_type!r} "
+            f"with pool size {pool_size}."
         ) from None
 
     entry = dict(WHEEL_REGISTRY[key])
@@ -292,7 +295,9 @@ def substitute_numbers(
 
     pool_size = max(max(ticket) for ticket in wheel)
     if len(user_numbers) != pool_size:
-        raise ValueError(f"Wheel requires {pool_size} numbers, but {len(user_numbers)} provided.")
+        raise ValueError(
+            f"Wheel requires {pool_size} numbers, but {len(user_numbers)} provided."
+        )
 
     # Map 1-indexed wheel positions to 0-indexed user_numbers
     return [[user_numbers[pos - 1] for pos in ticket] for ticket in wheel]

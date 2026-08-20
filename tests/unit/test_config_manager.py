@@ -86,7 +86,9 @@ def test_validate_startup_prod_rejects_wildcard_cors() -> None:
 
 
 def test_validate_startup_prod_ok_with_real_config() -> None:
-    cfg = _isolated(DEBUG=False, SECRET_KEY="s" * 40, CORS_ORIGINS="https://app.example.com")
+    cfg = _isolated(
+        DEBUG=False, SECRET_KEY="s" * 40, CORS_ORIGINS="https://app.example.com"
+    )
     assert validate_startup(cfg) is cfg
 
 
@@ -96,7 +98,9 @@ def test_validate_startup_warns_debug_in_production() -> None:
         validate_startup(cfg)
 
 
-def test_validate_startup_debug_localhost_no_warning(recwarn: pytest.WarningsRecorder) -> None:
+def test_validate_startup_debug_localhost_no_warning(
+    recwarn: pytest.WarningsRecorder,
+) -> None:
     cfg = _isolated(DEBUG=True, CORS_ORIGINS="http://localhost:5173")
     validate_startup(cfg)
     assert not recwarn.list

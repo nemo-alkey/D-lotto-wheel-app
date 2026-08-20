@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+
 import contextlib
 import io
 import os
 import sqlite3
 import sys
 from collections import Counter
+from typing import Any, cast
 
 import matplotlib
 import pandas as pd
@@ -22,7 +24,11 @@ try:
         get_top_pairs_for_bonus,
         get_top_triplets,
     )
-    from backtest import backtest_bonus_impact, generate_backtest_summary, simulate_bonus_ev
+    from backtest import (
+        backtest_bonus_impact,
+        generate_backtest_summary,
+        simulate_bonus_ev,
+    )
     from lotto_wheels import (
         WHEELS,
         bandit_recommendation,
@@ -73,7 +79,7 @@ if "draws_cache" not in st.session_state:
     st.session_state["draws_cache"] = None
 
 
-def refresh_data():
+def refresh_data() -> None:
     """Clear cached draws and trigger a rerun."""
     st.session_state["draws_cache"] = None
     st.cache_data.clear()
@@ -133,7 +139,8 @@ st.markdown(
 )
 
 st.markdown(
-    '<h1 class="main-header">NZ Lotto Powerball Wheel Dashboard</h1>', unsafe_allow_html=True
+    '<h1 class="main-header">NZ Lotto Powerball Wheel Dashboard</h1>',
+    unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------
@@ -141,7 +148,7 @@ st.markdown(
 # ---------------------------------------------------------------------------
 if st.session_state["draws_cache"] is None:
     st.session_state["draws_cache"] = load_draws()
-draws = st.session_state["draws_cache"]
+draws = cast(list[tuple[list[int], int, int, str]], st.session_state["draws_cache"])
 
 # ---------------------------------------------------------------------------
 # Sidebar — DB info + last 3 draws + navigation + wheel selector + refresh
@@ -286,10 +293,16 @@ with st.sidebar:
     st.divider()
     st.markdown("### Date Range Filter")
     date_start = st.text_input(
-        "Start date (YYYY-MM-DD)", value="", key="bonus_date_start", placeholder="e.g. 2024-01-01"
+        "Start date (YYYY-MM-DD)",
+        value="",
+        key="bonus_date_start",
+        placeholder="e.g. 2024-01-01",
     )
     date_end = st.text_input(
-        "End date (YYYY-MM-DD)", value="", key="bonus_date_end", placeholder="e.g. 2024-12-31"
+        "End date (YYYY-MM-DD)",
+        value="",
+        key="bonus_date_end",
+        placeholder="e.g. 2024-12-31",
     )
 
     st.divider()
@@ -331,7 +344,9 @@ def pool_of(wheel: str) -> list[int]:
     return sorted(pool)
 
 
-def get_bonus_freq(conn, start_date=None, end_date=None):
+def get_bonus_freq(
+    conn: sqlite3.Connection, start_date: str | None = None, end_date: str | None = None
+) -> pd.DataFrame:
     """Return a DataFrame of bonus ball frequencies from the draws table.
 
     Parameters
@@ -366,7 +381,7 @@ def get_bonus_freq(conn, start_date=None, end_date=None):
     rows = cursor.fetchall()
     cursor.close()
 
-    counter: Counter = Counter()
+    counter: Counter[int] = Counter()
     for (bonus,) in rows:
         counter[bonus] += 1
 
@@ -374,7 +389,9 @@ def get_bonus_freq(conn, start_date=None, end_date=None):
     if total == 0:
         return pd.DataFrame(columns=["bonus_number", "count", "freq_pct"])
 
-    data = [(n, counter.get(n, 0), counter.get(n, 0) / total * 100) for n in range(1, 41)]
+    data = [
+        (n, counter.get(n, 0), counter.get(n, 0) / total * 100) for n in range(1, 41)
+    ]
     return pd.DataFrame(data, columns=["bonus_number", "count", "freq_pct"])
 
 
@@ -382,7 +399,9 @@ def get_bonus_freq(conn, start_date=None, end_date=None):
 # PAGE: Wheels & Tickets
 # =========================================================================
 if page == "Wheels & Tickets":
-    st.markdown('<h2 class="section-header">Wheels &amp; Tickets</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Wheels &amp; Tickets</h2>', unsafe_allow_html=True
+    )
 
     # --- Overview cards — responsive grid ---
     # Compute compliance scores for all pre-built wheels
@@ -420,14 +439,17 @@ if page == "Wheels & Tickets":
         )
 
     cols_per_row = 3
-    rows = [overview_data[i : i + cols_per_row] for i in range(0, len(overview_data), cols_per_row)]
+    rows = [
+        overview_data[i : i + cols_per_row]
+        for i in range(0, len(overview_data), cols_per_row)
+    ]
     for row in rows:
         cols = st.columns(len(row), gap="small")
         for i, info in enumerate(row):
             with cols[i]:
                 score_html = ""
                 if info["Score"] is not None:
-                    s = info["Score"]
+                    s = cast(Any, info["Score"])
                     badge = "🟢" if s >= 80 else ("🟡" if s >= 60 else "🔴")
                     score_html = f"<div>{badge} Lotto Score: {s:.0f}/100</div>"
 
@@ -453,7 +475,9 @@ if page == "Wheels & Tickets":
         tickets, pb = WHEELS[wheel]
         cost = len(tickets) * 1.5
 
-        st.markdown(f'<h3 class="section-header">{wheel.upper()}</h3>', unsafe_allow_html=True)
+        st.markdown(
+            f'<h3 class="section-header">{wheel.upper()}</h3>', unsafe_allow_html=True
+        )
 
         info_cols = st.columns([2, 2, 2], gap="medium")
         info_cols[0].metric("Tickets", len(tickets))
@@ -463,7 +487,10 @@ if page == "Wheels & Tickets":
         st.write(f"**Guarantee:** {wheel_guarantee(wheel)}")
 
         tickets_data = [
-            {"Ticket": i + 1, "Main Numbers": ", ".join(f"{x:02d}" for x in sorted(comb))}
+            {
+                "Ticket": i + 1,
+                "Main Numbers": ", ".join(f"{x:02d}" for x in sorted(comb)),
+            }
             for i, comb in enumerate(tickets)
         ]
         st.data_editor(
@@ -484,7 +511,9 @@ if page == "Wheels & Tickets":
 # PAGE: Statistical Report — each section in its own expander
 # =========================================================================
 elif page == "Statistical Report":
-    st.markdown('<h2 class="section-header">Statistical Report</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Statistical Report</h2>', unsafe_allow_html=True
+    )
 
     if not draws:
         st.warning("No draws in database.")
@@ -524,7 +553,9 @@ elif page == "Statistical Report":
 
         # --- Numerical Attraction ---
         with st.expander("Numerical Attraction"):
-            st.markdown(f"**{adj*100:.1f}%** of draws contain adjacent numbers (gap ≤ 2)")
+            st.markdown(
+                f"**{adj*100:.1f}%** of draws contain adjacent numbers (gap ≤ 2)"
+            )
 
         # --- Bayesian Posterior ---
         with st.expander("Bayesian Top 10"):
@@ -541,7 +572,9 @@ elif page == "Statistical Report":
 
             # Bar visualisation
             max_prob = top_bayes[0][1] if top_bayes else 1
-            bars = "\n".join(f"#{n:02d} {'█' * round(p/max_prob*20)}{p:.2%}" for n, p in top_bayes)
+            bars = "\n".join(
+                f"#{n:02d} {'█' * round(p/max_prob*20)}{p:.2%}" for n, p in top_bayes
+            )
             st.code(bars, language="text")
 
         # --- Thompson Sampling ---
@@ -554,15 +587,17 @@ elif page == "Statistical Report":
 # PAGE: Frequency Chart
 # =========================================================================
 elif page == "Frequency Chart":
-    st.markdown('<h2 class="section-header">Frequency Chart</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Frequency Chart</h2>', unsafe_allow_html=True
+    )
 
     if not draws:
         st.warning("No draws in database.")
     else:
         # Count main numbers across all draws
-        main_counter: Counter = Counter()
-        pb_counter: Counter = Counter()
-        for nums, pb, _, _ in draws:
+        main_counter: Counter[int] = Counter()
+        pb_counter: Counter[int] = Counter()
+        for nums, pb, _bonus, _date in draws:
             main_counter.update(nums)
             pb_counter[pb] += 1
 
@@ -584,7 +619,13 @@ elif page == "Frequency Chart":
             np.where(np.isin(np.arange(40), top5_main), "#f39c12", "#3498db"),
         )
 
-        ax1.bar(np.arange(1, 41), main_freq, color=colours1, edgecolor="white", linewidth=0.3)
+        ax1.bar(
+            np.arange(1, 41),
+            main_freq,
+            color=colours1,
+            edgecolor="white",
+            linewidth=0.3,
+        )
         ax1.set_xlabel("Main Number")
         ax1.set_ylabel("Frequency (number of draws)")
         ax1.set_title("Occurrence Frequency of Main Numbers Across All Draws")
@@ -625,7 +666,9 @@ elif page == "Frequency Chart":
             np.where(np.isin(np.arange(10), top5_pb), "#f39c12", "#27ae60"),
         )
 
-        ax2.bar(np.arange(1, 11), pb_freq, color=colours2, edgecolor="white", linewidth=0.5)
+        ax2.bar(
+            np.arange(1, 11), pb_freq, color=colours2, edgecolor="white", linewidth=0.5
+        )
         ax2.set_xlabel("Powerball Number")
         ax2.set_ylabel("Frequency (number of draws)")
         ax2.set_title("Occurrence Frequency of Powerball Numbers Across All Draws")
@@ -670,7 +713,9 @@ elif page == "Frequency Chart":
             left_tab, right_tab = st.columns(2)
             with left_tab:
                 st.data_editor(
-                    main_df.sort_values("Count", ascending=False).reset_index(drop=True),
+                    main_df.sort_values("Count", ascending=False).reset_index(
+                        drop=True
+                    ),
                     width="stretch",
                     hide_index=True,
                     disabled=True,
@@ -695,7 +740,9 @@ elif page == "Check Draw":
 
     col1, col2 = st.columns([3, 1], gap="medium")
     with col1:
-        draw_input = st.text_input("Draw numbers (comma-separated)", "11,12,17,22,28,32")
+        draw_input = st.text_input(
+            "Draw numbers (comma-separated)", "11,12,17,22,28,32"
+        )
     with col2:
         pb_input = st.number_input("Powerball", min_value=1, max_value=10, value=3)
 
@@ -727,7 +774,9 @@ elif page == "Check Draw":
                         match_data.append(
                             {
                                 "Ticket": i,
-                                "Main Numbers": ", ".join(f"{x:02d}" for x in sorted(comb)),
+                                "Main Numbers": ", ".join(
+                                    f"{x:02d}" for x in sorted(comb)
+                                ),
                                 "Matches": match_count,
                             }
                         )
@@ -757,7 +806,9 @@ elif page == "Check Draw":
 # PAGE: Check Latest Draw
 # =========================================================================
 elif page == "Check Latest Draw":
-    st.markdown('<h2 class="section-header">Check Latest Draw</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Check Latest Draw</h2>', unsafe_allow_html=True
+    )
 
     # Cached function: latest draw from DB, checking API for newer
     try:
@@ -768,7 +819,7 @@ elif page == "Check Latest Draw":
         _CACHE_TTL = 3600
 
     @st.cache_data(ttl=_CACHE_TTL)
-    def get_latest_draw_info():
+    def get_latest_draw_info() -> tuple[Any, Any, Any, Any, bool]:
         """Return (draw_numbers, pb, bonus, draw_date, is_live_source) for the latest draw.
 
         Checks the MyLotto API first for the newest draw not yet in the DB.
@@ -795,7 +846,7 @@ elif page == "Check Latest Draw":
         return None, None, None, None, False
 
     @st.cache_data(ttl=_CACHE_TTL)
-    def cached_check_all_wheels(*args, **kwargs):
+    def cached_check_all_wheels(*args: Any, **kwargs: Any) -> Any:
         return check_all_wheels(*args, **kwargs)
 
     # Fetch latest draw info
@@ -860,16 +911,18 @@ elif page == "Check Latest Draw":
             )
 
         # --- Compute Lotto-only results ---
-        def compute_lotto_only(tickets, draw_set, draw_bonus, bonus_flag):
+        def compute_lotto_only(
+            tickets: Any, draw_set: set[int], draw_bonus: int, bonus_flag: bool
+        ) -> list[dict[str, Any]]:
             results = []
             for name in ["single1", "single2", "double", "five-if-six", "jackpot7"]:
                 tkts, w_pb = WHEELS[name]
-                pool = set()
+                pool: set[int] = set()
                 for t in tkts:
                     pool.update(t)
                 winning = 0
                 total = 0.0
-                div_hits = {}
+                div_hits: dict[str, int] = {}
                 for ticket in tkts:
                     matches = len(set(ticket) & draw_set)
                     ticket_bonus = (draw_bonus in set(ticket)) if bonus_flag else False
@@ -898,12 +951,18 @@ elif page == "Check Latest Draw":
                 )
             return results
 
-        lotto_results = compute_lotto_only(WHEELS, set(draw_nums), draw_bonus, bonus_matched)
+        lotto_results = compute_lotto_only(
+            WHEELS, set(draw_nums), draw_bonus, bonus_matched
+        )
 
         # --- Tabs: Powerball vs Lotto Only ---
-        tab_pb, tab_lotto = st.tabs(["Powerball (with PB)", "Lotto Only (no Powerball)"])
+        tab_pb, tab_lotto = st.tabs(
+            ["Powerball (with PB)", "Lotto Only (no Powerball)"]
+        )
 
-        def _render_results_table(results, tab_container):
+        def _render_results_table(
+            results: list[dict[str, Any]], tab_container: Any
+        ) -> None:
             if results:
                 df = pd.DataFrame(results)
                 df["Total Prize"] = df["Total Prize"].apply(lambda x: f"${x:,.2f}")
@@ -919,12 +978,22 @@ elif page == "Check Latest Draw":
                         "Bonus Coverage": st.column_config.NumberColumn(
                             "Bonus Cov.", width="small"
                         ),
-                        "Tickets": st.column_config.NumberColumn("Tickets", width="small"),
+                        "Tickets": st.column_config.NumberColumn(
+                            "Tickets", width="small"
+                        ),
                         "Pool": st.column_config.NumberColumn("Pool", width="small"),
-                        "Pool Overlap": st.column_config.TextColumn("Overlap", width="small"),
-                        "Wheel PB": st.column_config.NumberColumn("Wheel PB", width="small"),
-                        "Winning Tickets": st.column_config.NumberColumn("Winners", width="small"),
-                        "Total Prize": st.column_config.TextColumn("Total Prize", width="medium"),
+                        "Pool Overlap": st.column_config.TextColumn(
+                            "Overlap", width="small"
+                        ),
+                        "Wheel PB": st.column_config.NumberColumn(
+                            "Wheel PB", width="small"
+                        ),
+                        "Winning Tickets": st.column_config.NumberColumn(
+                            "Winners", width="small"
+                        ),
+                        "Total Prize": st.column_config.TextColumn(
+                            "Total Prize", width="medium"
+                        ),
                     },
                 )
 
@@ -948,7 +1017,9 @@ elif page == "Check Latest Draw":
                             f"**Bonus Coverage:** {r.get('Bonus Coverage', 'N/A')}"
                         )
                         if r["Division Breakdown"] != "None":
-                            tab_container.markdown(f"**Divisions hit:** {r['Division Breakdown']}")
+                            tab_container.markdown(
+                                f"**Divisions hit:** {r['Division Breakdown']}"
+                            )
 
         if results:
             with tab_pb:
@@ -971,7 +1042,9 @@ elif page == "Check Latest Draw":
 elif page == "Strike Check":
     from prize_calculator import calculate_strike_prize, count_exact_matches
 
-    st.markdown('<h2 class="section-header">Lotto Strike Check</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Lotto Strike Check</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         "Lotto **Strike** uses the **first 4 winning numbers in exact order**. "
         "Enter your 4 numbers below to see which Strike division you would win."
@@ -1016,7 +1089,8 @@ elif page == "Strike Check":
 
         # Show the first 4 numbers (Strike-relevant)
         st.markdown(
-            f"**Strike numbers (first 4):** " f"{' → '.join(f'{n:02d}' for n in draw_first4)}"
+            f"**Strike numbers (first 4):** "
+            f"{' → '.join(f'{n:02d}' for n in draw_first4)}"
         )
 
         # --- Compare ---
@@ -1057,7 +1131,9 @@ elif page == "Strike Check":
         st.markdown("### Result")
 
         if result["division"] is None:
-            st.warning("No Strike win — 0 exact matches.  (You need at least Ball 1 to match.)")
+            st.warning(
+                "No Strike win — 0 exact matches.  (You need at least Ball 1 to match.)"
+            )
         else:
             st.success(f"**{result['division_label']}** — {exact} exact match(es)")
             st.metric(
@@ -1107,7 +1183,9 @@ elif page == "Strike Check":
 # PAGE: Custom Wheel Builder
 # =========================================================================
 elif page == "Custom Wheel Builder":
-    st.markdown('<h2 class="section-header">Custom Wheel Builder</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Custom Wheel Builder</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         "Create your own abbreviated wheel by entering a pool of numbers "
         "and choosing a coverage guarantee."
@@ -1177,7 +1255,9 @@ elif page == "Custom Wheel Builder":
         )
         overlap = set(include_nums) & set(exclude_nums)
         if overlap:
-            st.error(f"Cannot include and exclude the same number(s): {sorted(overlap)}")
+            st.error(
+                f"Cannot include and exclude the same number(s): {sorted(overlap)}"
+            )
 
     # --- Albert Recommended Pool ---
     use_albert = st.checkbox(
@@ -1192,7 +1272,7 @@ elif page == "Custom Wheel Builder":
 
         conn_albert = sqlite3.connect("lotto.db")
         try:
-            rec_pool = get_recommended_pool(
+            rec_pool: list[int] | None = get_recommended_pool(
                 conn_albert,
                 window_draws=20,
                 target_pool_size=10,
@@ -1267,13 +1347,17 @@ elif page == "Custom Wheel Builder":
             try:
                 from ga_optimizer import WheelOptimizerGA
 
-                ga = WheelOptimizerGA(conn_ga, population_size=30, generations=10, quick=ga_quick)
+                ga = WheelOptimizerGA(
+                    conn_ga, population_size=30, generations=10, quick=ga_quick
+                )
                 ga_result = ga.evolve()
             finally:
                 conn_ga.close()
 
         mode_note = " (Quick Mode — 5,000 sims)" if ga_quick else ""
-        st.success(f"✅ Optimised! Best EV: ${ga_result['best_fitness']:.4f}{mode_note}")
+        st.success(
+            f"✅ Optimised! Best EV: ${ga_result['best_fitness']:.4f}{mode_note}"
+        )
         best = ga_result["best_individual"]
         st.markdown("**Optimised Parameters:**")
         st.json(best)
@@ -1286,8 +1370,12 @@ elif page == "Custom Wheel Builder":
             bests = [h["best_fitness"] for h in ga_result["history"]]
             avgs = [h["avg_fitness"] for h in ga_result["history"]]
             fig_ga = go.Figure()
-            fig_ga.add_trace(go.Scatter(x=gens, y=bests, mode="lines+markers", name="Best"))
-            fig_ga.add_trace(go.Scatter(x=gens, y=avgs, mode="lines+markers", name="Average"))
+            fig_ga.add_trace(
+                go.Scatter(x=gens, y=bests, mode="lines+markers", name="Best")
+            )
+            fig_ga.add_trace(
+                go.Scatter(x=gens, y=avgs, mode="lines+markers", name="Average")
+            )
             fig_ga.update_layout(
                 title="GA Fitness Over Generations",
                 xaxis_title="Generation",
@@ -1306,7 +1394,9 @@ elif page == "Custom Wheel Builder":
             )
         finally:
             conn_pool.close()
-        st.info(f"Suggested pool ({len(opt_pool)} numbers): {', '.join(str(n) for n in opt_pool)}")
+        st.info(
+            f"Suggested pool ({len(opt_pool)} numbers): {', '.join(str(n) for n in opt_pool)}"
+        )
 
     if generate_clicked:
         # Parse numbers — use Albert pool if enabled and text area is empty
@@ -1454,7 +1544,9 @@ elif page == "Custom Wheel Builder":
         # Export
         csv_data = pd.DataFrame(
             {
-                "Main Numbers": [", ".join(f"{x:02d}" for x in sorted(t)) for t in tickets],
+                "Main Numbers": [
+                    ", ".join(f"{x:02d}" for x in sorted(t)) for t in tickets
+                ],
                 "Powerball": ["—"] * len(tickets),
             }
         )
@@ -1472,7 +1564,9 @@ elif page == "Custom Wheel Builder":
 # PAGE: Bonus Ball Analysis
 # =========================================================================
 elif page == "Bonus Ball Analysis":
-    st.markdown('<h2 class="section-header">Bonus Ball Analysis</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Bonus Ball Analysis</h2>', unsafe_allow_html=True
+    )
 
     # Resolve optional date filters from sidebar text inputs
     start_filter = st.session_state.get("bonus_date_start", "").strip() or None
@@ -1528,7 +1622,13 @@ elif page == "Bonus Ball Analysis":
 
         # --- Bar chart ---
         fig, ax = plt.subplots(figsize=(12, 5), constrained_layout=True)
-        ax.bar(df["bonus_number"], y_values, color=colours, edgecolor="white", linewidth=0.3)
+        ax.bar(
+            df["bonus_number"],
+            y_values,
+            color=colours,
+            edgecolor="white",
+            linewidth=0.3,
+        )
         ax.axhline(
             y=expected_y,
             color="red",
@@ -1540,7 +1640,11 @@ elif page == "Bonus Ball Analysis":
         ax.set_ylabel(y_label)
         ax.set_title(
             f"Bonus Ball Frequency — {total_draws} draws"
-            + (f" ({start_filter} to {end_filter})" if start_filter or end_filter else "")
+            + (
+                f" ({start_filter} to {end_filter})"
+                if start_filter or end_filter
+                else ""
+            )
         )
         ax.set_xticks(range(1, 41, 2))
         ax.set_xticks(range(1, 41), minor=True)
@@ -1581,7 +1685,7 @@ elif page == "Bonus Ball Analysis":
 
         # Build (date, bonus) pairs for hierarchical model
         bonus_draw_pairs = []
-        for _, _, bonus, date in draws:
+        for _nums, _pb, bonus, date in draws:
             if bonus and 1 <= bonus <= 40:
                 bonus_draw_pairs.append((date, bonus))
 
@@ -1596,7 +1700,9 @@ elif page == "Bonus Ball Analysis":
                 step=15,
                 key="bonus_halflife",
             )
-            hmodel = HierarchicalBonusPredictor(bonus_draw_pairs, recency_halflife_days=halo)
+            hmodel = HierarchicalBonusPredictor(
+                bonus_draw_pairs, recency_halflife_days=halo
+            )
             hmodel.fit()
 
             if hmodel.posterior_mean:
@@ -1612,21 +1718,25 @@ elif page == "Bonus Ball Analysis":
                 upper = [m + s for m, s in zip(means, stds, strict=False)]
 
                 fig = go.Figure()
-                fig.add_trace(
+                cast(Any, fig).add_trace(
                     go.Bar(
                         x=bonus_nums,
                         y=means,
                         error_y={
                             "type": "data",
                             "symmetric": False,
-                            "array": [u - m for u, m in zip(upper, means, strict=False)],
-                            "arrayminus": [m - lo for m, lo in zip(means, lower, strict=False)],
+                            "array": [
+                                u - m for u, m in zip(upper, means, strict=False)
+                            ],
+                            "arrayminus": [
+                                m - lo for m, lo in zip(means, lower, strict=False)
+                            ],
                         },
                         marker_color="#3498db",
                         name="Posterior mean ±1σ",
                     )
                 )
-                fig.update_layout(
+                cast(Any, fig).update_layout(
                     title=f"Hierarchical Bayesian Posterior — ½‑life={halo}d",
                     xaxis_title="Bonus Ball Number",
                     yaxis_title="Posterior Probability",
@@ -1640,7 +1750,7 @@ elif page == "Bonus Ball Analysis":
                 top5_df = pd.DataFrame(top5, columns=["Bonus #", "Mean", "Std"])
                 top5_df["Mean"] = top5_df["Mean"].apply(lambda x: f"{x:.4%}")
                 top5_df["Std"] = top5_df["Std"].apply(lambda x: f"{x:.4%}")
-                top5_df.index = range(1, 6)
+                top5_df.index = cast(Any, range(1, 6))
                 top5_df.index.name = "Rank"
                 st.table(top5_df)
                 st.caption(
@@ -1651,18 +1761,23 @@ elif page == "Bonus Ball Analysis":
         elif pred_model == "Basic Bayesian" and bonus_draw_pairs:
             from predictions import BonusBayesian
 
-            bb = [b for _, b in bonus_draw_pairs]
+            bb = [b for _date, b in bonus_draw_pairs]
             bmodel = BonusBayesian(bb, alpha=1.0)
-            top_k = bmodel.predict_top_k(k=5)
+            top_k_basic = bmodel.predict_top_k(k=5)
 
             st.markdown("#### Basic Bayesian — Top 5 Predictions")
-            result_df = pd.DataFrame(top_k, columns=["Bonus Number", "Probability"])
-            result_df["Probability"] = result_df["Probability"].apply(lambda x: f"{x:.4%}")
-            result_df.index = range(1, 6)
+            result_df = pd.DataFrame(
+                top_k_basic, columns=["Bonus Number", "Probability"]
+            )
+            result_df["Probability"] = result_df["Probability"].apply(
+                lambda x: f"{x:.4%}"
+            )
+            result_df.index = cast(Any, range(1, 6))
             result_df.index.name = "Rank"
             st.table(result_df)
             st.caption(
-                "Dirichlet-Multinomial posterior with α=1.0 prior. " "All draws weighted equally."
+                "Dirichlet-Multinomial posterior with α=1.0 prior. "
+                "All draws weighted equally."
             )
 
         st.divider()
@@ -1670,7 +1785,7 @@ elif page == "Bonus Ball Analysis":
         # --- Detailed stats table ---
         st.markdown("### Bonus Ball Statistics Table")
 
-        col_refresh, _ = st.columns([1, 4])
+        col_refresh, _col_pad = st.columns([1, 4])
         if col_refresh.button("🔄 Refresh Stats", key="bonus_stats_refresh"):
             st.session_state.pop("bonus_stats_cache", None)
             st.rerun()
@@ -1683,7 +1798,9 @@ elif page == "Bonus Ball Analysis":
         ):
             conn2 = sqlite3.connect("lotto.db")
             try:
-                stats_list = get_bonus_stats(conn2, start_date=start_filter, end_date=end_filter)
+                stats_list = get_bonus_stats(
+                    conn2, start_date=start_filter, end_date=end_filter
+                )
             finally:
                 conn2.close()
             st.session_state["bonus_stats_cache"] = stats_list
@@ -1696,11 +1813,14 @@ elif page == "Bonus Ball Analysis":
             stats_df = stats_df.set_index("number")
 
             # Highlight rows where |z_score| > 2.0
-            def highlight_z(row):
-                if isinstance(row.get("z_score"), int | float) and abs(row["z_score"]) > 2.0:
-                    return ["background-color: #ffe0e0; font-weight: bold; color: #c0392b"] * len(
-                        row
-                    )
+            def highlight_z(row: pd.Series) -> list[str]:
+                if (
+                    isinstance(row.get("z_score"), int | float)
+                    and abs(row["z_score"]) > 2.0
+                ):
+                    return [
+                        "background-color: #ffe0e0; font-weight: bold; color: #c0392b"
+                    ] * len(row)
                 return [""] * len(row)
 
             styled = stats_df.style.apply(highlight_z, axis=1)
@@ -1714,7 +1834,9 @@ elif page == "Bonus Ball Analysis":
                     "frequency": st.column_config.NumberColumn(
                         "Freq %", format="%.2f%%", width="small"
                     ),
-                    "last_drawn": st.column_config.TextColumn("Last Drawn", width="small"),
+                    "last_drawn": st.column_config.TextColumn(
+                        "Last Drawn", width="small"
+                    ),
                     "gap": st.column_config.TextColumn("Gap", width="small"),
                     "z_score": st.column_config.NumberColumn(
                         "Z-Score", format="%.2f", width="small"
@@ -1743,22 +1865,24 @@ elif page == "Predictions":
             if predict_mode == "Bayesian":
                 # Collect all bonus balls from loaded draws
                 bonus_balls = [
-                    bonus for _, _, bonus, _ in draws if bonus is not None and 1 <= bonus <= 40
+                    bonus
+                    for _, _, bonus, _ in draws
+                    if bonus is not None and 1 <= bonus <= 40
                 ]
                 if not bonus_balls:
                     st.warning("No bonus ball data available.")
                 else:
                     model = BonusBayesian(bonus_balls, alpha=1.0)
-                    top_k = model.predict_top_k(k=5)
+                    top_k_bb = model.predict_top_k(k=5)
 
                     st.markdown("### Bonus Bayesian — Top 5 Predictions")
                     result_df = pd.DataFrame(
-                        top_k, columns=["Bonus Number", "Posterior Probability"]
+                        top_k_bb, columns=["Bonus Number", "Posterior Probability"]
                     )
-                    result_df["Posterior Probability"] = result_df["Posterior Probability"].apply(
-                        lambda x: f"{x:.4%}"
-                    )
-                    result_df.index = range(1, len(result_df) + 1)
+                    result_df["Posterior Probability"] = result_df[
+                        "Posterior Probability"
+                    ].apply(lambda x: f"{x:.4%}")
+                    result_df.index = cast(Any, range(1, len(result_df) + 1))
                     result_df.index.name = "Rank"
                     st.table(result_df)
 
@@ -1769,25 +1893,27 @@ elif page == "Predictions":
 
                     st.session_state["last_prediction"] = {
                         "mode": "Bayesian Bonus",
-                        "rows": [(int(n), float(p)) for n, p in top_k],
+                        "rows": [(int(n), float(p)) for n, p in top_k_bb],
                     }
 
             elif predict_mode == "Gap Method":
                 conn = sqlite3.connect("lotto.db")
                 try:
-                    top_k = bonus_gap_prediction(conn, k=5)
+                    top_k_gap = bonus_gap_prediction(conn, k=5)
                 finally:
                     conn.close()
 
-                if not top_k:
+                if not top_k_gap:
                     st.warning("No bonus ball data available in database.")
                 else:
                     st.markdown("### Gap Method — Top 5 Predictions")
-                    result_df = pd.DataFrame(top_k, columns=["Bonus Number", "Combined Score"])
+                    result_df = pd.DataFrame(
+                        top_k_gap, columns=["Bonus Number", "Combined Score"]
+                    )
                     result_df["Combined Score"] = result_df["Combined Score"].apply(
                         lambda x: f"{x:.4f}"
                     )
-                    result_df.index = range(1, len(result_df) + 1)
+                    result_df.index = cast(Any, range(1, len(result_df) + 1))
                     result_df.index.name = "Rank"
                     st.table(result_df)
 
@@ -1798,7 +1924,7 @@ elif page == "Predictions":
 
                     st.session_state["last_prediction"] = {
                         "mode": "Gap Bonus",
-                        "rows": [(int(n), float(s)) for n, s in top_k],
+                        "rows": [(int(n), float(s)) for n, s in top_k_gap],
                     }
 
             elif predict_mode == "Ensemble":
@@ -1839,18 +1965,26 @@ elif page == "Predictions":
 
                 # --- Main numbers ---
                 st.markdown("#### Top 20 Main Numbers")
-                main_df = pd.DataFrame(preds["main"], columns=["Number", "Ensemble Prob"])
-                main_df["Ensemble Prob"] = main_df["Ensemble Prob"].apply(lambda x: f"{x:.4%}")
-                main_df.index = range(1, len(main_df) + 1)
+                main_df = pd.DataFrame(
+                    preds["main"], columns=["Number", "Ensemble Prob"]
+                )
+                main_df["Ensemble Prob"] = main_df["Ensemble Prob"].apply(
+                    lambda x: f"{x:.4%}"
+                )
+                main_df.index = cast(Any, range(1, len(main_df) + 1))
                 main_df.index.name = "Rank"
                 st.dataframe(main_df, use_container_width=True)
 
                 # --- Bonus ---
                 if preds["bonus"]:
                     st.markdown("#### Top 5 Bonus Balls")
-                    bonus_df = pd.DataFrame(preds["bonus"], columns=["Bonus #", "Probability"])
-                    bonus_df["Probability"] = bonus_df["Probability"].apply(lambda x: f"{x:.4%}")
-                    bonus_df.index = range(1, 6)
+                    bonus_df = pd.DataFrame(
+                        preds["bonus"], columns=["Bonus #", "Probability"]
+                    )
+                    bonus_df["Probability"] = bonus_df["Probability"].apply(
+                        lambda x: f"{x:.4%}"
+                    )
+                    bonus_df.index = cast(Any, range(1, 6))
                     bonus_df.index.name = "Rank"
                     st.table(bonus_df)
 
@@ -1858,14 +1992,16 @@ elif page == "Predictions":
                 st.markdown("#### Top 3 Powerballs")
                 pb_df = pd.DataFrame(preds["powerball"], columns=["PB", "Probability"])
                 pb_df["Probability"] = pb_df["Probability"].apply(lambda x: f"{x:.4%}")
-                pb_df.index = range(1, 4)
+                pb_df.index = cast(Any, range(1, 4))
                 pb_df.index.name = "Rank"
                 st.table(pb_df)
 
                 # --- Current weights ---
                 st.caption(
                     "Current weights: "
-                    + ", ".join(f"{m}={w:.3f}" for m, w in preds["ensemble_weights"].items())
+                    + ", ".join(
+                        f"{m}={w:.3f}" for m, w in preds["ensemble_weights"].items()
+                    )
                 )
 
                 st.session_state["last_prediction"] = {
@@ -1879,7 +2015,7 @@ elif page == "Predictions":
         import datetime as _dt
 
         df_dl = pd.DataFrame(last_pred["rows"], columns=["Number", "Probability"])
-        df_dl.index = range(1, len(df_dl) + 1)
+        df_dl.index = cast(Any, range(1, len(df_dl) + 1))
         df_dl.index.name = "Rank"
         csv = df_dl.to_csv()
         fname = f"predictions_{_dt.datetime.now().strftime('%Y-%m-%d_%H%M')}.csv"
@@ -1919,7 +2055,8 @@ elif page == "Predictions":
 # =========================================================================
 elif page == "EV Simulation":
     st.markdown(
-        '<h2 class="section-header">EV Simulation — Bonus Premium</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">EV Simulation — Bonus Premium</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Monte Carlo simulation that estimates the expected value premium "
@@ -1974,12 +2111,14 @@ elif page == "EV Simulation":
         categories = ["Without Bonus", "With Bonus"]
         values = [results["ev_without_bonus"], results["ev_with_bonus"]]
         colours = ["#95a5a6", "#27ae60"]
-        bars = ax.bar(categories, values, color=colours, edgecolor="white", linewidth=0.5)
+        ev_bars = ax.bar(
+            categories, values, color=colours, edgecolor="white", linewidth=0.5
+        )
         ax.set_ylabel("Expected Value ($)")
         ax.set_title(f"EV Comparison — {sim_wheel} ({num_sims:,} sims)")
 
         # Annotate bars
-        for bar, val in zip(bars, values, strict=False):
+        for bar, val in zip(ev_bars, values, strict=False):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + max(values) * 0.01,
@@ -2009,15 +2148,20 @@ elif page == "EV Simulation":
 # PAGE: Bonus–Main Co‑occurrence
 # =========================================================================
 elif page == "Bonus–Main Co‑occurrence":
-    st.markdown('<h2 class="section-header">Bonus–Main Co‑occurrence</h2>', unsafe_allow_html=True)
-    st.markdown("Analyse which main numbers most frequently appear alongside each bonus ball.")
+    st.markdown(
+        '<h2 class="section-header">Bonus–Main Co‑occurrence</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "Analyse which main numbers most frequently appear alongside each bonus ball."
+    )
 
     # --- Date range from sidebar ---
     start_filter = st.session_state.get("bonus_date_start", "").strip() or None
     end_filter = st.session_state.get("bonus_date_end", "").strip() or None
 
-    @st.cache_data(ttl=_CACHE_TTL)
-    def _load_cooccurrence(_start, _end):
+    @st.cache_data(ttl=_CACHE_TTL)  # type: ignore[used-before-def]  # defined in the "Check Latest Draw" page branch; Streamlit branches are mutually exclusive
+    def _load_cooccurrence(_start: Any, _end: Any) -> Any:
         """Load co-occurrence data from lotto.db with optional date filter."""
         conn = sqlite3.connect("lotto.db")
         try:
@@ -2043,7 +2187,9 @@ elif page == "Bonus–Main Co‑occurrence":
 
             # ---- Heatmap ----
             st.markdown("### Co‑occurrence Heatmap")
-            st.markdown("*Bonus balls (Y) vs Main numbers (X). Darker = more frequent.*")
+            st.markdown(
+                "*Bonus balls (Y) vs Main numbers (X). Darker = more frequent.*"
+            )
 
             import matplotlib.pyplot as plt
             import numpy as np
@@ -2058,7 +2204,7 @@ elif page == "Bonus–Main Co‑occurrence":
                 aspect="auto",
                 cmap="YlOrRd",
                 origin="lower",
-                extent=[0.5, 40.5, 0.5, 40.5],
+                extent=cast(tuple[float, float, float, float], [0.5, 40.5, 0.5, 40.5]),
             )
             ax.set_xlabel("Main Number")
             ax.set_ylabel("Bonus Ball Number")
@@ -2092,8 +2238,10 @@ elif page == "Bonus–Main Co‑occurrence":
                     conn.close()
 
                 if pairs:
-                    pairs_df = pd.DataFrame(pairs, columns=["Main Number", "Co‑occurrence Count"])
-                    pairs_df.index = range(1, len(pairs_df) + 1)
+                    pairs_df = pd.DataFrame(
+                        pairs, columns=["Main Number", "Co‑occurrence Count"]
+                    )
+                    pairs_df.index = cast(Any, range(1, len(pairs_df) + 1))
                     pairs_df.index.name = "Rank"
                     st.table(pairs_df)
                 else:
@@ -2104,8 +2252,10 @@ elif page == "Bonus–Main Co‑occurrence":
             # ---- Top triplets ----
             st.markdown("### Top 10 Bonus–Main–Main Triplets")
             if triplets:
-                trip_df = pd.DataFrame(triplets, columns=["Bonus", "Main 1", "Main 2", "Count"])
-                trip_df.index = range(1, min(len(trip_df), 10) + 1)
+                trip_df = pd.DataFrame(
+                    triplets, columns=["Bonus", "Main 1", "Main 2", "Count"]
+                )
+                trip_df.index = cast(Any, range(1, min(len(trip_df), 10) + 1))
                 trip_df.index.name = "Rank"
                 st.table(trip_df.head(10))
             else:
@@ -2116,13 +2266,17 @@ elif page == "Bonus–Main Co‑occurrence":
 # PAGE: Rotation Scheduler
 # =========================================================================
 elif page == "Rotation Scheduler":
-    st.markdown('<h2 class="section-header">Rotation Scheduler</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Rotation Scheduler</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         "Generate a Bayesian rotation plan for NZ Lotto Powerball. "
         "Each period swaps out the weakest number for the next-best candidate."
     )
 
-    include_bonus = st.checkbox("Include Bonus Rotation", value=False, key="rot_include_bonus")
+    include_bonus = st.checkbox(
+        "Include Bonus Rotation", value=False, key="rot_include_bonus"
+    )
 
     if st.button("Generate Rotation Plan", use_container_width=True, type="primary"):
         with st.spinner("Loading draws and computing..."):
@@ -2132,7 +2286,9 @@ elif page == "Rotation Scheduler":
                 st.error("Rotation database not found. Run update_draws.py first.")
                 st.stop()
 
-            posterior = bayesian_posterior(rotation_draws)
+            # cast: two different bayesian_posterior imports share the name;
+            # the rotation_scheduler variant (bound last) accepts these draws
+            posterior = bayesian_posterior(cast(Any, rotation_draws))
             schedule = build_rotation(posterior)
 
             bonus_picks = None
@@ -2142,32 +2298,32 @@ elif page == "Rotation Scheduler":
         st.success(f"Generated {len(schedule)} periods ({len(schedule) * 2} draws)")
 
         # Build table rows
-        rows = []
+        rot_rows = []
         prev_set = None
         for i, nums in enumerate(schedule, 1):
-            row = {
+            rot_row = {
                 "Period": i,
                 "Numbers": ", ".join(f"{n:02d}" for n in nums),
             }
             if prev_set:
                 dropped = prev_set - set(nums)
                 added = set(nums) - prev_set
-                row["Change"] = ""
+                rot_row["Change"] = ""
                 if dropped:
-                    row["Change"] += f"−{min(dropped):02d}"
+                    rot_row["Change"] += f"−{min(dropped):02d}"
                 if added:
-                    row["Change"] += f"+{min(added):02d}"
+                    rot_row["Change"] += f"+{min(added):02d}"
             else:
-                row["Change"] = "—"
+                rot_row["Change"] = "—"
 
             if bonus_picks:
                 pk = bonus_picks[min(i - 1, len(bonus_picks) - 1)]
-                row["Bonus Picks"] = f"#{pk[0]:02d} ({pk[1]:.1%})"
+                rot_row["Bonus Picks"] = f"#{pk[0]:02d} ({pk[1]:.1%})"
 
-            rows.append(row)
+            rot_rows.append(rot_row)
             prev_set = set(nums)
 
-        df = pd.DataFrame(rows)
+        df = pd.DataFrame(rot_rows)
         st.dataframe(
             df,
             use_container_width=True,
@@ -2181,24 +2337,34 @@ elif page == "Rotation Scheduler":
 # PAGE: Backtest Results
 # =========================================================================
 elif page == "Backtest Results":
-    st.markdown('<h2 class="section-header">Backtest — Bonus Impact</h2>', unsafe_allow_html=True)
-    st.markdown("Analyse how the bonus ball affects historical prize outcomes for a wheel.")
+    st.markdown(
+        '<h2 class="section-header">Backtest — Bonus Impact</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "Analyse how the bonus ball affects historical prize outcomes for a wheel."
+    )
 
     bt_wheel = st.selectbox("Select wheel", wheel_names, key="bt_wheel")
 
-    col_bt, _ = st.columns([1, 3])
+    col_bt, _bt_pad = st.columns([1, 3])
 
     # Clear cache button
-    col_clr, _ = st.columns([1, 3])
-    if col_clr.button("Clear Backtest Cache", use_container_width=True, key="clear_bt_cache"):
+    col_clr, _clr_pad = st.columns([1, 3])
+    if col_clr.button(
+        "Clear Backtest Cache", use_container_width=True, key="clear_bt_cache"
+    ):
         st.cache_data.clear()
         st.toast("Backtest cache cleared!", icon=":material/check:")
 
     if col_bt.button("Run Backtest", type="primary", use_container_width=True):
         with st.spinner(f"Running backtest on {bt_wheel}..."):
 
-            @st.cache_data(ttl=_CACHE_TTL, hash_funcs={dict: lambda d: str(sorted(d.items()))})
-            def _cached_backtest(wheel_name: str, nd: int):
+            @st.cache_data(
+                ttl=_CACHE_TTL,  # type: ignore[used-before-def]  # defined in the "Check Latest Draw" page branch; Streamlit branches are mutually exclusive
+                hash_funcs={dict: lambda d: str(sorted(d.items()))},
+            )
+            def _cached_backtest(wheel_name: str, nd: int | None) -> Any:
                 return backtest_bonus_impact(wheel_name, nd)
 
             data = _cached_backtest(bt_wheel, None)
@@ -2208,8 +2374,12 @@ elif page == "Backtest Results":
         else:
             # --- Metrics ---
             c1, c2, c3 = st.columns(3)
-            c1.metric("Total Prize (with bonus)", f"${data['total_prize_with_bonus']:,.2f}")
-            c2.metric("Total Prize (no bonus)", f"${data['total_prize_without_bonus']:,.2f}")
+            c1.metric(
+                "Total Prize (with bonus)", f"${data['total_prize_with_bonus']:,.2f}"
+            )
+            c2.metric(
+                "Total Prize (no bonus)", f"${data['total_prize_without_bonus']:,.2f}"
+            )
             c3.metric(
                 "Bonus Premium",
                 f"{data['bonus_premium_percent']:+.2f}%",
@@ -2234,13 +2404,19 @@ elif page == "Backtest Results":
                 values = [breakdown[k] for k in labels]
 
                 fig, ax = plt.subplots(figsize=(8, 4), constrained_layout=True)
-                colours = plt.cm.RdYlGn(np.linspace(0.2, 0.8, len(labels)))
-                bars = ax.bar(labels, values, color=colours, edgecolor="white", linewidth=0.5)
+                # cast: matplotlib colormaps are registered dynamically; the
+                # stubs don't expose them as attributes of plt.cm
+                colours = cast(Any, plt.cm).RdYlGn(np.linspace(0.2, 0.8, len(labels)))
+                div_bars = ax.bar(
+                    labels, values, color=colours, edgecolor="white", linewidth=0.5
+                )
                 ax.set_xlabel("Division Upgrade")
                 ax.set_ylabel("Ticket Count")
-                ax.set_title(f"Bonus Upgrade Breakdown — {bt_wheel} ({data['draws_tested']} draws)")
+                ax.set_title(
+                    f"Bonus Upgrade Breakdown — {bt_wheel} ({data['draws_tested']} draws)"
+                )
 
-                for bar, val in zip(bars, values, strict=False):
+                for bar, val in zip(div_bars, values, strict=False):
                     ax.text(
                         bar.get_x() + bar.get_width() / 2,
                         bar.get_height() + max(values) * 0.02,
@@ -2261,7 +2437,10 @@ elif page == "Backtest Results":
     st.markdown("Bootstrap 95% CI + paired t‑test vs best method.")
 
     if st.button(
-        "Run Multi‑Wheel Comparison", type="primary", use_container_width=True, key="multi_bt"
+        "Run Multi‑Wheel Comparison",
+        type="primary",
+        use_container_width=True,
+        key="multi_bt",
     ):
         with st.spinner("Running backtests for all wheels..."):
             summary = generate_backtest_summary(n_bootstrap=1000)
@@ -2272,14 +2451,18 @@ elif page == "Backtest Results":
             df["95% CI"] = df.apply(
                 lambda r: f"[${r['ci_lower']:,.2f}, ${r['ci_upper']:,.2f}]", axis=1
             )
-            df["p-value"] = df["p_value"].apply(lambda p: f"{p:.4f}" if p < 1.0 else "— (best)")
+            df["p-value"] = df["p_value"].apply(
+                lambda p: f"{p:.4f}" if p < 1.0 else "— (best)"
+            )
 
             # --- Plotly bar chart with error bars ---
             import plotly.graph_objects as go
 
             fig_bt = go.Figure()
             for _, r in df.iterrows():
-                color = "#27ae60" if r["significant"] or r["p_value"] >= 1.0 else "#95a5a6"
+                color = (
+                    "#27ae60" if r["significant"] or r["p_value"] >= 1.0 else "#95a5a6"
+                )
                 fig_bt.add_trace(
                     go.Bar(
                         x=[r["method"]],
@@ -2311,7 +2494,9 @@ elif page == "Backtest Results":
                 use_container_width=True,
                 hide_index=True,
             )
-            st.caption("🟢 Green bars = significantly different from best method (p < 0.05).")
+            st.caption(
+                "🟢 Green bars = significantly different from best method (p < 0.05)."
+            )
         else:
             st.warning("Could not generate comparison — no draw data available.")
 
@@ -2360,7 +2545,9 @@ elif page == "Multi-Draw Backtest":
 
     col1_btn, col2_btn = st.columns([3, 1])
     with col1_btn:
-        run_clicked = st.button("Run Multi-Draw Backtest", type="primary", use_container_width=True)
+        run_clicked = st.button(
+            "Run Multi-Draw Backtest", type="primary", use_container_width=True
+        )
     with col2_btn:
         if st.button("Clear Cache", use_container_width=True, key="clear_md_cache"):
             st.cache_data.clear()
@@ -2395,10 +2582,10 @@ elif page == "Multi-Draw Backtest":
 
             # --- Draw-by-draw table ---
             st.markdown("### Draw-by-Draw Results")
-            rows = []
+            draw_rows = []
             for rec in result["draw_records"]:
                 nums_str = ", ".join(f"{n:02d}" for n in rec["draw_numbers"])
-                rows.append(
+                draw_rows.append(
                     {
                         "Draw": rec["draw_index"],
                         "Date": rec["draw_date"],
@@ -2416,7 +2603,7 @@ elif page == "Multi-Draw Backtest":
                 )
             import pandas as pd
 
-            df_mw = pd.DataFrame(rows)
+            df_mw = pd.DataFrame(draw_rows)
             st.dataframe(df_mw, use_container_width=True, hide_index=True)
 
             # --- Jackpot growth chart ---
@@ -2429,11 +2616,20 @@ elif page == "Multi-Draw Backtest":
 
             fig, ax = plt.subplots(figsize=(10, 3.5))
             ax.fill_between(jp_draws, jp_values, alpha=0.25, color="#e74c3c")
-            ax.plot(jp_draws, jp_values, marker="o", color="#c0392b", linewidth=2, markersize=6)
+            ax.plot(
+                jp_draws,
+                jp_values,
+                marker="o",
+                color="#c0392b",
+                linewidth=2,
+                markersize=6,
+            )
             ax.set_xlabel("Draw Number")
             ax.set_ylabel("Carried Jackpot ($)")
             ax.set_title(f"Jackpot Growth — {result['wheel']} wheel")
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:,.0f}"))
+            from matplotlib.ticker import FuncFormatter
+
+            ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"${x:,.0f}"))
             ax.grid(True, alpha=0.3)
             st.pyplot(fig)
             plt.close(fig)
@@ -2450,7 +2646,8 @@ elif page == "Multi-Draw Backtest":
 # =========================================================================
 elif page == "Block Analysis":
     st.markdown(
-        '<h2 class="section-header">Block Analysis — Positional Ranges</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">Block Analysis — Positional Ranges</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Analyses the 6 positional slots (1st–6th, sorted) across the last N draws "
@@ -2483,11 +2680,13 @@ elif page == "Block Analysis":
             validate_positional_ranges,
         )
 
-        ranges = compute_block_ranges(draws, window_draws=window)
+        pos_ranges = compute_block_ranges(draws, window_draws=window)
 
-        if ranges:
+        if pos_ranges:
             # --- Heatmap ---
-            z_data, x_labels, y_labels = build_position_heatmap_data(draws, window_draws=window)
+            z_data, x_labels, y_labels = build_position_heatmap_data(
+                draws, window_draws=window
+            )
 
             import plotly.graph_objects as go
 
@@ -2503,7 +2702,7 @@ elif page == "Block Analysis":
                     colorbar={"title": "Fraction"},
                 )
             )
-            fig.update_layout(
+            cast(Any, fig).update_layout(
                 title=f"Positional Block Heatmap — Last {window} Draws",
                 xaxis_title="Number Bucket",
                 yaxis_title="Position (sorted)",
@@ -2513,17 +2712,19 @@ elif page == "Block Analysis":
 
             # --- Summary table ---
             st.markdown("### Optimal Buckets per Position")
-            rows = []
-            for slot in sorted(ranges, key=int):
-                r = ranges[slot]
-                rows.append(
+            bucket_rows = []
+            for slot in sorted(pos_ranges, key=int):
+                r = pos_ranges[slot]
+                bucket_rows.append(
                     {
                         "Position": r["position"],
                         "Optimal Bucket": r["optimal_label"],
                         "Confidence": f"{r['confidence']:.1%}",
                     }
                 )
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.dataframe(
+                pd.DataFrame(bucket_rows), use_container_width=True, hide_index=True
+            )
 
             # --- Historical validation ---
             st.divider()
@@ -2531,8 +2732,10 @@ elif page == "Block Analysis":
             recent = draws[-window:] if len(draws) > window else draws
             passing = 0
             total = len(recent)
-            for nums, _, _, _ in recent:
-                if validate_positional_ranges(sorted(nums), ranges, min_positions=min_pos):
+            for nums, _pb2, _bonus2, _date2 in recent:
+                if validate_positional_ranges(
+                    sorted(nums), pos_ranges, min_positions=min_pos
+                ):
                     passing += 1
             pct = passing / total * 100 if total > 0 else 0
             st.metric(
@@ -2551,7 +2754,8 @@ elif page == "Block Analysis":
 # =========================================================================
 elif page == "🧱 Albert Blocks":
     st.markdown(
-        '<h2 class="section-header">🧱 Albert Blocks — Hot Zones</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">🧱 Albert Blocks — Hot Zones</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Emil Albert splits the 40-number pool into five blocks of eight "
@@ -2579,20 +2783,24 @@ elif page == "🧱 Albert Blocks":
             score_wheel_blocks,
         )
 
-        analysis = analyze_block_distribution(
-            [list(nums) for nums, _pb, _b, _d in draws], lookback=lookback
+        # cast: analyze_block_distribution's stub types info values as object
+        analysis = cast(
+            Any,
+            analyze_block_distribution(
+                [list(nums) for nums, _pb, _b, _d in draws], lookback=lookback
+            ),
         )
 
         # --- Heatmap of per-number frequencies (★ marks hot-zone numbers) ---
         import plotly.graph_objects as go
 
         z_data, text_data, y_labels = [], [], []
-        for block_id, info in analysis.items():
-            lo, hi = info["range"]
-            zone = set(info["hot_zone"])
+        for block_id, blk_info in analysis.items():
+            lo, hi = blk_info["range"]
+            zone = set(blk_info["hot_zone"])
             row, text_row = [], []
             for n in range(lo, hi + 1):
-                f = info["number_freq"].get(n, 0)
+                f = blk_info["number_freq"].get(n, 0)
                 row.append(f)
                 text_row.append(f"{'★' if n in zone else ''}{n}: {f}")
             z_data.append(row)
@@ -2611,7 +2819,7 @@ elif page == "🧱 Albert Blocks":
                 colorbar={"title": "Hits"},
             )
         )
-        fig.update_layout(
+        cast(Any, fig).update_layout(
             title=f"Block Frequencies — Last {lookback} Draws (★ = hot zone)",
             xaxis_title="Position within block",
             yaxis_title="Block",
@@ -2622,19 +2830,19 @@ elif page == "🧱 Albert Blocks":
         # --- Hot zones per block (red badges) ---
         st.markdown("### Hot Zones per Block")
         hz_cols = st.columns(5)
-        for col, (block_id, info) in zip(hz_cols, analysis.items(), strict=False):
-            lo, hi = info["range"]
+        for col, (block_id, blk_info) in zip(hz_cols, analysis.items(), strict=False):
+            lo, hi = blk_info["range"]
             badges = " ".join(
                 '<span style="background-color:#e74c3c;color:white;'
                 'border-radius:4px;padding:2px 6px;margin:1px;">'
                 f"{n}</span>"
-                for n in info["hot_zone"]
+                for n in blk_info["hot_zone"]
             )
             col.markdown(
                 f"**Block {block_id}** ({lo}–{hi})<br>{badges}<br>"
-                f"<small>freq {info['frequency']} · "
-                f"{info['coverage_pct']}% of block hits<br>"
-                f"avg {info['avg_per_draw']}/draw</small>",
+                f"<small>freq {blk_info['frequency']} · "
+                f"{blk_info['coverage_pct']}% of block hits<br>"
+                f"avg {blk_info['avg_per_draw']}/draw</small>",
                 unsafe_allow_html=True,
             )
 
@@ -2683,7 +2891,8 @@ elif page == "🧱 Albert Blocks":
 # =========================================================================
 elif page == "➕➖ Pos/Neg":
     st.markdown(
-        '<h2 class="section-header">➕➖ Positive / Negative Tracker</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">➕➖ Positive / Negative Tracker</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Albert's auto-tagger ranks all 40 numbers by frequency over the last "
@@ -2704,7 +2913,7 @@ elif page == "➕➖ Pos/Neg":
         draw_lists = [list(nums) for nums, _pb, _b, _d in draws]
         cls = classify_pos_neg(draw_lists)
 
-        def _pn_badges(nums, color):
+        def _pn_badges(nums: Any, color: str) -> str:
             return " ".join(
                 f'<span style="background-color:{color};color:white;'
                 f'border-radius:4px;padding:2px 6px;margin:1px;">{n}</span>'
@@ -2718,7 +2927,8 @@ elif page == "➕➖ Pos/Neg":
             unsafe_allow_html=True,
         )
         neu_col.markdown(
-            f"**Neutral** — {len(cls['neutral'])}<br>" + _pn_badges(cls["neutral"], "#95a5a6"),
+            f"**Neutral** — {len(cls['neutral'])}<br>"
+            + _pn_badges(cls["neutral"], "#95a5a6"),
             unsafe_allow_html=True,
         )
         neg_col.markdown(
@@ -2776,7 +2986,8 @@ elif page == "➕➖ Pos/Neg":
 # =========================================================================
 elif page == "💰 Arbitrage":
     st.markdown(
-        '<h2 class="section-header">💰 Lottery Arbitrage — EV Scanner</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">💰 Lottery Arbitrage — EV Scanner</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Every game's EV rises with the jackpot while the odds stay fixed. "
@@ -2805,9 +3016,9 @@ elif page == "💰 Arbitrage":
     if not results:
         st.warning("No games configured — check config/jackpot_thresholds.json.")
     else:
-        rows = []
+        game_rows = []
         for r in results:
-            rows.append(
+            game_rows.append(
                 {
                     "Game": r["game_name"],
                     "Jackpot": r["current_jackpot"],
@@ -2819,9 +3030,9 @@ elif page == "💰 Arbitrage":
                     "Call": r["recommendation"],
                 }
             )
-        df = pd.DataFrame(rows)
+        df = pd.DataFrame(game_rows)
 
-        def _highlight_play(row):
+        def _highlight_play(row: pd.Series) -> list[str]:
             color = "background-color: #14532d; color: #86efac" if row["EV"] > 0 else ""
             return [color] * len(row)
 
@@ -2920,11 +3131,21 @@ elif page == "⚛️ Quantum Wheel":
 
     q_col1, q_col2 = st.columns(2)
     with q_col1:
-        q_iterations = st.slider("Iterations", 1_000, 50_000, 10_000, 1_000, key="q_iterations")
-        q_gamma = st.slider("Initial Γ (transverse field)", 0.5, 5.0, 2.0, 0.1, key="q_gamma")
+        q_iterations = st.slider(
+            "Iterations", 1_000, 50_000, 10_000, 1_000, key="q_iterations"
+        )
+        q_gamma = st.slider(
+            "Initial Γ (transverse field)", 0.5, 5.0, 2.0, 0.1, key="q_gamma"
+        )
     with q_col2:
         q_cooling = st.slider(
-            "Cooling rate", 0.9990, 0.99999, 0.9995, 0.00001, format="%.5f", key="q_cooling"
+            "Cooling rate",
+            0.9990,
+            0.99999,
+            0.9995,
+            0.00001,
+            format="%.5f",
+            key="q_cooling",
         )
         q_tickets = st.slider("Tickets", 4, 30, 10, 1, key="q_tickets")
 
@@ -2941,7 +3162,10 @@ elif page == "⚛️ Quantum Wheel":
     if use_constraints:
         if draws and len(draws) >= 10:
             draw_lists_q = [list(nums) for nums, _pb, _b, _d in draws]
-            from block_targeting import analyze_block_distribution, generate_block_constraints
+            from block_targeting import (
+                analyze_block_distribution,
+                generate_block_constraints,
+            )
             from sum_validator import calculate_dynamic_sum_range
 
             attraction_profile = build_attraction_profile(draw_lists_q)
@@ -2957,7 +3181,10 @@ elif page == "⚛️ Quantum Wheel":
             st.info("Need 10+ loaded draws for constraints — running unconstrained.")
 
     if st.button(
-        "Generate Quantum Wheel", type="primary", use_container_width=True, key="q_generate"
+        "Generate Quantum Wheel",
+        type="primary",
+        use_container_width=True,
+        key="q_generate",
     ):
         with st.spinner(f"Annealing {q_iterations:,} iterations..."):
             wheel = quantum_anneal_wheel(
@@ -2973,7 +3200,9 @@ elif page == "⚛️ Quantum Wheel":
 
     q_wheel = st.session_state.get("quantum_wheel")
     if q_wheel:
-        energy = wheel_energy(q_wheel, 40, attraction_profile, block_constraints_q, sum_range_q)
+        energy = wheel_energy(
+            q_wheel, 40, attraction_profile, block_constraints_q, sum_range_q
+        )
         coverage = _wheel_pair_coverage(q_wheel, 40) * 100
         s1, s2, s3 = st.columns(3)
         s1.metric("Tickets", len(q_wheel))
@@ -2983,7 +3212,11 @@ elif page == "⚛️ Quantum Wheel":
         st.dataframe(
             pd.DataFrame(
                 [
-                    {"Ticket": i + 1, "Numbers": ", ".join(f"{n:02d}" for n in t), "Sum": sum(t)}
+                    {
+                        "Ticket": i + 1,
+                        "Numbers": ", ".join(f"{n:02d}" for n in t),
+                        "Sum": sum(t),
+                    }
                     for i, t in enumerate(q_wheel)
                 ]
             ),
@@ -2999,7 +3232,9 @@ elif page == "⚛️ Quantum Wheel":
         "same constraints, scored with the same energy model. Results are "
         "appended to data/benchmarks/quantum_vs_ga.json."
     )
-    if st.button("Run Quantum vs GA Benchmark", use_container_width=True, key="q_benchmark"):
+    if st.button(
+        "Run Quantum vs GA Benchmark", use_container_width=True, key="q_benchmark"
+    ):
         with st.spinner("Running both optimizers (GA uses quick Monte Carlo)..."):
             report = benchmark_quantum_vs_ga(
                 iterations=min(q_iterations, 5000),
@@ -3009,7 +3244,7 @@ elif page == "⚛️ Quantum Wheel":
             )
         st.session_state["q_benchmark"] = report
 
-    report = st.session_state.get("q_benchmark")
+    report = cast(Any, st.session_state.get("q_benchmark"))
     if report:
         qc, gc = st.columns(2)
         qc.markdown("#### ⚛️ Quantum")
@@ -3045,7 +3280,10 @@ elif page == "⚛️ Quantum Wheel":
 # PAGE: 📚 Bluskov Library
 # =========================================================================
 elif page == "📚 Bluskov Library":
-    st.markdown('<h2 class="section-header">📚 Bluskov Wheel Library</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">📚 Bluskov Wheel Library</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "Browse published Bluskov systems, pick the mathematically minimal "
         "wheel for your guarantee, and select it for play. Selected wheels "
@@ -3096,7 +3334,9 @@ elif page == "📚 Bluskov Library":
                 f"({best['guarantee']}). Mathematically minimal for this guarantee."
             )
     else:
-        st.caption("Pick a guarantee type in the sidebar to get an auto-recommendation.")
+        st.caption(
+            "Pick a guarantee type in the sidebar to get an auto-recommendation."
+        )
 
     if not matches:
         st.warning("No wheels match the current filters.")
@@ -3104,7 +3344,11 @@ elif page == "📚 Bluskov Library":
         for w in matches:
             recommended = w["key"] in recommended_keys
             minimal = is_minimal(w)
-            border = "border:3px solid #3b82f6;" if recommended else "border:1px solid #4b5563;"
+            border = (
+                "border:3px solid #3b82f6;"
+                if recommended
+                else "border:1px solid #4b5563;"
+            )
             badge_min = (
                 (
                     ' <span style="background-color:#166534;color:#bbf7d0;'
@@ -3198,8 +3442,9 @@ elif page == "📚 Bluskov Library":
             f"### Active Template — System #{template['system_number']} "
             f"({len(template['tickets'])} tickets)"
         )
+        # cast: session_state values are dynamic; export helpers want list[list[int]]
         tickets = template["tickets"]
-        csv_data = export_csv(tickets)
+        csv_data = export_csv(cast(Any, tickets))
         exp1, exp2 = st.columns(2)
         exp1.download_button(
             "⬇️ Download CSV",
@@ -3210,7 +3455,9 @@ elif page == "📚 Bluskov Library":
         )
         with exp2.expander("🖨️ Print-friendly view"):
             st.code(
-                format_print(tickets, title=f"System #{template['system_number']}"),
+                format_print(
+                    cast(Any, tickets), title=f"System #{template['system_number']}"
+                ),
                 language=None,
             )
 
@@ -3293,7 +3540,7 @@ elif page == "Wheel Explorer":
                 colorbar={"title": "Tickets"},
             )
         )
-        fig.update_layout(
+        cast(Any, fig).update_layout(
             title=f"Coverage Matrix — {explore_wheel} ({len(validator.tickets)} tickets)",
             xaxis_title="Number",
             yaxis_title="Number",
@@ -3312,7 +3559,8 @@ elif page == "Wheel Explorer":
 # =========================================================================
 elif page == "Live Monitor":
     st.markdown(
-        '<h2 class="section-header">Live Monitor — Draw Alerts</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">Live Monitor — Draw Alerts</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Monitor scheduled draw-result checks and alert history. "
@@ -3327,7 +3575,9 @@ elif page == "Live Monitor":
 
     # --- Status ---
     st.markdown("### Next Scheduled Check")
-    st.info("⏰ **Thu & Sun at 8:00 AM** — comparing stored tickets against latest draw results.")
+    st.info(
+        "⏰ **Thu & Sun at 8:00 AM** — comparing stored tickets against latest draw results."
+    )
 
     alerts_enabled = st.checkbox(
         "Enable Win Alerts",
@@ -3375,7 +3625,9 @@ elif page == "Live Monitor":
             save_tickets([list(t) for t in tickets])
             st.success(f"Saved {len(tickets)} tickets from '{wheel_name}' wheel.")
         else:
-            st.warning("Select a wheel first (Wheels & Tickets page → Show Tickets & Cost).")
+            st.warning(
+                "Select a wheel first (Wheels & Tickets page → Show Tickets & Cost)."
+            )
 
     # --- Check log ---
     st.divider()
@@ -3384,9 +3636,9 @@ elif page == "Live Monitor":
         with open(CHECK_LOG, encoding="utf-8") as f:
             lines = f.readlines()
         # Show last 20 lines
-        recent = [line.strip() for line in lines[-20:] if line.strip()]
-        if recent:
-            st.code("\n".join(reversed(recent)), language="text")
+        log_lines = [line.strip() for line in lines[-20:] if line.strip()]
+        if log_lines:
+            st.code("\n".join(reversed(log_lines)), language="text")
         else:
             st.info("No checks recorded yet.")
     else:
@@ -3420,7 +3672,7 @@ elif page == "Live Monitor":
 # PAGE: Notification Settings
 # =========================================================================
 elif page == "Notification Settings":
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt_cls
 
     from notifier import (
         _get_smtp_config,
@@ -3432,7 +3684,9 @@ elif page == "Notification Settings":
         set_notifier_setting,
     )
 
-    st.markdown('<h2 class="section-header">Notification Settings</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Notification Settings</h2>', unsafe_allow_html=True
+    )
     st.markdown("Configure email alerts, desktop notifications, and alert thresholds.")
 
     # ---- SMTP Config display ----
@@ -3443,7 +3697,9 @@ elif page == "Notification Settings":
     c1.metric("SMTP Server", cfg["server"])
     c2.metric("Port", cfg["port"])
     c3.metric("Username", cfg["username"] or "(not set)")
-    st.caption("Set SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD in .env or environment.")
+    st.caption(
+        "Set SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD in .env or environment."
+    )
 
     # ---- Alert toggles ----
     st.divider()
@@ -3462,7 +3718,9 @@ elif page == "Notification Settings":
         )
         if new_email != email_enabled:
             set_notifier_setting("email_enabled", "true" if new_email else "false")
-            st.toast("Email notifications " + ("enabled" if new_email else "disabled") + "!")
+            st.toast(
+                "Email notifications " + ("enabled" if new_email else "disabled") + "!"
+            )
     with col_b:
         new_desktop = st.toggle(
             "Desktop Notifications",
@@ -3472,7 +3730,11 @@ elif page == "Notification Settings":
         )
         if new_desktop != desktop_enabled:
             set_notifier_setting("desktop_enabled", "true" if new_desktop else "false")
-            st.toast("Desktop notifications " + ("enabled" if new_desktop else "disabled") + "!")
+            st.toast(
+                "Desktop notifications "
+                + ("enabled" if new_desktop else "disabled")
+                + "!"
+            )
 
     # ---- Minimum division threshold ----
     st.divider()
@@ -3513,13 +3775,15 @@ elif page == "Notification Settings":
     # ---- Test Alert ----
     st.divider()
     st.markdown("### Send Test Alert")
-    st.markdown("Trigger a dummy notification to verify your email/desktop configuration.")
+    st.markdown(
+        "Trigger a dummy notification to verify your email/desktop configuration."
+    )
 
     if st.button("Send Test Alert", type="primary", use_container_width=True):
         subject = "[TEST] Lotto Wheel App - Test Alert"
         body = (
             "This is a test alert from your NZ Lotto Wheel Analysis Platform.\n"
-            f"Timestamp: {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Timestamp: {_dt_cls.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
             "If you received this, your notification configuration is working!\n"
         )
         email_ok = send_email_alert(subject, body)
@@ -3533,7 +3797,9 @@ elif page == "Notification Settings":
         if desktop_ok:
             st.success("Desktop notification shown!")
         else:
-            st.info("Desktop notification not available (install plyer for Windows toasts).")
+            st.info(
+                "Desktop notification not available (install plyer for Windows toasts)."
+            )
 
     # ---- Raw settings ----
     with st.expander("Raw Settings (debug)", expanded=False):
@@ -3554,7 +3820,10 @@ elif page == "Ticket Wizard":
 # PAGE: International Lotteries
 # =========================================================================
 elif page == "International Lotteries":
-    st.markdown('<h2 class="section-header">International Lotteries</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">International Lotteries</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown("Fetch results from international lotteries via APIVerve API.")
 
     # API key in session state
@@ -3584,18 +3853,20 @@ elif page == "International Lotteries":
             with st.spinner(f"Fetching {lottery} results..."):
                 from api_fetcher import fetch_apiverve_lottery
 
-                result = fetch_apiverve_lottery(api_key, lottery)
+                api_result = fetch_apiverve_lottery(api_key, lottery)
 
-            if result:
-                st.success(f"Results for {lottery} — {result['draw_date']}")
+            if api_result:
+                st.success(f"Results for {lottery} — {api_result['draw_date']}")
                 df = pd.DataFrame(
                     [
                         {
-                            "Draw Date": result["draw_date"],
-                            "Main Numbers": ", ".join(str(n) for n in result["main_numbers"]),
-                            "Bonus Ball": result["bonus_ball"] or "—",
-                            "Powerball": result["powerball"] or "—",
-                            "Source": result["source"],
+                            "Draw Date": api_result["draw_date"],
+                            "Main Numbers": ", ".join(
+                                str(n) for n in api_result["main_numbers"]
+                            ),
+                            "Bonus Ball": api_result["bonus_ball"] or "—",
+                            "Powerball": api_result["powerball"] or "—",
+                            "Source": api_result["source"],
                         }
                     ]
                 )
@@ -3615,17 +3886,17 @@ elif page == "International Lotteries":
                             fetched_at TEXT DEFAULT (datetime('now'))
                         )
                     """)
-                    nums_str = ",".join(str(n) for n in result["main_numbers"])
+                    nums_str = ",".join(str(n) for n in api_result["main_numbers"])
                     try:
                         conn.execute(
                             "INSERT INTO intl_draws (draw_date, lottery_name, numbers, bonus, powerball) "
                             "VALUES (?, ?, ?, ?, ?)",
                             (
-                                result["draw_date"],
+                                api_result["draw_date"],
                                 lottery,
                                 nums_str,
-                                result["bonus_ball"] or 0,
-                                result["powerball"] or 0,
+                                api_result["bonus_ball"] or 0,
+                                api_result["powerball"] or 0,
                             ),
                         )
                         conn.commit()
@@ -3635,7 +3906,9 @@ elif page == "International Lotteries":
                     finally:
                         conn.close()
             else:
-                st.error("Failed to fetch results. Check API key and internet connection.")
+                st.error(
+                    "Failed to fetch results. Check API key and internet connection."
+                )
 
     # Show saved
     st.divider()
@@ -3662,7 +3935,9 @@ elif page == "International Lotteries":
 # PAGE: Pipeline Status
 # =========================================================================
 elif page == "Pipeline Status":
-    st.markdown('<h2 class="section-header">Data Pipeline Status</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Data Pipeline Status</h2>', unsafe_allow_html=True
+    )
     st.markdown("Monitor the unified data-fetching pipeline and view recent activity.")
 
     if st.button("Manual Fetch Now", type="primary", use_container_width=True):
@@ -3694,7 +3969,9 @@ elif page == "Pipeline Status":
             # Per-source breakdown
             st.markdown("#### Success by Source")
             source_stats = df.groupby("source")["success"].agg(["sum", "count"])
-            source_stats["rate"] = (source_stats["sum"] / source_stats["count"] * 100).round(1)
+            source_stats["rate"] = (
+                source_stats["sum"] / source_stats["count"] * 100
+            ).round(1)
             st.dataframe(source_stats, use_container_width=True)
 
             # Recent errors
@@ -3717,7 +3994,8 @@ elif page == "Pipeline Status":
 # =========================================================================
 elif page == "ML Predictor":
     st.markdown(
-        '<h2 class="section-header">ML Predictor — XGBoost + SHAP</h2>', unsafe_allow_html=True
+        '<h2 class="section-header">ML Predictor — XGBoost + SHAP</h2>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         "Train a gradient-boosted trees model on historical draws "
@@ -3739,37 +4017,39 @@ elif page == "ML Predictor":
         if current_hash == st.session_state["xgb_model"].draws_hash:
             train_needed = False
 
-    train_clicked = st.button("Train XGBoost Model", type="primary", use_container_width=True)
+    train_clicked = st.button(
+        "Train XGBoost Model", type="primary", use_container_width=True
+    )
     if train_clicked or (st.session_state.get("xgb_model") is None):
         with st.spinner("Training XGBoost on historical draws..."):
             from datetime import datetime
 
             from predictions import XGBoostPredictor
 
-            model = XGBoostPredictor(draws)
-            model.fit(window_draws=200)
-            model.last_trained_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            model.draws_hash = hash(str([d[0] for d in draws[-200:]])) if draws else 0
+            xgb = XGBoostPredictor(draws)
+            xgb.fit(window_draws=200)
+            xgb.last_trained_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # type: ignore[attr-defined]  # dashboard-attached metadata attr
+            xgb.draws_hash = hash(str([d[0] for d in draws[-200:]])) if draws else 0  # type: ignore[attr-defined]  # dashboard-attached metadata attr
 
-        if model.model:
-            st.session_state["xgb_model"] = model
+        if xgb.model:
+            st.session_state["xgb_model"] = xgb
             st.session_state["xgb_shap_done"] = False
-            st.success(f"Model trained successfully at {model.last_trained_on}")
+            st.success(f"Model trained successfully at {xgb.last_trained_on}")  # type: ignore[attr-defined]  # set just above
         else:
             st.warning("Training failed — not enough data. Need at least 6 draws.")
 
     from datetime import datetime
 
-    model = st.session_state.get("xgb_model")
+    xgb = cast(Any, st.session_state.get("xgb_model"))
 
-    if model is not None and model.model:
+    if xgb is not None and xgb.model:
         # --- Predictions ---
         st.divider()
         st.markdown("### Top 15 Predicted Numbers")
-        top_k = model.predict_top_k(k=15)
-        pred_df = pd.DataFrame(top_k, columns=["Number", "Probability"])
+        top_k_xgb = xgb.predict_top_k(k=15)
+        pred_df = pd.DataFrame(top_k_xgb, columns=["Number", "Probability"])
         pred_df["Probability"] = pred_df["Probability"].apply(lambda x: f"{x:.4%}")
-        pred_df.index = range(1, len(pred_df) + 1)
+        pred_df.index = cast(Any, range(1, len(pred_df) + 1))
         pred_df.index.name = "Rank"
         st.dataframe(pred_df, use_container_width=True)
 
@@ -3779,7 +4059,7 @@ elif page == "ML Predictor":
 
         if st.button("Compute SHAP Values", key="shap_btn", use_container_width=True):
             with st.spinner("Computing SHAP (this may take a moment)..."):
-                shap_result = model.explain_prediction()
+                shap_result = xgb.explain_prediction()
 
             if "error" in shap_result:
                 st.warning(shap_result["error"])
@@ -3807,7 +4087,7 @@ elif page == "ML Predictor":
                         )
                     ]
                 )
-                fig.update_layout(
+                cast(Any, fig).update_layout(
                     title="Mean |SHAP| per Feature",
                     xaxis_title="Feature",
                     yaxis_title="Mean |SHAP Value|",
@@ -3832,7 +4112,7 @@ elif page == "ML Predictor":
                         key="force_num_sel",
                     )
                 with col_info:
-                    prob = model.predict_probabilities().get(sel_number, 0)
+                    prob = xgb.predict_probabilities().get(sel_number, 0)
                     st.metric(
                         label=f"Predicted probability for #{sel_number}",
                         value=f"{prob:.4%}",
@@ -3840,7 +4120,7 @@ elif page == "ML Predictor":
 
                 with st.spinner(f"Generating force plot for number {sel_number}..."):
                     try:
-                        force_html = model.get_force_plot_html(sel_number)
+                        force_html = xgb.get_force_plot_html(sel_number)
                         st.components.v1.html(force_html, height=220, scrolling=True)
                         st.caption(
                             "Red = pushes prediction higher (number more likely to appear). "
@@ -3859,15 +4139,21 @@ elif page == "ML Predictor":
                     import tempfile
                     import zipfile
 
-                    with st.spinner("Generating all 40 force plots... this may take a minute."):
+                    with st.spinner(
+                        "Generating all 40 force plots... this may take a minute."
+                    ):
                         tmpdir = tempfile.mkdtemp(prefix="shap_report_")
                         html_files = []
                         for num in range(1, 41):
                             try:
-                                html = model.get_force_plot_html(num)
-                                fname = os.path.join(tmpdir, f"shap_number_{num:02d}.html")
+                                html = xgb.get_force_plot_html(num)
+                                fname = os.path.join(
+                                    tmpdir, f"shap_number_{num:02d}.html"
+                                )
                                 with open(fname, "w", encoding="utf-8") as fh:
-                                    fh.write(f"<h2>SHAP Force Plot — Number {num}</h2>\n")
+                                    fh.write(
+                                        f"<h2>SHAP Force Plot — Number {num}</h2>\n"
+                                    )
                                     fh.write(html)
                                 html_files.append(fname)
                             except Exception:
@@ -3875,7 +4161,9 @@ elif page == "ML Predictor":
 
                         if html_files:
                             zip_buf = io.BytesIO()
-                            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                            with zipfile.ZipFile(
+                                zip_buf, "w", zipfile.ZIP_DEFLATED
+                            ) as zf:
                                 for fname in html_files:
                                     zf.write(fname, os.path.basename(fname))
                             zip_buf.seek(0)
@@ -3907,7 +4195,9 @@ elif page == "ML Predictor":
 # PAGE: Performance Monitor
 # =========================================================================
 elif page == "Performance Monitor":
-    st.markdown('<h2 class="section-header">Performance Monitor</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Performance Monitor</h2>', unsafe_allow_html=True
+    )
     st.markdown("Cache statistics and system resource usage.")
 
     # ---- Cache info ----
@@ -3992,7 +4282,10 @@ elif page == "Performance Monitor":
 elif page == "📊 Predictor Leaderboard":
     import accuracy_tracker
 
-    st.markdown('<h2 class="section-header">📊 Predictor Leaderboard</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">📊 Predictor Leaderboard</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "Predictor performance from the `scorecards` table in `data/lotto.db`, "
         "computed by `accuracy_tracker.py` over rolling windows of "
@@ -4010,7 +4303,7 @@ elif page == "📊 Predictor Leaderboard":
         st.rerun()
 
     # ---- Load leaderboard data ----
-    def _load_leaderboard(window_size: int):
+    def _load_leaderboard(window_size: int) -> Any:
         """Scorecard rows for one window size; None if DB/table unavailable."""
         try:
             return accuracy_tracker.get_leaderboard(window_size)
@@ -4043,7 +4336,11 @@ elif page == "📊 Predictor Leaderboard":
                 hot = accuracy_tracker.get_hot_predictor(20)
             if hot:
                 st.markdown("### 🔥 Hot Predictor")
-                st.badge(f"{hot} — best over the last 20 draws", icon="🔥", color="orange")
+                st.badge(
+                    f"{hot} — best over the last 20 draws",
+                    icon="🔥",
+                    color="orange",
+                )
 
             display_cols = {
                 "predictor_name": "Predictor",
@@ -4058,16 +4355,16 @@ elif page == "📊 Predictor Leaderboard":
             }
 
             # ---- One sorted table per window size ----
-            for w in accuracy_tracker.LEADERBOARD_WINDOWS:
-                rows = boards[w]
+            for win in accuracy_tracker.LEADERBOARD_WINDOWS:
+                lb_rows = boards[win]
                 st.divider()
-                if not rows:
-                    st.markdown(f"### Window: last {w} draws")
-                    st.caption(f"No scorecards for window size {w} yet.")
+                if not lb_rows:
+                    st.markdown(f"### Window: last {win} draws")
+                    st.caption(f"No scorecards for window size {win} yet.")
                     continue
 
                 df = (
-                    pd.DataFrame(rows)
+                    pd.DataFrame(lb_rows)
                     .sort_values(
                         by=["hit_rate", "top15_accuracy", "brier_score"],
                         ascending=[False, False, True],
@@ -4078,14 +4375,18 @@ elif page == "📊 Predictor Leaderboard":
 
                 top = df.iloc[0]
                 st.markdown(
-                    f"### Window: last {w} draws — "
+                    f"### Window: last {win} draws — "
                     f"🏆 <span style='color:#D4AF37'>{top['predictor_name']}</span> "
                     f"<small>(hit rate {top['hit_rate']:.1%})</small>",
                     unsafe_allow_html=True,
                 )
 
-                show = df[[c for c in display_cols if c in df.columns]].rename(columns=display_cols)
-                show["Updated"] = show["Updated"].astype(str).str[:19].str.replace("T", " ")
+                show = df[[c for c in display_cols if c in df.columns]].rename(
+                    columns=display_cols
+                )
+                show["Updated"] = (
+                    show["Updated"].astype(str).str[:19].str.replace("T", " ")
+                )
                 st.dataframe(
                     show,
                     width="stretch",
@@ -4111,7 +4412,9 @@ elif page == "🎱 Bonus Impact":
     import bonus_impact
     from database import fetch_all_draws
 
-    st.markdown('<h2 class="section-header">🎱 Bonus Impact</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">🎱 Bonus Impact</h2>', unsafe_allow_html=True
+    )
     st.markdown(
         "Quantify how much the **bonus ball** adds to your wheels: division "
         "upgrades, premium value, and the maximum possible upside."
@@ -4125,7 +4428,9 @@ elif page == "🎱 Bonus Impact":
         all_draws = []
 
     if not all_draws:
-        st.info("No draws in the database yet. Import draw history first (Data Import page).")
+        st.info(
+            "No draws in the database yet. Import draw history first (Data Import page)."
+        )
     else:
         dates = sorted(d["draw_date"] for d in all_draws)
         min_d = dt.date.fromisoformat(dates[0])
@@ -4161,13 +4466,15 @@ elif page == "🎱 Bonus Impact":
             st.info("Select at least one wheel to backtest.")
         else:
             ranged = [
-                d for d in all_draws if start_d.isoformat() <= d["draw_date"] <= end_d.isoformat()
+                d
+                for d in all_draws
+                if start_d.isoformat() <= d["draw_date"] <= end_d.isoformat()
             ]
             if not ranged:
                 st.info("No draws found in the selected date range.")
             else:
                 # Unique tickets across all selected wheels
-                tickets = [
+                unique_tickets = [
                     list(t)
                     for t in sorted(
                         {
@@ -4180,7 +4487,7 @@ elif page == "🎱 Bonus Impact":
 
                 # Prize lookup per division (latest payouts, else static fallback)
                 @st.cache_data(ttl=3600, show_spinner=False)
-                def _division_prizes():
+                def _division_prizes() -> Any:
                     from prize_calculator import fetch_payouts
 
                     try:
@@ -4215,7 +4522,7 @@ elif page == "🎱 Bonus Impact":
 
                 prize_lookup, prize_src = _division_prizes()
 
-                tickets_per_draw = [tickets] * len(ranged)
+                tickets_per_draw = [unique_tickets] * len(ranged)
                 draws_main = [d["numbers"] for d in ranged]
                 draws_bonus = [d["bonus"] for d in ranged]
 
@@ -4225,9 +4532,9 @@ elif page == "🎱 Bonus Impact":
                     draws_bonus,
                     prize_lookup,
                 )
-                report = baseline
+                bi_report = baseline
                 if what_if:
-                    report = bonus_impact.run_bonus_impact_backtest(
+                    bi_report = bonus_impact.run_bonus_impact_backtest(
                         tickets_per_draw,
                         draws_main,
                         draws_bonus,
@@ -4244,33 +4551,40 @@ elif page == "🎱 Bonus Impact":
                         f"({baseline.bonus_premium_pct:.1f}%)."
                     )
                 delta_val = (
-                    (report.bonus_premium_value - baseline.bonus_premium_value) if what_if else None
+                    (bi_report.bonus_premium_value - baseline.bonus_premium_value)
+                    if what_if
+                    else None
                 )
                 delta_pct = (
-                    (report.bonus_premium_pct - baseline.bonus_premium_pct) if what_if else None
+                    (bi_report.bonus_premium_pct - baseline.bonus_premium_pct)
+                    if what_if
+                    else None
                 )
 
                 m1, m2, m3 = st.columns(3)
-                m1.metric("Total Prize (with bonus)", f"${report.total_prize_with_bonus:,.2f}")
+                m1.metric(
+                    "Total Prize (with bonus)",
+                    f"${bi_report.total_prize_with_bonus:,.2f}",
+                )
                 m2.metric(
                     "Bonus Premium Value",
-                    f"${report.bonus_premium_value:,.2f}",
+                    f"${bi_report.bonus_premium_value:,.2f}",
                     delta=f"${delta_val:+,.2f}" if delta_val is not None else None,
                 )
                 m3.metric(
                     "Bonus Premium %",
-                    f"{report.bonus_premium_pct:.1f}%",
+                    f"{bi_report.bonus_premium_pct:.1f}%",
                     delta=f"{delta_pct:+.1f} pts" if delta_pct is not None else None,
                 )
                 st.caption(
-                    f"{report.total_draws} draws × {len(tickets)} unique tickets "
-                    f"({report.total_tickets_played:,} ticket-evaluations) · "
+                    f"{bi_report.total_draws} draws × {len(unique_tickets)} unique tickets "
+                    f"({bi_report.total_tickets_played:,} ticket-evaluations) · "
                     f"prizes: {prize_src}"
                 )
 
                 # ---- Full markdown report ----
                 st.divider()
-                st.markdown(bonus_impact.report_to_markdown(report))
+                st.markdown(bonus_impact.report_to_markdown(bi_report))
 
                 # ---- Per-draw bonus premium chart ----
                 st.divider()
@@ -4278,7 +4592,9 @@ elif page == "🎱 Bonus Impact":
                 chart_df = pd.DataFrame(
                     {
                         "date": [d["draw_date"] for d in ranged],
-                        "bonus_premium": [p["bonus_premium"] for p in report.per_draw_impact],
+                        "bonus_premium": [
+                            p["bonus_premium"] for p in bi_report.per_draw_impact
+                        ],
                     }
                 ).set_index("date")
                 if chart_df["bonus_premium"].abs().sum() == 0:
@@ -4291,9 +4607,12 @@ elif page == "🎱 Bonus Impact":
 # PAGE: 🧲 Attraction Profile
 # =========================================================================
 elif page == "🧲 Attraction Profile":
-    import numerical_attraction
+    import numerical_attraction as numerical_attraction_mod
 
-    st.markdown('<h2 class="section-header">🧲 Attraction Profile</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">🧲 Attraction Profile</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "Consecutive-pair and +2-gap patterns across the **last 30 draws**. "
         "Albert baseline: ~63% of draws contain a consecutive pair, ~42% a +2 gap."
@@ -4304,8 +4623,8 @@ elif page == "🧲 Attraction Profile":
     else:
         # Cached profile — re-analyzed at most once per hour per draw set
         @st.cache_data(ttl=3600, show_spinner=False)
-        def _attraction_profile(recent_draws):
-            return numerical_attraction.analyze_attraction(
+        def _attraction_profile(recent_draws: Any) -> Any:
+            return numerical_attraction_mod.analyze_attraction(
                 [list(d) for d in recent_draws], lookback=30
             )
 
@@ -4336,7 +4655,9 @@ elif page == "🧲 Attraction Profile":
         t1, t2 = st.columns(2)
         with t1:
             st.markdown("### Top 10 Consecutive Pairs")
-            rows_c = sorted(profile.consecutive_pairs.items(), key=lambda x: (-x[1], x[0]))[:10]
+            rows_c = sorted(
+                profile.consecutive_pairs.items(), key=lambda x: (-x[1], x[0])
+            )[:10]
             if rows_c:
                 st.dataframe(
                     pd.DataFrame(
@@ -4344,7 +4665,9 @@ elif page == "🧲 Attraction Profile":
                             {
                                 "Pair": f"{a}–{b}",
                                 "Hits": c,
-                                "Score": round(profile.normalized_scores.get((a, b), 0.0), 3),
+                                "Score": round(
+                                    profile.normalized_scores.get((a, b), 0.0), 3
+                                ),
                             }
                             for (a, b), c in rows_c
                         ]
@@ -4357,7 +4680,9 @@ elif page == "🧲 Attraction Profile":
                 st.info("No consecutive pairs in the last 30 draws.")
         with t2:
             st.markdown("### Top 10 +2 Gap Pairs")
-            rows_p = sorted(profile.plus_two_pairs.items(), key=lambda x: (-x[1], x[0]))[:10]
+            rows_p = sorted(
+                profile.plus_two_pairs.items(), key=lambda x: (-x[1], x[0])
+            )[:10]
             if rows_p:
                 st.dataframe(
                     pd.DataFrame(
@@ -4365,7 +4690,9 @@ elif page == "🧲 Attraction Profile":
                             {
                                 "Pair": f"{a}–{b}",
                                 "Hits": c,
-                                "Score": round(profile.normalized_scores.get((a, b), 0.0), 3),
+                                "Score": round(
+                                    profile.normalized_scores.get((a, b), 0.0), 3
+                                ),
                             }
                             for (a, b), c in rows_p
                         ]
@@ -4378,7 +4705,7 @@ elif page == "🧲 Attraction Profile":
                 st.info("No +2 gap pairs in the last 30 draws.")
 
         # ---- Hot / Cold number badges ----
-        def _badges(numbers, color):
+        def _badges(numbers: Any, color: str) -> str:
             return " ".join(
                 f"<span style='background:{color};color:white;border-radius:12px;"
                 f"padding:0.2rem 0.6rem;margin:0.15rem;display:inline-block;'>"
@@ -4391,15 +4718,22 @@ elif page == "🧲 Attraction Profile":
         with h1:
             st.markdown("### 🔥 Hot Numbers")
             if profile.hot_numbers:
-                st.markdown(_badges(profile.hot_numbers[:10], "#e74c3c"), unsafe_allow_html=True)
+                st.markdown(
+                    _badges(profile.hot_numbers[:10], "#e74c3c"), unsafe_allow_html=True
+                )
                 st.caption("Numbers appearing most often in hot pairs")
             else:
                 st.info("No hot numbers detected.")
         with h2:
             st.markdown("### ❄️ Cold Numbers")
             if profile.cold_numbers:
-                st.markdown(_badges(profile.cold_numbers[:12], "#3498db"), unsafe_allow_html=True)
-                st.caption(f"{len(profile.cold_numbers)} numbers absent from all detected pairs")
+                st.markdown(
+                    _badges(profile.cold_numbers[:12], "#3498db"),
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    f"{len(profile.cold_numbers)} numbers absent from all detected pairs"
+                )
             else:
                 st.info("No cold numbers — every number appeared in a pair.")
 
@@ -4424,23 +4758,25 @@ elif page == "🧲 Attraction Profile":
                 if err:
                     st.error(err)
                 else:
-                    score = numerical_attraction.score_wheel_attraction(nums, profile)
+                    wa_score = numerical_attraction_mod.score_wheel_attraction(
+                        nums, profile
+                    )
                     c1, c2, c3 = st.columns(3)
-                    c1.metric("Albert Alignment", f"{score.albert_alignment:.0%}")
-                    c2.metric("Attraction Score", f"{score.attraction_score:.2f}")
-                    c3.metric("Hot-Pair Coverage", f"{score.coverage_ratio:.0%}")
+                    c1.metric("Albert Alignment", f"{wa_score.albert_alignment:.0%}")
+                    c2.metric("Attraction Score", f"{wa_score.attraction_score:.2f}")
+                    c3.metric("Hot-Pair Coverage", f"{wa_score.coverage_ratio:.0%}")
 
-                    if score.albert_alignment >= 0.99:
-                        st.success(score.recommendation)
-                    elif score.albert_alignment > 0:
-                        st.info(score.recommendation)
+                    if wa_score.albert_alignment >= 0.99:
+                        st.success(wa_score.recommendation)
+                    elif wa_score.albert_alignment > 0:
+                        st.info(wa_score.recommendation)
                     else:
-                        st.warning(score.recommendation)
+                        st.warning(wa_score.recommendation)
 
                     st.write(
                         f"**Consecutive pairs:** "
-                        f"{score.consecutive_pairs_present or 'none'} · "
-                        f"**+2 gap pairs:** {score.plus_two_pairs_present or 'none'}"
+                        f"{wa_score.consecutive_pairs_present or 'none'} · "
+                        f"**+2 gap pairs:** {wa_score.plus_two_pairs_present or 'none'}"
                     )
             except ValueError:
                 st.error(
@@ -4461,13 +4797,15 @@ elif page == "👥 Syndicates":
     )
 
     # ---- Users from auth.py (for friendly pickers) ----
-    def _auth_users():
+    def _auth_users() -> list[Any]:
         """Return [(user_id, username)] from the auth users table, or []."""
         try:
             import auth
 
             conn = sqlite3.connect(auth.DB_PATH)
-            rows = conn.execute("SELECT id, username FROM users ORDER BY username").fetchall()
+            rows = conn.execute(
+                "SELECT id, username FROM users ORDER BY username"
+            ).fetchall()
             conn.close()
             return rows
         except Exception:
@@ -4475,13 +4813,15 @@ elif page == "👥 Syndicates":
 
     auth_users = _auth_users()
 
-    def _user_picker(label, key):
+    def _user_picker(label: str, key: str) -> Any:
         """Selectbox over auth users, or manual id entry if unavailable."""
         if auth_users:
             options = {f"{uname} (#{uid})": uid for uid, uname in auth_users}
             choice = st.selectbox(label, list(options.keys()), key=key)
             return options[choice]
-        return st.number_input(f"{label} (user id)", min_value=1, step=1, value=1, key=key)
+        return st.number_input(
+            f"{label} (user id)", min_value=1, step=1, value=1, key=key
+        )
 
     try:
         syndicates = syndicate.list_syndicates()
@@ -4492,9 +4832,13 @@ elif page == "👥 Syndicates":
     # ---- Create syndicate ----
     with st.expander("➕ Create Syndicate", expanded=not syndicates):
         with st.form("create_syndicate_form"):
-            syn_name = st.text_input("Syndicate name", placeholder="e.g. Friday Work Pool")
+            syn_name = st.text_input(
+                "Syndicate name", placeholder="e.g. Friday Work Pool"
+            )
             creator_id = _user_picker("Creator", "syn_creator")
-            submitted = st.form_submit_button("Create Syndicate", use_container_width=True)
+            submitted = st.form_submit_button(
+                "Create Syndicate", use_container_width=True
+            )
         if submitted:
             try:
                 new_id = syndicate.create_syndicate(syn_name, int(creator_id))
@@ -4511,11 +4855,11 @@ elif page == "👥 Syndicates":
         syn = syn_options[selected_label]
         sid = syn["id"]
 
-        info = st.columns(4)
-        info[0].metric("Members", syn["member_count"])
-        info[1].metric("Total Contribution", f"{syn['total_contribution']:.1f}%")
-        info[2].metric("Creator", f"user #{syn['created_by']}")
-        info[3].metric("Created", str(syn["created_at"])[:10])
+        stat_cols = st.columns(4)
+        stat_cols[0].metric("Members", syn["member_count"])
+        stat_cols[1].metric("Total Contribution", f"{syn['total_contribution']:.1f}%")
+        stat_cols[2].metric("Creator", f"user #{syn['created_by']}")
+        stat_cols[3].metric("Created", str(syn["created_at"])[:10])
 
         # ---- Member management ----
         st.divider()
@@ -4584,7 +4928,8 @@ elif page == "👥 Syndicates":
                 "Draw ID / date", value=default_draw, placeholder="YYYY-MM-DD"
             )
             ticket_input = t_col2.text_input(
-                "Ticket numbers (6, comma-separated)", placeholder="3, 7, 12, 18, 25, 33"
+                "Ticket numbers (6, comma-separated)",
+                placeholder="3, 7, 12, 18, 25, 33",
             )
             splits_input = st.text_area(
                 "Contributor splits (JSON, optional — defaults to member shares)",
@@ -4593,30 +4938,39 @@ elif page == "👥 Syndicates":
             )
             if st.form_submit_button("Add Ticket", use_container_width=True):
                 try:
-                    nums = [int(x.strip()) for x in ticket_input.split(",") if x.strip()]
+                    nums = [
+                        int(x.strip()) for x in ticket_input.split(",") if x.strip()
+                    ]
                     splits = None
                     if splits_input.strip():
                         import json as _json
 
-                        splits = {int(k): float(v) for k, v in _json.loads(splits_input).items()}
+                        splits = {
+                            int(k): float(v)
+                            for k, v in _json.loads(splits_input).items()
+                        }
                     ticket_id = syndicate.add_ticket(sid, nums, draw_id_input, splits)
-                    st.toast(f"Ticket registered (id {ticket_id}).", icon=":material/check:")
+                    st.toast(
+                        f"Ticket registered (id {ticket_id}).", icon=":material/check:"
+                    )
                     st.rerun()
                 except Exception as e:
                     st.error(f"Could not add ticket: {e}")
 
-        tickets = syndicate.get_tickets(sid)
-        if tickets:
+        syn_tickets = syndicate.get_tickets(sid)
+        if syn_tickets:
             st.dataframe(
                 pd.DataFrame(
                     [
                         {
                             "Ticket ID": t["id"],
                             "Draw": t["draw_id"],
-                            "Numbers": ", ".join(f"{n:02d}" for n in t["ticket_numbers"]),
+                            "Numbers": ", ".join(
+                                f"{n:02d}" for n in t["ticket_numbers"]
+                            ),
                             "Splits": t["contributor_splits"],
                         }
-                        for t in tickets
+                        for t in syn_tickets
                     ]
                 ),
                 width="stretch",
@@ -4632,10 +4986,16 @@ elif page == "👥 Syndicates":
         else:
             p_col1, p_col2 = st.columns(2)
             total_prize = p_col1.number_input(
-                "Total prize ($)", min_value=0.0, value=1000.0, step=50.0, key="syn_prize"
+                "Total prize ($)",
+                min_value=0.0,
+                value=1000.0,
+                step=50.0,
+                key="syn_prize",
             )
             draw_label = p_col2.text_input(
-                "Draw label (for notifications)", value=default_draw, key="syn_draw_label"
+                "Draw label (for notifications)",
+                value=default_draw,
+                key="syn_draw_label",
             )
 
             if st.button("Calculate Prize Split", use_container_width=True):
@@ -4692,7 +5052,10 @@ elif page == "👥 Syndicates":
 elif page == "🎫 Standard Lotto":
     import bonus_impact
 
-    st.markdown('<h2 class="section-header">🎫 Standard Lotto</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">🎫 Standard Lotto</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "Wheel performance against the **Standard Lotto** structure — no "
         "Powerball required and all bonus-ball-dependent divisions filtered out."
@@ -4753,7 +5116,9 @@ elif page == "🎫 Standard Lotto":
     # ---- Prize calculator ----
     st.markdown("### Prize Calculator")
     calc_cols = st.columns([1, 2])
-    matches_sel = calc_cols[0].selectbox("Main numbers matched", [6, 5, 4, 3], key="sl_matches")
+    matches_sel = calc_cols[0].selectbox(
+        "Main numbers matched", [6, 5, 4, 3], key="sl_matches"
+    )
     std_div = {6: 1, 5: 2, 4: 3, 3: 4}[matches_sel]
     calc_cols[1].metric(
         f"Standard {div_labels[std_div]}",
@@ -4773,7 +5138,9 @@ elif page == "🎫 Standard Lotto":
         st.warning("No draws in database.")
     else:
         b_col1, b_col2 = st.columns(2)
-        sl_wheels = b_col1.multiselect("Wheels", wheel_names, default=wheel_names, key="sl_wheels")
+        sl_wheels = b_col1.multiselect(
+            "Wheels", wheel_names, default=wheel_names, key="sl_wheels"
+        )
         sl_n = b_col2.slider(
             "Recent draws",
             min_value=10,
@@ -4787,7 +5154,7 @@ elif page == "🎫 Standard Lotto":
                 st.error("Select at least one wheel.")
             else:
                 recent = draws[-sl_n:]
-                rows = []
+                sl_rows = []
                 for name in sl_wheels:
                     tickets, _pb = WHEELS[name]
                     div_counts = {1: 0, 2: 0, 3: 0, 4: 0}
@@ -4801,7 +5168,7 @@ elif page == "🎫 Standard Lotto":
                                 total_prize += r.prize
                     cost = len(tickets) * _ticket_cost_sl * len(recent)
                     total_wins = sum(div_counts.values())
-                    rows.append(
+                    sl_rows.append(
                         {
                             "Wheel": name,
                             "Tickets/Draw": len(tickets),
@@ -4812,11 +5179,13 @@ elif page == "🎫 Standard Lotto":
                             "Total Wins": total_wins,
                             "Total Prize": round(total_prize, 2),
                             "Cost": round(cost, 2),
-                            "ROI %": round((total_prize - cost) / cost * 100, 1) if cost else 0.0,
+                            "ROI %": round((total_prize - cost) / cost * 100, 1)
+                            if cost
+                            else 0.0,
                         }
                     )
                 st.session_state["sl_backtest"] = {
-                    "rows": rows,
+                    "rows": sl_rows,
                     "n_draws": len(recent),
                     "from": recent[0][3],
                     "to": recent[-1][3],
@@ -4829,7 +5198,9 @@ elif page == "🎫 Standard Lotto":
                 f"ticket cost ${_ticket_cost_sl:.2f}"
             )
             df_bt = pd.DataFrame(bt["rows"])
-            st.dataframe(df_bt, width="stretch", hide_index=True, use_container_width=True)
+            st.dataframe(
+                df_bt, width="stretch", hide_index=True, use_container_width=True
+            )
             st.bar_chart(df_bt.set_index("Wheel")[["Total Prize"]])
 
 
@@ -4856,7 +5227,7 @@ elif page == "🔔 System Health":
     with contextlib.suppress(Exception):
         metrics_text = _requests.get(f"{_API_BASE}/metrics", timeout=5).text
 
-    def _metric_samples(name):
+    def _metric_samples(name: str) -> Any:
         """All samples for a metric family from the /metrics text."""
         from prometheus_client.parser import text_string_to_metric_families
 
@@ -4865,7 +5236,7 @@ elif page == "🔔 System Health":
                 return fam.samples
         return []
 
-    def _quantile(samples, q):
+    def _quantile(samples: Any, q: float) -> Any:
         """Approximate a quantile from histogram bucket samples."""
         buckets, count = [], 0.0
         for s in samples:
@@ -4887,7 +5258,11 @@ elif page == "🔔 System Health":
     # ---- Status cards ----
     if health_data:
         overall = health_data.get("status", "unknown")
-        color = {"healthy": "🟢", "degraded": "🟡", "unhealthy": "🔴"}.get(overall, "⚪")
+        color = {
+            "healthy": "🟢",
+            "degraded": "🟡",
+            "unhealthy": "🔴",
+        }.get(overall, "⚪")
         st.markdown(
             f"### {color} Overall: **{overall.upper()}** "
             f"(v{health_data.get('version', '?')}, {health_data.get('timestamp', '?')})"
@@ -4952,10 +5327,10 @@ elif page == "🔔 System Health":
                 )
                 results = resp.json()["data"]["result"]
                 if results:
-                    vals = results[0]["values"]
+                    ts_vals = results[0]["values"]
                     series = pd.Series(
-                        [float(v) * 100 for _, v in vals],
-                        index=pd.to_datetime([t for t, _ in vals], unit="s"),
+                        [float(v) * 100 for _t, v in ts_vals],
+                        index=pd.to_datetime([t for t, _v in ts_vals], unit="s"),
                         name="5xx %",
                     )
             except Exception:
@@ -5027,7 +5402,9 @@ elif page == "🔔 System Health":
         d2.markdown("**Memory used:** psutil unavailable")
 
 else:
-    st.markdown('<h2 class="section-header">Export Tickets</h2>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 class="section-header">Export Tickets</h2>', unsafe_allow_html=True
+    )
     st.markdown("Download a wheel's tickets as CSV.")
 
     export_wheel = st.selectbox(
@@ -5037,7 +5414,10 @@ else:
     if st.button("Generate CSV Preview", use_container_width=True):
         tickets, pb = WHEELS[export_wheel]
         data = [
-            {"Main Numbers": ", ".join(f"{x:02d}" for x in sorted(comb)), "Powerball": pb}
+            {
+                "Main Numbers": ", ".join(f"{x:02d}" for x in sorted(comb)),
+                "Powerball": pb,
+            }
             for comb in tickets
         ]
         df_export = pd.DataFrame(data)

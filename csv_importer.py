@@ -25,7 +25,14 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
 
 # Common column name patterns for auto-detection
 DATE_PATTERNS = ["draw_date", "date", "drawdate", "draw date"]
-NUMBERS_PATTERNS = ["numbers", "main_numbers", "winning_numbers", "main", "balls", "result"]
+NUMBERS_PATTERNS = [
+    "numbers",
+    "main_numbers",
+    "winning_numbers",
+    "main",
+    "balls",
+    "result",
+]
 BONUS_PATTERNS = ["bonus", "bonus_ball", "bonusball", "supplementary"]
 PB_PATTERNS = ["powerball", "power_ball", "pb", "power ball"]
 
@@ -141,7 +148,9 @@ def import_csv(
             conn.close()
             return 0
 
-        print(f"Columns: date={date_col}, numbers={numbers_col}, bonus={bonus_col}, pb={pb_col}")
+        print(
+            f"Columns: date={date_col}, numbers={numbers_col}, bonus={bonus_col}, pb={pb_col}"
+        )
 
         for row_num, row in enumerate(reader, 2):
             try:

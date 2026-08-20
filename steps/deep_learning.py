@@ -38,7 +38,9 @@ from config.quantum_features import (  # Imports quantum feature utilities/const
     compute_quantum_matrix,  # Builds quantum feature matrix from classical inputs
     train_quantum_encoder,  # Trains/tunes the quantum encoder parameters
 )
-from config.quantum_kernels import build_quantum_kernel_features  # Builds kernel features
+from config.quantum_kernels import (
+    build_quantum_kernel_features,
+)  # Builds kernel features
 from pipeline import DataPipeline  # Pipeline type for step signatures
 
 logging.basicConfig(
@@ -118,13 +120,17 @@ def weighted_bce(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     y_pred = tf.cast(y_pred, tf.float32)  # Ensure predictions match dtype too
 
     # Prevents log(0) and log(1)
-    y_pred = tf.clip_by_value(y_pred, MIN_PROB, 1.0 - MIN_PROB)  # Clamp to safe open interval
+    y_pred = tf.clip_by_value(
+        y_pred, MIN_PROB, 1.0 - MIN_PROB
+    )  # Clamp to safe open interval
 
     # Per-label BCE -> (batch, 50)
     bce = keras.backend.binary_crossentropy(y_true, y_pred)  # Elementwise BCE per label
 
     # Applys class weighting to positives only
-    w = y_true * class_weights_tf + (1.0 - y_true)  # If y_true==1 apply weight else apply 1.0
+    w = y_true * class_weights_tf + (
+        1.0 - y_true
+    )  # If y_true==1 apply weight else apply 1.0
 
     # Reduces to per-sample loss
     return tf.reduce_mean(bce * w, axis=-1)  # Mean across labels, keep batch dimension
@@ -141,7 +147,9 @@ def _ensure_2d(x: npt.ArrayLike, name: str) -> npt.NDArray[np.float64]:
     if x.ndim == 1:  # If vector, treat as single row
         x = x.reshape(1, -1)  # Shape (1, features)
     if x.ndim != 2:  # Rejects higher-rank inputs early
-        raise ValueError(f"{name} must be 2D, got shape {x.shape}")  # Fail fast with clear message
+        raise ValueError(
+            f"{name} must be 2D, got shape {x.shape}"
+        )  # Fail fast with clear message
     return x  # Returns 2D matrix
 
 
@@ -185,7 +193,9 @@ def _prob_norm_vec(x: npt.ArrayLike, name: str) -> npt.NDArray[np.float64]:
     s = float(v.sum())  # Total mass
 
     if s <= 0.0:  # If vector is all zeros (or invalid), fallback to uniform
-        return np.ones(NUM_TOTAL, dtype=float) / NUM_TOTAL  # Uniform distribution across 50 bins
+        return (
+            np.ones(NUM_TOTAL, dtype=float) / NUM_TOTAL
+        )  # Uniform distribution across 50 bins
 
     return cast(npt.NDArray[np.float64], v / s)  # Normalise to sum 1
 
@@ -207,15 +217,22 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
     historical_data = pipeline.get_data(
         "historical_data"
     )  # Historical draw records used for labels and prefix stats
-    if not historical_data:  # If missing/empty history, cannot train anything meaningful
+    if (
+        not historical_data
+    ):  # If missing/empty history, cannot train anything meaningful
         pipeline.add_data(
             "deep_learning_predictions",  # Stores result into pipeline
-            np.ones(NUM_TOTAL, dtype=float) / NUM_TOTAL,  # Uniform fallback (no information)
+            np.ones(NUM_TOTAL, dtype=float)
+            / NUM_TOTAL,  # Uniform fallback (no information)
         )
         return  # Exit early
 
-    monte_carlo = pipeline.get_data("monte_carlo")  # Probabilities from Monte Carlo stage
-    redundancy = pipeline.get_data("redundancy")  # Probabilities from redundancy/coverage stage
+    monte_carlo = pipeline.get_data(
+        "monte_carlo"
+    )  # Probabilities from Monte Carlo stage
+    redundancy = pipeline.get_data(
+        "redundancy"
+    )  # Probabilities from redundancy/coverage stage
     markov = pipeline.get_data("markov_features")  # Probabilities from Markov stage
     entropy = pipeline.get_data("entropy_features")  # Probabilities from entropy stage
     fusion_norm = pipeline.get_data(
@@ -252,7 +269,9 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
 
         # Main numbers (1–40)
         for n in draw.get("numbers", []):  # Pulls main number list; default empty
-            if isinstance(n, int) and 1 <= n <= NUM_MAIN:  # Validate as integer and in range
+            if (
+                isinstance(n, int) and 1 <= n <= NUM_MAIN
+            ):  # Validate as integer and in range
                 y[n - 1] = 1.0  # Converts 1-based lotto number to 0-based index
 
         # Powerball (1–10)
@@ -287,17 +306,27 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
     clusters = np.asarray(clusters, dtype=float).ravel()  # Force to flat float vector
     centroids = np.asarray(centroids, dtype=float).ravel()  # Force to flat float vector
 
-    if clusters.size != NUM_TOTAL:  # If wrong size, discard rather than misalign features
-        clusters = np.zeros(NUM_TOTAL, dtype=float)  # Replace with zeros to preserve dimensions
-    if centroids.size != NUM_TOTAL:  # If wrong size, discard rather than misalign features
-        centroids = np.zeros(NUM_TOTAL, dtype=float)  # Replace with zeros to preserve dimensions
+    if (
+        clusters.size != NUM_TOTAL
+    ):  # If wrong size, discard rather than misalign features
+        clusters = np.zeros(
+            NUM_TOTAL, dtype=float
+        )  # Replace with zeros to preserve dimensions
+    if (
+        centroids.size != NUM_TOTAL
+    ):  # If wrong size, discard rather than misalign features
+        centroids = np.zeros(
+            NUM_TOTAL, dtype=float
+        )  # Replace with zeros to preserve dimensions
 
     # ---------- Step 4: Build causal prefix frequencies ---------- #
 
     freqs = np.zeros(
         (n_draws, NUM_TOTAL), dtype=float
     )  # One frequency vector per timestep (before seeing that draw)
-    counts = np.zeros(NUM_TOTAL, dtype=float)  # Running occurrence counts up to time t-1
+    counts = np.zeros(
+        NUM_TOTAL, dtype=float
+    )  # Running occurrence counts up to time t-1
 
     for t in range(n_draws):  # Walk forward through history
         s = counts.sum()  # Total counts so far
@@ -323,22 +352,40 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
 
     x_all = np.column_stack(
         (  # Concatenate feature blocks horizontally
-            freqs * mc.reshape(1, -1),  # Prefix frequencies reweighted by Monte Carlo probabilities
-            freqs * rd.reshape(1, -1),  # Prefix frequencies reweighted by redundancy probabilities
-            freqs * mk.reshape(1, -1),  # Prefix frequencies reweighted by Markov probabilities
-            freqs * en.reshape(1, -1),  # Prefix frequencies reweighted by entropy probabilities
             freqs
-            * fn.reshape(1, -1),  # Prefix frequencies reweighted by Bayesian fused probabilities
+            * mc.reshape(
+                1, -1
+            ),  # Prefix frequencies reweighted by Monte Carlo probabilities
+            freqs
+            * rd.reshape(
+                1, -1
+            ),  # Prefix frequencies reweighted by redundancy probabilities
+            freqs
+            * mk.reshape(
+                1, -1
+            ),  # Prefix frequencies reweighted by Markov probabilities
+            freqs
+            * en.reshape(
+                1, -1
+            ),  # Prefix frequencies reweighted by entropy probabilities
+            freqs
+            * fn.reshape(
+                1, -1
+            ),  # Prefix frequencies reweighted by Bayesian fused probabilities
             np.tile(
                 centroids.reshape(1, -1), (n_draws, 1)
             ),  # Repeat centroids across all timesteps
-            np.tile(clusters.reshape(1, -1), (n_draws, 1)),  # Repeat clusters across all timesteps
+            np.tile(
+                clusters.reshape(1, -1), (n_draws, 1)
+            ),  # Repeat clusters across all timesteps
         )
     ).astype(float)  # Ensure float dtype for downstream models
 
     # ---------- Step 6: Time-aware train/validation split ---------- #
 
-    n_val = max(1, int(0.15 * n_draws))  # Validation is the last ~15% of history (at least 1)
+    n_val = max(
+        1, int(0.15 * n_draws)
+    )  # Validation is the last ~15% of history (at least 1)
     x_train, x_val = (
         x_all[:-n_val],
         x_all[-n_val:],
@@ -378,17 +425,23 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
 
     try:
         q_train = _force_width(  # Ensure quantum feature matrix has fixed width
-            compute_quantum_matrix(x_train),  # Quantum feature extraction on training matrix
+            compute_quantum_matrix(
+                x_train
+            ),  # Quantum feature extraction on training matrix
             QUANTUM_FEATURE_LEN,  # Expected width from quantum feature extractor
             "Q_train",  # Name used for error messages
         )
         q_val = _force_width(  # Ensure quantum feature matrix has fixed width
-            compute_quantum_matrix(x_val),  # Quantum feature extraction on validation matrix
+            compute_quantum_matrix(
+                x_val
+            ),  # Quantum feature extraction on validation matrix
             QUANTUM_FEATURE_LEN,  # Expected width from quantum feature extractor
             "Q_val",  # Name used for error messages
         )
     except Exception as e:
-        logging.error(f"Quantum feature computation failed: {e}")  # Report quantum feature failure
+        logging.error(
+            f"Quantum feature computation failed: {e}"
+        )  # Report quantum feature failure
         q_train = np.zeros(
             (x_train.shape[0], QUANTUM_FEATURE_LEN)
         )  # Fallback to zeros with correct shape
@@ -403,10 +456,12 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
             num_prototypes=KERNEL_PROTOTYPES,  # Requested number of prototypes / output width
             seed=1337,  # Deterministic prototype selection/reproducibility
         )
-        k_val_raw = build_quantum_kernel_features(  # Compute kernel features for validation set
-            x_val,  # Validation examples mapped against same cached prototypes
-            num_prototypes=KERNEL_PROTOTYPES,  # Output width
-            seed=1337,  # Seed matches to ensure cache compatibility
+        k_val_raw = (
+            build_quantum_kernel_features(  # Compute kernel features for validation set
+                x_val,  # Validation examples mapped against same cached prototypes
+                num_prototypes=KERNEL_PROTOTYPES,  # Output width
+                seed=1337,  # Seed matches to ensure cache compatibility
+            )
         )
 
         k_train = _force_width(
@@ -416,11 +471,15 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
             k_val_raw, KERNEL_PROTOTYPES, "K_val"
         )  # Enforce fixed width on validation kernel feats
     except Exception as e:
-        logging.error(f"Kernel feature computation failed: {e}")  # Report kernel feature failure
+        logging.error(
+            f"Kernel feature computation failed: {e}"
+        )  # Report kernel feature failure
         k_train = np.zeros(
             (x_train.shape[0], KERNEL_PROTOTYPES)
         )  # Fallback zero kernel features (train)
-        k_val = np.zeros((x_val.shape[0], KERNEL_PROTOTYPES))  # Fallback zero kernel features (val)
+        k_val = np.zeros(
+            (x_val.shape[0], KERNEL_PROTOTYPES)
+        )  # Fallback zero kernel features (val)
 
     xf_train = np.column_stack((x_train, q_train, k_train)).astype(
         float
@@ -429,14 +488,18 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
         float
     )  # Fuse classical + quantum + kernel (val)
 
-    input_dim = xf_train.shape[1]  # Store final fused feature width for model input validation
+    input_dim = xf_train.shape[
+        1
+    ]  # Store final fused feature width for model input validation
 
     # ---------- Step 10: Train-only data augmentation ---------- #
 
     xa = [xf_train]  # List of training matrices to stack (original + noisy versions)
     ya = [y_train]  # Labels duplicated for each augmented copy
 
-    for _ in range(DATA_AUGMENTATION_ROUNDS):  # Generate multiple noisy copies of training data
+    for _ in range(
+        DATA_AUGMENTATION_ROUNDS
+    ):  # Generate multiple noisy copies of training data
         xa.append(
             xf_train + np.random.normal(0.0, NOISE_STDDEV, xf_train.shape)
         )  # Add Gaussian noise in feature space
@@ -449,7 +512,9 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
 
     model = keras.Sequential(
         [  # Simple feedforward network for tabular fused features
-            keras.layers.Input(shape=(input_dim,)),  # Define input layer shape explicitly
+            keras.layers.Input(
+                shape=(input_dim,)
+            ),  # Define input layer shape explicitly
             keras.layers.Dense(128, activation="relu"),  # First dense layer
             keras.layers.BatchNormalization(),  # BatchNorm to stabilise hidden activations
             keras.layers.Dropout(0.25),  # Prevent memorising historical draws
@@ -477,7 +542,9 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
             keras.metrics.BinaryAccuracy(
                 name="bin_acc"
             ),  # Thresholded accuracy (coarse, but stable)
-            keras.metrics.MeanAbsoluteError(name="mae"),  # MAE across probabilities vs labels
+            keras.metrics.MeanAbsoluteError(
+                name="mae"
+            ),  # MAE across probabilities vs labels
         ],
     )
 
@@ -488,7 +555,10 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
         ya_arr,  # Augmented training labels (duplicated to match xa)
         epochs=EPOCH_SIZE,  # Maximum number of training epochs (upper bound)
         batch_size=BATCH_SIZE,  # Mini-batch size per gradient update step
-        validation_data=(xf_val, y_val),  # Validation uses clean (non-augmented) fused features
+        validation_data=(
+            xf_val,
+            y_val,
+        ),  # Validation uses clean (non-augmented) fused features
         callbacks=[
             keras.callbacks.ReduceLROnPlateau(
                 # Reduce learning rate if validation AUC stops improving
@@ -540,10 +610,14 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
     ).astype(float)  # Ensure float dtype
 
     try:
-        q_now = _force_width(  # Ensure quantum feature width matches training expectation
-            compute_quantum_matrix(x_now),  # Compute quantum features for current row
-            QUANTUM_FEATURE_LEN,  # Expected width
-            "q_now",  # Name for diagnostics
+        q_now = (
+            _force_width(  # Ensure quantum feature width matches training expectation
+                compute_quantum_matrix(
+                    x_now
+                ),  # Compute quantum features for current row
+                QUANTUM_FEATURE_LEN,  # Expected width
+                "q_now",  # Name for diagnostics
+            )
         )
     except Exception:
         q_now = np.zeros(
@@ -551,16 +625,20 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
         )  # Fallback to zeros if quantum feature step fails
 
     try:
-        k_now_raw = build_quantum_kernel_features(  # Compute kernel features for current row
-            x_now,  # Current classical features
-            num_prototypes=KERNEL_PROTOTYPES,  # Output width
-            seed=1337,  # Seed must match cache semantics used earlier
+        k_now_raw = (
+            build_quantum_kernel_features(  # Compute kernel features for current row
+                x_now,  # Current classical features
+                num_prototypes=KERNEL_PROTOTYPES,  # Output width
+                seed=1337,  # Seed must match cache semantics used earlier
+            )
         )
         k_now = _force_width(
             k_now_raw, KERNEL_PROTOTYPES, "k_now"
         )  # Enforce fixed kernel feature width
     except Exception:
-        k_now = np.zeros((1, KERNEL_PROTOTYPES))  # Fallback to zeros if kernel step fails
+        k_now = np.zeros(
+            (1, KERNEL_PROTOTYPES)
+        )  # Fallback to zeros if kernel step fails
 
     xf_now = np.column_stack((x_now, q_now, k_now)).astype(
         float

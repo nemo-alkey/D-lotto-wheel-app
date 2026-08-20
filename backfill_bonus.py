@@ -106,7 +106,9 @@ def update_bonus(conn: sqlite3.Connection, draw_id: int, bonus: int) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backfill bonus ball data from NZCity")
-    parser.add_argument("--start", type=int, default=None, help="Start from this draw_id")
+    parser.add_argument(
+        "--start", type=int, default=None, help="Start from this draw_id"
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="Just list missing draws, don't fetch"
     )
@@ -117,7 +119,10 @@ def main() -> None:
         help=f"Delay between requests (default {BURST_DELAY}s)",
     )
     parser.add_argument(
-        "--max-retries", type=int, default=MAX_RETRIES, help="Max retries on persistent errors"
+        "--max-retries",
+        type=int,
+        default=MAX_RETRIES,
+        help="Max retries on persistent errors",
     )
     args = parser.parse_args()
 
@@ -171,7 +176,10 @@ def main() -> None:
                     # This prevents retry-reset loops when the sliding window hasn't fully cleared.
                     if last_success_time > 0:
                         elapsed_since_success = time.time() - last_success_time
-                        wait = max(RETRY_AFTER + random.uniform(5, 30) - elapsed_since_success, 60)
+                        wait = max(
+                            RETRY_AFTER + random.uniform(5, 30) - elapsed_since_success,
+                            60,
+                        )
                     else:
                         wait = RETRY_AFTER + random.uniform(0, 30)
                     print(
@@ -205,7 +213,9 @@ def main() -> None:
                 continue
 
         if bonus is None:
-            print(f"  FAILED draw {draw_id} ({draw_date}) — no bonus after {retries} retries")
+            print(
+                f"  FAILED draw {draw_id} ({draw_date}) — no bonus after {retries} retries"
+            )
             failed += 1
         elif bonus == -1:
             skipped += 1
@@ -236,7 +246,9 @@ def main() -> None:
     conn.close()
 
     elapsed = time.time() - start_time
-    print(f"\nDone! {success} updated, {failed} failed, {skipped} skipped in {elapsed:.0f}s")
+    print(
+        f"\nDone! {success} updated, {failed} failed, {skipped} skipped in {elapsed:.0f}s"
+    )
 
 
 if __name__ == "__main__":

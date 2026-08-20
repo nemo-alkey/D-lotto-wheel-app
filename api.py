@@ -16,9 +16,14 @@ import os
 import sqlite3
 import time
 import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+
+if TYPE_CHECKING:
+    import redis
+    from cachetools import TTLCache
 
 from fastapi import (
     Depends,
@@ -116,7 +121,7 @@ def _decode_token(token: str) -> str | None:
     """Decode a JWT and return the username, or None if invalid."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload.get("sub")
+        return cast(str | None, payload.get("sub"))
     except JWTError:
         return None
 
@@ -131,7 +136,7 @@ def _rate_limit_key(request: Request) -> str:
     return f"ip:{get_remote_address(request)}"
 
 
-def _redis_client():
+def _redis_client() -> redis.Redis | None:
     """Return a connected Redis client, or None if Redis is unavailable."""
     try:
         import redis
@@ -160,32 +165,39 @@ limiter = Limiter(
 class ResponseCache:
     """Tiny TTL cache: Redis when available, cachetools otherwise."""
 
-    def __init__(self, redis_client=None):
+    def __init__(self, redis_client: redis.Redis | None = None) -> None:
         self._redis = redis_client
         if self._redis is None:
             from cachetools import TTLCache
 
             # maxsize caps memory; per-namespace TTLs
-            self._local = {
-                TTL_PREDICTIONS: TTLCache(maxsize=128, ttl=TTL_PREDICTIONS),
-                TTL_ANALYTICS: TTLCache(maxsize=128, ttl=TTL_ANALYTICS),
+            # cast: the cachetools stub's self-annotated __init__ overload
+            # ignores explicit type arguments on the constructor.
+            self._local: dict[int, TTLCache[str, Any]] = {
+                TTL_PREDICTIONS: cast(
+                    TTLCache[str, Any], TTLCache(maxsize=128, ttl=TTL_PREDICTIONS)
+                ),
+                TTL_ANALYTICS: cast(
+                    TTLCache[str, Any], TTLCache(maxsize=128, ttl=TTL_ANALYTICS)
+                ),
             }
 
     @property
     def backend(self) -> str:
         return "redis" if self._redis is not None else "memory"
 
-    def get(self, key: str, ttl: int):
+    def get(self, key: str, ttl: int) -> Any:
         """Return the cached value for key, or None on miss."""
         try:
             if self._redis is not None:
                 raw = self._redis.get(f"apicache:{key}")
-                return json.loads(raw) if raw is not None else None
+                # cast: the redis stub unions sync/async return types
+                return json.loads(cast(Any, raw)) if raw is not None else None
             return self._local[ttl].get(key)
         except Exception:
             return None
 
-    def set(self, key: str, value, ttl: int) -> None:
+    def set(self, key: str, value: Any, ttl: int) -> None:
         """Store value under key with the given TTL (seconds)."""
         try:
             if self._redis is not None:
@@ -199,7 +211,7 @@ class ResponseCache:
 cache = ResponseCache(_redis)
 
 
-def _cache_key(route: str, **params) -> str:
+def _cache_key(route: str, **params: Any) -> str:
     """Stable cache key for a route + sorted query params."""
     suffix = "&".join(f"{k}={params[k]}" for k in sorted(params))
     return f"{route}?{suffix}"
@@ -224,7 +236,7 @@ class ConnectionManager:
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
-    async def broadcast(self, message: dict) -> int:
+    async def broadcast(self, message: dict[str, Any]) -> int:
         """Send a JSON message to all clients; drop dead connections.
 
         Returns the number of clients the message was delivered to.
@@ -245,7 +257,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def broadcast_draw_event(payload: dict) -> int:
+async def broadcast_draw_event(payload: dict[str, Any]) -> int:
     """Broadcast a draw event to all connected WebSocket clients.
 
     Called in-process; other processes (live_draw_monitor.py,
@@ -280,11 +292,11 @@ async def _redis_draw_event_listener() -> None:
 # Lifespan — load draws once at startup, run Redis bridge
 # ---------------------------------------------------------------------------
 
-_draws: list | None = None
+_draws: list[tuple[list[int], int, int, str]] | None = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     validate_startup()  # fail fast on insecure prod config
     global _draws
     _draws = load_draws()
@@ -381,13 +393,17 @@ _CSP_DOCS = (
 
 
 @app.middleware("http")
-async def security_headers(request: Request, call_next):
+async def security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """Add standard hardening headers to every response."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     response.headers["Content-Security-Policy"] = (
         _CSP_DOCS if request.url.path in _DOCS_PATHS else _CSP_STRICT
     )
@@ -395,7 +411,9 @@ async def security_headers(request: Request, call_next):
 
 
 @app.middleware("http")
-async def metrics_and_access_log(request: Request, call_next):
+async def metrics_and_access_log(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """Prometheus counters/histograms + structured JSON access log.
 
     Auto-increments http_requests_total, observes
@@ -418,8 +436,12 @@ async def metrics_and_access_log(request: Request, call_next):
     metrics.HTTP_REQUESTS_TOTAL.labels(
         method=request.method, endpoint=endpoint, status=str(response.status_code)
     ).inc()
-    metrics.HTTP_REQUEST_DURATION.labels(method=request.method, endpoint=endpoint).observe(duration)
-    metrics.record_active(user_id if user_id != "-" else f"ip:{get_remote_address(request)}")
+    metrics.HTTP_REQUEST_DURATION.labels(
+        method=request.method, endpoint=endpoint
+    ).observe(duration)
+    metrics.record_active(
+        user_id if user_id != "-" else f"ip:{get_remote_address(request)}"
+    )
 
     app_logger.info(
         "%s %s -> %s",
@@ -441,7 +463,7 @@ metrics.register_health_collector(_cfg.DB_PATH, REDIS_URL)
 # ---------------------------------------------------------------------------
 
 
-def _synthesize_example(model_schema: dict) -> Any:
+def _synthesize_example(model_schema: dict[str, Any]) -> Any:
     """Build a plausible example object from a JSON schema's properties.
 
     Prefers each property's own example/default, then falls back to a
@@ -452,7 +474,7 @@ def _synthesize_example(model_schema: dict) -> Any:
     if not isinstance(props, dict) or not props:
         return None
 
-    def _placeholder(prop: dict) -> Any:
+    def _placeholder(prop: dict[str, Any]) -> Any:
         if "example" in prop:
             return prop["example"]
         if "default" in prop:
@@ -467,7 +489,7 @@ def _synthesize_example(model_schema: dict) -> Any:
             "boolean": True,
             "array": [_placeholder(items)] if isinstance(items, dict) else [],
             "object": {},
-        }.get(prop.get("type"), "string")
+        }.get(cast(str, prop.get("type")), "string")
 
     return {name: _placeholder(prop) for name, prop in props.items()}
 
@@ -500,7 +522,9 @@ def custom_openapi() -> dict[str, Any]:
     # HTTPBearer is declared explicitly so it is present even if no endpoint
     # currently in the schema depends on it; OAuth2PasswordBearer (from
     # auth.py's /me) is added by FastAPI automatically.
-    security_schemes = schema.setdefault("components", {}).setdefault("securitySchemes", {})
+    security_schemes = schema.setdefault("components", {}).setdefault(
+        "securitySchemes", {}
+    )
     security_schemes.setdefault(
         "HTTPBearer",
         {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
@@ -519,11 +543,14 @@ def custom_openapi() -> dict[str, Any]:
     return app.openapi_schema
 
 
-app.openapi = custom_openapi
+# FastAPI's documented hook for custom OpenAPI schemas is method assignment.
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 @app.exception_handler(RateLimitExceeded)
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+async def rate_limit_exceeded_handler(
+    request: Request, exc: RateLimitExceeded
+) -> JSONResponse:
     """Custom 429 response with a Retry-After header."""
     # exc.detail looks like "60 per 1 minute" — derive the window seconds
     retry_after = 60
@@ -544,7 +571,9 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
 
 
 @app.middleware("http")
-async def two_tier_rate_limit(request: Request, call_next):
+async def two_tier_rate_limit(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """60/min for authenticated users, 10/min for anonymous callers.
 
     slowapi's default_limits can't express per-request dynamic limits
@@ -566,7 +595,7 @@ async def two_tier_rate_limit(request: Request, call_next):
     if not limiter.limiter.hit(item, key, scope):
         try:
             stats = limiter.limiter.get_window_stats(item, key, scope)
-            retry_after = max(1, int(stats.reset - time.time()))
+            retry_after = max(1, int(stats.reset - time.time()))  # type: ignore[attr-defined]  # limits WindowStats exposes reset at runtime
         except Exception:
             retry_after = 60
         return JSONResponse(
@@ -626,7 +655,9 @@ class CheckRequest(BaseModel):
     """Request body for POST /check (wheel vs draw win check)."""
 
     wheel: str = Field(description="Wheel name (e.g. double, single1, jackpot7)")
-    draw: list[int] = Field(min_length=6, max_length=6, description="6 main draw numbers")
+    draw: list[int] = Field(
+        min_length=6, max_length=6, description="6 main draw numbers"
+    )
     powerball: int = Field(ge=1, le=10, description="Powerball (1-10)")
 
     _clean_wheel = field_validator("wheel")(_sanitize_string)
@@ -655,7 +686,9 @@ class CheckRequest(BaseModel):
 class DrawCreate(BaseModel):
     """Payload for recording a new Lotto draw."""
 
-    draw_number: int = Field(ge=1, description="Official draw number (stored as draw_id)")
+    draw_number: int = Field(
+        ge=1, description="Official draw number (stored as draw_id)"
+    )
     date: str = Field(
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         description="Draw date in ISO format (YYYY-MM-DD)",
@@ -701,7 +734,9 @@ class PredictionRequest(BaseModel):
         description="How many top-ranked numbers to return",
     )
 
-    model_config = ConfigDict(json_schema_extra={"examples": [{"method": "ensemble", "top_k": 12}]})
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"method": "ensemble", "top_k": 12}]}
+    )
 
 
 class PredictionResponse(BaseModel):
@@ -776,7 +811,7 @@ class WheelResponse(BaseModel):
 
     tickets: list[list[int]] = Field(description="Generated tickets, each 6 numbers")
     system_used: str = Field(description="Human-readable guarantee description")
-    coverage_stats: dict = Field(
+    coverage_stats: dict[str, Any] = Field(
         description="Coverage metrics (pair_coverage_pct, ticket_count, ...)"
     )
 
@@ -847,7 +882,7 @@ class BacktestResponse(BaseModel):
     total_wins: int = Field(description="Draws in which the wheel won any prize")
     total_prize: float = Field(description="Total prize money won (NZD)")
     roi_pct: float = Field(description="Return on investment in percent")
-    division_breakdown: dict = Field(
+    division_breakdown: dict[str, Any] = Field(
         description="Win breakdown (div1_wins, winning/losing draws, jackpots)"
     )
 
@@ -859,7 +894,11 @@ class BacktestResponse(BaseModel):
                     "total_wins": 12,
                     "total_prize": 482.50,
                     "roi_pct": -67.8,
-                    "division_breakdown": {"div1_wins": 0, "winning_draws": 12, "losing_draws": 88},
+                    "division_breakdown": {
+                        "div1_wins": 0,
+                        "winning_draws": 12,
+                        "losing_draws": 88,
+                    },
                 }
             ]
         }
@@ -917,7 +956,9 @@ def require_admin_http(
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM]
+        )
         username: str = payload.get("sub")
         if username is None:
             raise JWTError("missing sub")
@@ -943,7 +984,7 @@ def require_admin_http(
 
 
 @app.get("/", tags=["System"])
-def root():
+def root() -> dict[str, Any]:
     """Root status endpoint.
 
     Args:
@@ -985,7 +1026,7 @@ def health() -> Response:
 
 
 @app.get("/config", tags=["System"])
-def read_config(cfg: AppSettings = Depends(get_settings)):
+def read_config(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
     """Public, non-secret runtime configuration.
 
     Args:
@@ -1020,11 +1061,13 @@ def prometheus_metrics() -> Response:
     Raises:
         Nothing.
     """
-    return Response(content=metrics.render_metrics(), media_type=metrics.CONTENT_TYPE_LATEST)
+    return Response(
+        content=metrics.render_metrics(), media_type=metrics.CONTENT_TYPE_LATEST
+    )
 
 
 @app.post("/register", status_code=201, tags=["Auth"])
-def register(req: UserRegister):
+def register(req: UserRegister) -> dict[str, str]:
     """Register a new user.
 
     Args:
@@ -1044,7 +1087,7 @@ def register(req: UserRegister):
 
 @app.post("/token", response_model=Token, tags=["Auth"])
 @limiter.limit("5/minute", key_func=get_remote_address)
-def login(req: UserLogin, request: Request):
+def login(req: UserLogin, request: Request) -> Token:
     """Login and receive a JWT access token plus a refresh token.
 
     Rate limited to 5 attempts per IP per minute. After 5 failed attempts
@@ -1089,7 +1132,7 @@ def login(req: UserLogin, request: Request):
 
 @app.post("/token/refresh", response_model=Token, tags=["Auth"])
 @limiter.limit("5/minute", key_func=get_remote_address)
-def refresh_access_token(req: RefreshRequest, request: Request):
+def refresh_access_token(req: RefreshRequest, request: Request) -> Token:
     """Exchange a valid refresh token for a new token pair.
 
     Refresh tokens are rotated: each call issues a new access token
@@ -1116,7 +1159,9 @@ def refresh_access_token(req: RefreshRequest, request: Request):
     username = payload["sub"]
     user = get_user_record(username)
     if user is None:
-        security_logger.warning("refresh_failed_unknown_user username=%s ip=%s", username, ip)
+        security_logger.warning(
+            "refresh_failed_unknown_user username=%s ip=%s", username, ip
+        )
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
 
     security_logger.info("refresh_success username=%s ip=%s", username, ip)
@@ -1127,7 +1172,7 @@ def refresh_access_token(req: RefreshRequest, request: Request):
 
 
 @app.get("/me", tags=["Auth"])
-def me(user: User | None = Depends(get_current_user)):
+def me(user: User | None = Depends(get_current_user)) -> dict[str, Any]:
     """Return the identity attached to the current bearer token.
 
     Args:
@@ -1141,7 +1186,11 @@ def me(user: User | None = Depends(get_current_user)):
         Nothing — anonymous access is allowed.
     """
     if user:
-        return {"username": user.username, "is_admin": user.is_admin, "authenticated": True}
+        return {
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "authenticated": True,
+        }
     return {"authenticated": False}
 
 
@@ -1163,7 +1212,7 @@ async def _heartbeat(websocket: WebSocket) -> None:
 
 
 @app.websocket("/ws/live-draw")
-async def ws_live_draw(websocket: WebSocket, token: str = ""):
+async def ws_live_draw(websocket: WebSocket, token: str = "") -> None:
     """Live draw updates over WebSocket.
 
     Authenticate with a JWT access token in the `token` query param:
@@ -1206,7 +1255,7 @@ class DrawEvent(BaseModel):
     numbers: list[int] = Field(min_length=6, max_length=6)
     bonus: int = Field(ge=1, le=40)
     powerball: int = Field(ge=1, le=10)
-    winners: list[dict] = Field(default_factory=list)
+    winners: list[dict[str, Any]] = Field(default_factory=list)
     source: str = "internal"
 
     _numbers_ok = field_validator("numbers")(_unique_sorted_numbers)
@@ -1219,7 +1268,7 @@ async def internal_new_draw(
     event: DrawEvent,
     request: Request,
     x_internal_token: str = Header(default=""),
-):
+) -> dict[str, Any]:
     """Hook for live_draw_monitor.py / update_draws.py to announce a draw.
 
     Protected by the INTERNAL_NOTIFY_TOKEN shared secret (X-Internal-Token
@@ -1242,7 +1291,9 @@ async def internal_new_draw(
         if x_internal_token != INTERNAL_NOTIFY_TOKEN:
             raise HTTPException(status_code=403, detail="Invalid internal token.")
     elif get_remote_address(request) not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(status_code=403, detail="Internal endpoint: localhost only.")
+        raise HTTPException(
+            status_code=403, detail="Internal endpoint: localhost only."
+        )
 
     payload = {
         "type": "new_draw",
@@ -1272,9 +1323,9 @@ def list_wheels() -> dict[str, Any]:
     Raises:
         Nothing.
     """
-    result = {}
+    result: dict[str, Any] = {}
     for name, (tickets, pb) in WHEELS.items():
-        pool = set()
+        pool: set[int] = set()
         for t in tickets:
             pool.update(t)
         result[name] = {
@@ -1339,7 +1390,9 @@ def check_wheel(req: CheckRequest) -> dict[str, Any]:
     if len(set(req.draw)) != 6:
         raise HTTPException(status_code=400, detail="Draw numbers must be unique.")
     if any(n < 1 or n > 40 for n in req.draw):
-        raise HTTPException(status_code=400, detail="Main numbers must be between 1 and 40.")
+        raise HTTPException(
+            status_code=400, detail="Main numbers must be between 1 and 40."
+        )
 
     tickets, wheel_pb = WHEELS[req.wheel]
     draw_set = set(req.draw)
@@ -1357,7 +1410,7 @@ def check_wheel(req: CheckRequest) -> dict[str, Any]:
                 break
 
     # Pool overlap
-    pool_set = set()
+    pool_set: set[int] = set()
     for t in tickets:
         pool_set.update(t)
 
@@ -1476,7 +1529,7 @@ def get_stats() -> dict[str, Any]:
     cached = cache.get(key, TTL_ANALYTICS)
     if cached is not None:
         cached["cache"] = {"hit": True, "ttl": TTL_ANALYTICS, "backend": cache.backend}
-        return cached
+        return cast(dict[str, Any], cached)
 
     draws = _draws
     pos, neg, freq = positive_negative_split(draws)
@@ -1484,7 +1537,9 @@ def get_stats() -> dict[str, Any]:
     low_sum, high_sum = sum_range(draws)
     adj_ratio = numerical_attraction(draws)
     bayes = bayesian_posterior(draws)
-    top_bayes = [n for n, _ in sorted(bayes.items(), key=lambda x: x[1], reverse=True)[:10]]
+    top_bayes = [
+        n for n, _ in sorted(bayes.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
     bandit_top = bandit_recommendation(draws)
 
     result = {
@@ -1503,7 +1558,7 @@ def get_stats() -> dict[str, Any]:
 
 
 @app.get("/api/bonus/stats", tags=["Analytics"])
-def get_bonus_stats_endpoint() -> list[dict]:
+def get_bonus_stats_endpoint() -> list[dict[str, Any]]:
     """Return bonus ball statistics for numbers 1-40.
 
     Args:
@@ -1524,7 +1579,7 @@ def get_bonus_stats_endpoint() -> list[dict]:
 
 
 @app.get("/predict/bonus_bayesian", tags=["Predictions"])
-def predict_bonus_bayesian(k: int = 5) -> list[dict]:
+def predict_bonus_bayesian(k: int = 5) -> list[dict[str, Any]]:
     """Return top-k bonus ball predictions using Dirichlet-Multinomial Bayesian.
 
     Args:
@@ -1557,7 +1612,7 @@ def predict_bonus_bayesian(k: int = 5) -> list[dict]:
 
 
 @app.get("/predict/bonus_gap", tags=["Predictions"])
-def predict_bonus_gap(k: int = 5) -> list[dict]:
+def predict_bonus_gap(k: int = 5) -> list[dict[str, Any]]:
     """Return top-k 'due' bonus ball predictions using gap + frequency scoring.
 
     Args:
@@ -1574,13 +1629,16 @@ def predict_bonus_gap(k: int = 5) -> list[dict]:
     conn = sqlite3.connect("lotto.db")
     try:
         top_k = bonus_gap_prediction(conn, k=min(k, 40))
-        return [{"rank": i + 1, "bonus_number": n, "score": s} for i, (n, s) in enumerate(top_k)]
+        return [
+            {"rank": i + 1, "bonus_number": n, "score": s}
+            for i, (n, s) in enumerate(top_k)
+        ]
     finally:
         conn.close()
 
 
 @app.get("/predict/bonus/hierarchical", tags=["Predictions"])
-def predict_bonus_hierarchical(k: int = 5, halflife: int = 90) -> list[dict]:
+def predict_bonus_hierarchical(k: int = 5, halflife: int = 90) -> list[dict[str, Any]]:
     """Return top-k bonus predictions using Hierarchical Bayesian with recency.
 
     Args:
@@ -1598,7 +1656,9 @@ def predict_bonus_hierarchical(k: int = 5, halflife: int = 90) -> list[dict]:
 
     conn = sqlite3.connect("lotto.db")
     try:
-        rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
+        rows = conn.execute(
+            "SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC"
+        ).fetchall()
     finally:
         conn.close()
 
@@ -1638,7 +1698,9 @@ def predict_bonus_probability(num: int, halflife: int = 90) -> dict[str, Any]:
 
     conn = sqlite3.connect("lotto.db")
     try:
-        rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
+        rows = conn.execute(
+            "SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC"
+        ).fetchall()
     finally:
         conn.close()
 
@@ -1680,8 +1742,12 @@ def predict_ensemble(main: int = 15, bonus: int = 5, pb: int = 3) -> dict[str, A
     key = _cache_key("/predict/ensemble", main=main, bonus=bonus, pb=pb)
     cached = cache.get(key, TTL_PREDICTIONS)
     if cached is not None:
-        cached["cache"] = {"hit": True, "ttl": TTL_PREDICTIONS, "backend": cache.backend}
-        return cached
+        cached["cache"] = {
+            "hit": True,
+            "ttl": TTL_PREDICTIONS,
+            "backend": cache.backend,
+        }
+        return cast(dict[str, Any], cached)
 
     conn = sqlite3.connect("lotto.db")
     try:
@@ -1723,7 +1789,10 @@ class EVSimulationRequest(BaseModel):
 
 @app.post("/ev_simulation", tags=["Wheels"])
 @limiter.limit(_heavy_limit)
-def ev_simulation_endpoint(req: EVSimulationRequest, request: Request = None) -> dict[str, Any]:
+def ev_simulation_endpoint(
+    req: EVSimulationRequest,
+    request: Request = None,  # type: ignore[assignment]  # slowapi requires a defaulted `request` param; FastAPI still injects it
+) -> dict[str, Any]:
     """Run a Monte Carlo bonus-ball EV simulation for a wheel.
 
     Args:
@@ -1745,7 +1814,9 @@ def ev_simulation_endpoint(req: EVSimulationRequest, request: Request = None) ->
             detail=f"Unknown wheel '{req.wheel}'. Available: {list(WHEELS.keys())}",
         )
     if not (10_000 <= req.num_sims <= 5_000_000):
-        raise HTTPException(status_code=400, detail="num_sims must be 10 000 – 5 000 000.")
+        raise HTTPException(
+            status_code=400, detail="num_sims must be 10 000 – 5 000 000."
+        )
 
     from backtest import simulate_bonus_ev
 
@@ -1787,7 +1858,7 @@ def cooccurrence_matrix_endpoint(min_support: int = 5) -> dict[str, Any]:
 
 
 @app.get("/analysis/cooccurrence/pairs/{bonus_num}", tags=["Analytics"])
-def cooccurrence_pairs_endpoint(bonus_num: int, top_k: int = 3) -> list[dict]:
+def cooccurrence_pairs_endpoint(bonus_num: int, top_k: int = 3) -> list[dict[str, Any]]:
     """Return top-k main numbers that co-occur with a specific bonus ball.
 
     Args:
@@ -1821,7 +1892,9 @@ def cooccurrence_pairs_endpoint(bonus_num: int, top_k: int = 3) -> list[dict]:
 @app.get("/backtest/bonus_impact", tags=["Backtesting"])
 @limiter.limit(_heavy_limit)
 def backtest_bonus_impact_endpoint(
-    wheel_name: str, draws: int = 0, request: Request = None
+    wheel_name: str,
+    draws: int = 0,
+    request: Request = None,  # type: ignore[assignment]  # slowapi requires a defaulted `request` param; FastAPI still injects it
 ) -> dict[str, Any]:
     """Return bonus-impact report for a wheel against historical draws.
 
@@ -1851,7 +1924,7 @@ def backtest_bonus_impact_endpoint(
     cached = cache.get(key, TTL_ANALYTICS)
     if cached is not None:
         cached["cache"] = {"hit": True, "ttl": TTL_ANALYTICS, "backend": cache.backend}
-        return cached
+        return cast(dict[str, Any], cached)
 
     from backtest import backtest_bonus_impact
 
@@ -1863,7 +1936,7 @@ def backtest_bonus_impact_endpoint(
 
 
 @app.get("/analysis/cooccurrence/triplets", tags=["Analytics"])
-def cooccurrence_triplets_endpoint(top_n: int = 10) -> list[dict]:
+def cooccurrence_triplets_endpoint(top_n: int = 10) -> list[dict[str, Any]]:
     """Return top-N bonus+main+main triplets.
 
     Args:
@@ -1880,7 +1953,10 @@ def cooccurrence_triplets_endpoint(top_n: int = 10) -> list[dict]:
         from analysis_bonus_pairs import get_top_triplets
 
         triplets = get_top_triplets(conn, top_n=top_n)
-        return [{"bonus": b, "main1": m1, "main2": m2, "count": c} for b, m1, m2, c in triplets]
+        return [
+            {"bonus": b, "main1": m1, "main2": m2, "count": c}
+            for b, m1, m2, c in triplets
+        ]
     finally:
         conn.close()
 
@@ -1969,7 +2045,7 @@ def _frequency_probs(last_n: int = 30) -> dict[int, float]:
 
     from collections import Counter
 
-    freq: Counter = Counter()
+    freq: Counter[int] = Counter()
     n_draws = 0
     for (nums_str,) in rows:
         try:
@@ -1989,13 +2065,21 @@ def _frequency_probs(last_n: int = 30) -> dict[int, float]:
     status_code=201,
     tags=["Admin"],
     responses={
-        401: {"model": ErrorResponse, "description": "Missing or invalid bearer token."},
+        401: {
+            "model": ErrorResponse,
+            "description": "Missing or invalid bearer token.",
+        },
         403: {"model": ErrorResponse, "description": "Admin privileges required."},
-        409: {"model": ErrorResponse, "description": "A draw already exists for this date."},
+        409: {
+            "model": ErrorResponse,
+            "description": "A draw already exists for this date.",
+        },
         422: {"model": ErrorResponse, "description": "Payload validation failed."},
     },
 )
-def create_draw(draw: DrawCreate, admin: User = Depends(require_admin_http)):
+def create_draw(
+    draw: DrawCreate, admin: User = Depends(require_admin_http)
+) -> dict[str, Any]:
     """Record a new Lotto draw (admin only).
 
     Maps DrawCreate onto the draws table: draw_number -> draw_id,
@@ -2168,8 +2252,14 @@ def create_prediction(req: PredictionRequest) -> PredictionResponse:
     response_model=WheelResponse,
     tags=["Wheels"],
     responses={
-        400: {"model": ErrorResponse, "description": "Invalid pool size or guarantee type."},
-        404: {"model": ErrorResponse, "description": "No wheel system found for parameters."},
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid pool size or guarantee type.",
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "No wheel system found for parameters.",
+        },
         422: {"model": ErrorResponse, "description": "Payload validation failed."},
     },
 )
@@ -2208,7 +2298,9 @@ def generate_wheel(
         if len(set(req.user_numbers)) != len(req.user_numbers):
             raise HTTPException(status_code=400, detail="user_numbers must be unique.")
         if any(n < 1 or n > 40 for n in req.user_numbers):
-            raise HTTPException(status_code=400, detail="user_numbers must be between 1 and 40.")
+            raise HTTPException(
+                status_code=400, detail="user_numbers must be between 1 and 40."
+            )
         pool = sorted(set(req.user_numbers))
     else:
         freq = _frequency_probs(last_n=30)
@@ -2235,7 +2327,9 @@ def generate_wheel(
     for ticket in tickets:
         covered_pairs.update(itertools.combinations(sorted(set(ticket)), 2))
     total_pairs = math.comb(len(pool), 2)
-    pair_coverage_pct = round(len(covered_pairs) / total_pairs * 100, 2) if total_pairs else 0.0
+    pair_coverage_pct = (
+        round(len(covered_pairs) / total_pairs * 100, 2) if total_pairs else 0.0
+    )
 
     metrics.WHEELS_GENERATED.labels(system_type=req.guarantee_type).inc()
     security_logger.info(
@@ -2264,7 +2358,10 @@ def generate_wheel(
     tags=["Backtesting"],
     responses={
         400: {"model": ErrorResponse, "description": "Invalid date range."},
-        404: {"model": ErrorResponse, "description": "Unknown wheel or no draws in range."},
+        404: {
+            "model": ErrorResponse,
+            "description": "Unknown wheel or no draws in range.",
+        },
         422: {"model": ErrorResponse, "description": "Payload validation failed."},
     },
 )
@@ -2302,7 +2399,9 @@ def run_backtest(
             detail=f"Unknown wheel '{req.wheel_type}'. Available: {list(WHEELS.keys())}",
         )
     if req.start_date and req.end_date and req.start_date > req.end_date:
-        raise HTTPException(status_code=400, detail="start_date must not be after end_date.")
+        raise HTTPException(
+            status_code=400, detail="start_date must not be after end_date."
+        )
 
     all_draws = load_draws()
     if not all_draws:
@@ -2314,12 +2413,17 @@ def run_backtest(
     if req.start_date and req.end_date:
         idxs = [i for i, d in enumerate(dates) if req.start_date <= d <= req.end_date]
         if not idxs:
-            raise HTTPException(status_code=404, detail="No draws in the specified date range.")
-        start_idx, n_draws = idxs[0], len(idxs)
+            raise HTTPException(
+                status_code=404, detail="No draws in the specified date range."
+            )
+        start_idx: int | None = idxs[0]
+        n_draws = len(idxs)
     elif req.start_date:
         start_idx = next((i for i, d in enumerate(dates) if d >= req.start_date), None)
         if start_idx is None:
-            raise HTTPException(status_code=404, detail="No draws on or after start_date.")
+            raise HTTPException(
+                status_code=404, detail="No draws on or after start_date."
+            )
         n_draws = min(req.ticket_count, total - start_idx)
     elif req.end_date:
         end_idx = next(
@@ -2327,7 +2431,9 @@ def run_backtest(
             None,
         )
         if end_idx is None:
-            raise HTTPException(status_code=404, detail="No draws on or before end_date.")
+            raise HTTPException(
+                status_code=404, detail="No draws on or before end_date."
+            )
         n_draws = min(req.ticket_count, end_idx + 1)
         start_idx = end_idx - n_draws + 1
     else:
@@ -2335,7 +2441,10 @@ def run_backtest(
 
     from backtest import run_multi_draw_backtest
 
-    result = run_multi_draw_backtest(req.wheel_type, start_draw_id=start_idx, num_draws=n_draws)
+    assert start_idx is not None  # every branch above either sets an int or raises
+    result = run_multi_draw_backtest(
+        req.wheel_type, start_draw_id=start_idx, num_draws=n_draws
+    )
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
 
@@ -2451,7 +2560,9 @@ def custom_docs() -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 # Serve the built React app (mobile-frontend/dist) at /mobile when present.
-_mobile_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mobile-frontend", "dist")
+_mobile_dist = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "mobile-frontend", "dist"
+)
 if os.path.isdir(_mobile_dist):
     from fastapi.staticfiles import StaticFiles
 

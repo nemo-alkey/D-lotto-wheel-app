@@ -17,7 +17,9 @@ from collections import Counter
 import pandas as pd
 
 
-def compute_cooccurrence_matrix(conn: sqlite3.Connection, min_support: int = 5) -> pd.DataFrame:
+def compute_cooccurrence_matrix(
+    conn: sqlite3.Connection, min_support: int = 5
+) -> pd.DataFrame:
     """Return a 40×40 DataFrame of bonus–main co-occurrence counts.
 
     Cell [bonus_i][main_j] = number of draws where bonus == i and main
@@ -36,7 +38,9 @@ def compute_cooccurrence_matrix(conn: sqlite3.Connection, min_support: int = 5) 
     pd.DataFrame
         Index: bonus ball number (1-40), Columns: main number (1-40).
     """
-    rows = conn.execute("SELECT bonus, numbers FROM draws ORDER BY draw_date ASC").fetchall()
+    rows = conn.execute(
+        "SELECT bonus, numbers FROM draws ORDER BY draw_date ASC"
+    ).fetchall()
 
     # Initialise a 41×41 matrix (1-indexed) for convenience
     matrix = [[0] * 41 for _ in range(41)]
@@ -102,7 +106,9 @@ def get_top_pairs_for_bonus(
     return counter.most_common(top_k)
 
 
-def get_top_triplets(conn: sqlite3.Connection, top_n: int = 10) -> list[tuple[int, int, int, int]]:
+def get_top_triplets(
+    conn: sqlite3.Connection, top_n: int = 10
+) -> list[tuple[int, int, int, int]]:
     """Return the top-N most common (bonus, main1, main2) triplets.
 
     A triplet is counted whenever a draw's bonus ball is *b* and two
@@ -119,7 +125,9 @@ def get_top_triplets(conn: sqlite3.Connection, top_n: int = 10) -> list[tuple[in
     list[tuple[int, int, int, int]]
         Sorted descending: [(bonus, main1, main2, count), ...]
     """
-    rows = conn.execute("SELECT bonus, numbers FROM draws ORDER BY draw_date ASC").fetchall()
+    rows = conn.execute(
+        "SELECT bonus, numbers FROM draws ORDER BY draw_date ASC"
+    ).fetchall()
 
     triplet_counts: Counter[tuple[int, int, int]] = Counter()
 

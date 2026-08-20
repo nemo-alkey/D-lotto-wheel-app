@@ -14,7 +14,9 @@ from typing import Any  # Type hinting for better clarity and error checking
 # Constants defining the lottery structure
 NUM_MAIN_NUMBERS = 40  # Number of main numbers in each draw
 NUM_POWERBALL = 10  # Number of possible Powerball values
-NUM_TOTAL_NUMBERS = NUM_MAIN_NUMBERS + NUM_POWERBALL  # Total number of output dimensions
+NUM_TOTAL_NUMBERS = (
+    NUM_MAIN_NUMBERS + NUM_POWERBALL
+)  # Total number of output dimensions
 TICKET_LINES = 12  # Number of ticket lines to generate
 LINE_SIZE = 6  # Number of main numbers per ticket line
 
@@ -22,7 +24,9 @@ LINE_SIZE = 6  # Number of main numbers per ticket line
 MIN_PROB = 1e-12
 
 # Configure logging format and level
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # Suppress verbose TensorFlow logs
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"

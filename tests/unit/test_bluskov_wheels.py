@@ -59,7 +59,9 @@ class TestSystem88Guarantee:
 
     def test_documented_pair_balance_10_combinations_each(self) -> None:
         pair_freq = Counter(
-            pair for ticket in DOUBLE_4IF4_10 for pair in itertools.combinations(sorted(ticket), 2)
+            pair
+            for ticket in DOUBLE_4IF4_10
+            for pair in itertools.combinations(sorted(ticket), 2)
         )
         assert len(pair_freq) == 45
         for pair, count in pair_freq.items():
@@ -122,7 +124,9 @@ class TestGetOptimalWheel:
             ("nonsense", 10),  # unknown guarantee type
         ],
     )
-    def test_unregistered_combos_raise_key_error(self, guarantee_type: str, pool_size: int) -> None:
+    def test_unregistered_combos_raise_key_error(
+        self, guarantee_type: str, pool_size: int
+    ) -> None:
         with pytest.raises(KeyError):
             get_optimal_wheel(guarantee_type, pool_size)
 

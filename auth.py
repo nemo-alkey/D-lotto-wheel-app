@@ -190,12 +190,14 @@ def _verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def _hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8")[:_BCRYPT_MAX_BYTES], bcrypt.gensalt()).decode(
-        "utf-8"
-    )
+    return bcrypt.hashpw(
+        password.encode("utf-8")[:_BCRYPT_MAX_BYTES], bcrypt.gensalt()
+    ).decode("utf-8")
 
 
-def _create_token(data: dict[str, Any], expires_delta: timedelta, token_type: str) -> str:
+def _create_token(
+    data: dict[str, Any], expires_delta: timedelta, token_type: str
+) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + expires_delta
     to_encode.update({"exp": expire, "type": token_type})
@@ -250,7 +252,9 @@ _failed_logins: dict[str, list[datetime]] = {}
 def _prune_failures(username: str) -> list[datetime]:
     """Return failures still inside the lockout window for username."""
     now = datetime.now(UTC)
-    attempts = [ts for ts in _failed_logins.get(username, []) if now - ts < LOCKOUT_DURATION]
+    attempts = [
+        ts for ts in _failed_logins.get(username, []) if now - ts < LOCKOUT_DURATION
+    ]
     if attempts:
         _failed_logins[username] = attempts
     else:

@@ -59,7 +59,9 @@ _global_weights = np.random.normal(
 
 # ===================== Deterministic Classical Projection ===================== #
 # We cache projection matrices by (num_qubits, d) to avoid rebuilding them in loops.
-_PROJ_CACHE: dict[tuple[int, int], np.ndarray] = {}  # Cache dict for projection matrices
+_PROJ_CACHE: dict[
+    tuple[int, int], np.ndarray
+] = {}  # Cache dict for projection matrices
 
 
 def _build_projection_matrix(
@@ -80,7 +82,9 @@ def _build_projection_matrix(
     for q in range(num_qubits):  # Iterate rows (qubits)
         for j in range(d):  # Iterate columns (input dims)
             k = (q + 1) * (j + 1)  # Deterministic index product (1-based)
-            matrix[q, j] = math.sin(k) + 0.5 * math.cos(k)  # Fill entry by deterministic formula
+            matrix[q, j] = math.sin(k) + 0.5 * math.cos(
+                k
+            )  # Fill entry by deterministic formula
 
     _PROJ_CACHE[key] = matrix  # Store matrix in cache
     return matrix  # Return built matrix
@@ -100,7 +104,9 @@ def _structured_projection(
     if d == 0:  # Guard: empty input
         return np.zeros(num_qubits, dtype=float)  # Return zeros vector if no features
 
-    m = _build_projection_matrix(num_qubits, d)  # Get projection matrix for this dimension
+    m = _build_projection_matrix(
+        num_qubits, d
+    )  # Get projection matrix for this dimension
     v = (m @ x) / float(d)  # Apply linear mix and normalize by d
     return cast(np.ndarray, v.astype(float))  # Return float vector
 
@@ -117,7 +123,9 @@ def _preprocess_to_angles(
         3) clip to [-3,3] to avoid extreme rotations
         4) map linearly to [-pi, pi]
     """
-    v = _structured_projection(x, num_qubits)  # Deterministically project to num_qubits dims
+    v = _structured_projection(
+        x, num_qubits
+    )  # Deterministically project to num_qubits dims
 
     v = v - float(v.mean())  # Center vector to mean 0
     std = float(v.std())  # Compute standard deviation
@@ -174,7 +182,9 @@ def compute_quantum_features(
     if weights is None:  # If no weights passed in
         weights = _global_weights  # Use global circuit weights
 
-    angles = _preprocess_to_angles(classical_vec)  # Convert classical vector to circuit angles
+    angles = _preprocess_to_angles(
+        classical_vec
+    )  # Convert classical vector to circuit angles
     z = np.array(
         _feature_map_circuit(angles, weights), dtype=float
     )  # Run circuit and collect Z expectations
@@ -185,7 +195,9 @@ def compute_quantum_features(
     l1 = float(np.sum(np.abs(z)))  # L1 norm of Z vector
     l2_sq = float(np.sum(z**2))  # Squared L2 norm of Z vector
 
-    extra = np.array([mean, std, l1, l2_sq], dtype=float)  # Pack summary stats into array
+    extra = np.array(
+        [mean, std, l1, l2_sq], dtype=float
+    )  # Pack summary stats into array
     return cast(
         np.ndarray, np.concatenate([z, extra]).astype(float)
     )  # Concatenate Z vector + stats
@@ -209,13 +221,17 @@ def compute_quantum_matrix(
 
     x = np.asarray(feature_matrix, dtype=float)  # Convert input to float array
     if x.ndim != 2:  # Validate rank
-        raise ValueError(f"feature_matrix must be 2D, got shape {x.shape}")  # Enforce 2D
+        raise ValueError(
+            f"feature_matrix must be 2D, got shape {x.shape}"
+        )  # Enforce 2D
 
     n = x.shape[0]  # Number of samples
     out = np.zeros((n, QUANTUM_FEATURE_LEN), dtype=float)  # Allocate output matrix
 
     for i in range(n):  # Iterate samples
-        out[i] = compute_quantum_features(x[i], weights)  # Compute quantum features per row
+        out[i] = compute_quantum_features(
+            x[i], weights
+        )  # Compute quantum features per row
 
     return out.astype(float)  # Return float output matrix
 
@@ -250,7 +266,9 @@ def train_quantum_encoder(  # Train the quantum encoder (circuit weights)
     if y.ndim != 2:  # Validate y rank
         raise ValueError(f"label_matrix must be 2D, got {y.shape}")  # Enforce 2D
     if x.shape[0] != y.shape[0]:  # Validate matching rows
-        raise ValueError(f"x rows {x.shape[0]} != y rows {y.shape[0]}")  # Enforce same sample count
+        raise ValueError(
+            f"x rows {x.shape[0]} != y rows {y.shape[0]}"
+        )  # Enforce same sample count
 
     n_samples = x.shape[0]  # Store number of samples
     if n_samples == 0:  # Guard empty input
@@ -288,12 +306,16 @@ def train_quantum_encoder(  # Train the quantum encoder (circuit weights)
         for q in range(main_qubits):  # Iterate main qubits
             start = q * main_chunk  # Start index of chunk
             end = min(main_dim, (q + 1) * main_chunk)  # End index of chunk
-            out[q] = 0.0 if start >= main_dim else float(np.mean(y[start:end]))  # Chunk mean or 0
+            out[q] = (
+                0.0 if start >= main_dim else float(np.mean(y[start:end]))
+            )  # Chunk mean or 0
 
         # Powerball block
         for q in range(pb_qubits):  # Iterate PB qubits
             start = main_dim + q * pb_chunk  # Start index in PB region
-            end = min(label_dim, main_dim + (q + 1) * pb_chunk)  # End index in PB region
+            end = min(
+                label_dim, main_dim + (q + 1) * pb_chunk
+            )  # End index in PB region
             out[main_qubits + q] = (
                 0.0 if start >= label_dim else float(np.mean(y[start:end]))
             )  # Mean or 0
@@ -343,17 +365,23 @@ def train_quantum_encoder(  # Train the quantum encoder (circuit weights)
         c_t = _Q_SPSA_C / ((t + 1) ** _Q_SPSA_GAMMA)  # Perturbation schedule
 
         # Rademacher perturbation (+1/-1)
-        delta = np.random.choice([-1.0, 1.0], size=theta.shape).astype(float)  # Random +/-1 tensor
+        delta = np.random.choice([-1.0, 1.0], size=theta.shape).astype(
+            float
+        )  # Random +/-1 tensor
 
         loss_plus = _batch_loss(theta + c_t * delta, xb, yb)  # Loss at theta + c*delta
         loss_minus = _batch_loss(theta - c_t * delta, xb, yb)  # Loss at theta - c*delta
 
         # Gradient estimate
-        g_hat = ((loss_plus - loss_minus) / (2.0 * c_t)) * delta  # SPSA gradient estimate
+        g_hat = (
+            (loss_plus - loss_minus) / (2.0 * c_t)
+        ) * delta  # SPSA gradient estimate
 
         # Update and clip
         theta = theta - a_t * g_hat  # Apply update
-        theta = np.clip(theta, -_Q_WEIGHT_CLIP, _Q_WEIGHT_CLIP)  # Clip weights for stability
+        theta = np.clip(
+            theta, -_Q_WEIGHT_CLIP, _Q_WEIGHT_CLIP
+        )  # Clip weights for stability
 
     _global_weights = theta  # Commit updated weights to global state
 
@@ -363,10 +391,14 @@ def train_quantum_encoder(  # Train the quantum encoder (circuit weights)
 
 _quantum_predictor = keras.Sequential(  # Define predictor network
     [
-        keras.layers.Input(shape=(QUANTUM_FEATURE_LEN,)),  # Input layer for quantum feature vector
+        keras.layers.Input(
+            shape=(QUANTUM_FEATURE_LEN,)
+        ),  # Input layer for quantum feature vector
         keras.layers.Dense(128, activation="relu"),  # Hidden layer 1
         keras.layers.Dense(64, activation="relu"),  # Hidden layer 2
-        keras.layers.Dense(50, activation="sigmoid"),  # Output layer (50 independent probabilities)
+        keras.layers.Dense(
+            50, activation="sigmoid"
+        ),  # Output layer (50 independent probabilities)
     ]
 )
 
@@ -376,7 +408,9 @@ _quantum_predictor.compile(  # Compile model with optimizer/loss/metrics
     metrics=[
         keras.metrics.BinaryAccuracy(name="binary_accuracy"),  # Binary accuracy metric
         # CRITICAL FIX: multi-label AUC for 50-label output
-        keras.metrics.AUC(name="auc", multi_label=True, num_labels=50),  # Multi-label AUC metric
+        keras.metrics.AUC(
+            name="auc", multi_label=True, num_labels=50
+        ),  # Multi-label AUC metric
         keras.metrics.MeanAbsoluteError(name="mae"),  # Mean absolute error metric
     ],
 )
@@ -401,7 +435,9 @@ def train_quantum_predictor(  # Train Keras head on quantum features
             f"x and y must be 2D, got x={x.shape}, y={y.shape}"
         )  # Raise on wrong shape
     if x.shape[0] != y.shape[0]:  # Validate row counts match
-        raise ValueError(f"x rows {x.shape[0]} != y rows {y.shape[0]}")  # Raise on mismatch
+        raise ValueError(
+            f"x rows {x.shape[0]} != y rows {y.shape[0]}"
+        )  # Raise on mismatch
     if y.shape[1] != 50:  # Validate label width
         raise ValueError(f"Expected y width 50, got {y.shape[1]}")  # Enforce 50 outputs
 
@@ -440,7 +476,9 @@ def compute_quantum_prediction_matrix(
     """
     x = np.asarray(feature_matrix, dtype=float)  # Convert features to float array
     if x.ndim != 2:  # Validate rank
-        raise ValueError(f"feature_matrix must be 2D, got {x.shape}")  # Enforce 2D input
+        raise ValueError(
+            f"feature_matrix must be 2D, got {x.shape}"
+        )  # Enforce 2D input
 
     q = compute_quantum_matrix(x)  # Compute quantum features for batch
     preds = _quantum_predictor.predict(q, verbose=0)  # Predict using Keras head

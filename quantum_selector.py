@@ -111,7 +111,9 @@ def _wheel_pair_coverage(tickets: list[list[int]], pool_size: int) -> float:
     return len(covered) / total if total else 0.0
 
 
-def _attraction_alignment(tickets: list[list[int]], profile: dict[tuple[int, int], float]) -> float:
+def _attraction_alignment(
+    tickets: list[list[int]], profile: dict[tuple[int, int], float]
+) -> float:
     """Weighted share of in-ticket pairs present in the attraction profile."""
     if not profile:
         return 0.0
@@ -175,7 +177,9 @@ def wheel_energy(
         from block_targeting import BLOCKS
 
         blocks = {b: cfg["range"] for b, cfg in BLOCKS.items()}
-        penalty += _block_violations(tickets, blocks, block_constraints.get("min_per_block", {}))
+        penalty += _block_violations(
+            tickets, blocks, block_constraints.get("min_per_block", {})
+        )
     if sum_range:
         penalty += _sum_violations(tickets, sum_range)
 
@@ -328,11 +332,16 @@ def benchmark_quantum_vs_ga(
         rows = conn.execute("SELECT numbers FROM draws ORDER BY draw_date").fetchall()
         draws = [[int(x) for x in str(r[0]).replace(",", " ").split()] for r in rows]
         if len(draws) >= 10:
-            from block_targeting import analyze_block_distribution, generate_block_constraints
+            from block_targeting import (
+                analyze_block_distribution,
+                generate_block_constraints,
+            )
             from sum_validator import calculate_dynamic_sum_range
 
             attraction_profile = build_attraction_profile(draws)
-            block_constraints = generate_block_constraints(analyze_block_distribution(draws))
+            block_constraints = generate_block_constraints(
+                analyze_block_distribution(draws)
+            )
             sum_range = calculate_dynamic_sum_range(draws)
     finally:
         conn.close()
@@ -354,7 +363,9 @@ def benchmark_quantum_vs_ga(
         seed=seed,
     )
     q_time = time.perf_counter() - t0
-    q_energy = wheel_energy(q_wheel, 40, attraction_profile, block_constraints, sum_range)
+    q_energy = wheel_energy(
+        q_wheel, 40, attraction_profile, block_constraints, sum_range
+    )
 
     # --- GA run (existing optimizer; EV-fitness, its own wheel builder) ---
     ga_result: dict[str, Any] = {"error": None}
@@ -447,7 +458,9 @@ if __name__ == "__main__":
 
     # --- Coverage beats a random baseline ---
     cov_sqa = _wheel_pair_coverage(wheel, 40)
-    random_wheels = [[sorted(rng.sample(range(1, 41), 6)) for _ in range(8)] for _ in range(20)]
+    random_wheels = [
+        [sorted(rng.sample(range(1, 41), 6)) for _ in range(8)] for _ in range(20)
+    ]
     cov_rand = max(_wheel_pair_coverage(w, 40) for w in random_wheels)
     print(f"Pair coverage: SQA {cov_sqa:.3f} vs best-of-20-random {cov_rand:.3f}")
     assert cov_sqa >= cov_rand
@@ -471,7 +484,10 @@ if __name__ == "__main__":
     in_range = sum(1 for t in constrained if 100 <= sum(t) <= 160)
     align = _attraction_alignment(constrained, profile)
     print(f"\nConstrained wheel: {constrained}")
-    print(f"Tickets in sum range 100-160: {in_range}/6, " f"attraction alignment: {align:.3f}")
+    print(
+        f"Tickets in sum range 100-160: {in_range}/6, "
+        f"attraction alignment: {align:.3f}"
+    )
     assert in_range >= 4, "most tickets should land inside the sum range"
 
     # --- Benchmark smoke test (GA may fail on tiny DBs; that's handled) ---

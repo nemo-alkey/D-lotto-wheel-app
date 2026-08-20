@@ -156,7 +156,13 @@ def backtest_sum_ranges(
 
     n = len(sums)
     if n <= window_draws:
-        return {"coverage_pct": 0.0, "hits": 0, "misses": 0, "total": 0, "avg_range_width": 0.0}
+        return {
+            "coverage_pct": 0.0,
+            "hits": 0,
+            "misses": 0,
+            "total": 0,
+            "avg_range_width": 0.0,
+        }
 
     test_count = min(test_draws, n - window_draws)
     hits = 0
@@ -190,7 +196,9 @@ def backtest_sum_ranges(
             cm = sum(c) / len(c)
             cv = sum((x - cm) ** 2 for x in c) / len(c)
             all_vols.append(cv**0.5)
-        upper_q = sorted(all_vols)[int(len(all_vols) * 0.75)] if all_vols else current_vol
+        upper_q = (
+            sorted(all_vols)[int(len(all_vols) * 0.75)] if all_vols else current_vol
+        )
 
         multiplier = 1.5 if current_vol > upper_q else 2.5
         lo = mean - multiplier * std

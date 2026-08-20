@@ -36,8 +36,9 @@ def test_dashboard_file_exists() -> None:
 
 
 def test_dashboard_runs_without_exception(app: "AppTest") -> None:
-    assert not app.exception, "dashboard.py raised an exception during run: " + "; ".join(
-        str(e.value) for e in app.exception
+    assert not app.exception, (
+        "dashboard.py raised an exception during run: "
+        + "; ".join(str(e.value) for e in app.exception)
     )
 
 

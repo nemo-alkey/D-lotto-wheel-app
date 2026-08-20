@@ -55,7 +55,9 @@ class DataFetcher:
             )
             conn.commit()
 
-    def _record_stat(self, source: str, draw_date: str, success: bool, error: str = "") -> None:
+    def _record_stat(
+        self, source: str, draw_date: str, success: bool, error: str = ""
+    ) -> None:
         engine = get_engine()
         with engine.connect() as conn:
             conn.execute(
@@ -145,7 +147,10 @@ class DataFetcher:
         from database import insert_draw
 
         new_id = insert_draw(
-            result["draw_date"], result["numbers"], result.get("bonus", 0), result["powerball"]
+            result["draw_date"],
+            result["numbers"],
+            result.get("bonus", 0),
+            result["powerball"],
         )
         if new_id is None and _de(result["draw_date"]):
             _log(f"  Draw {result['draw_date']} already exists.")
@@ -289,7 +294,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Unified data pipeline")
     parser.add_argument("--date", help="Specific draw date (YYYY-MM-DD)")
-    parser.add_argument("--validate", action="store_true", help="Validate database integrity")
+    parser.add_argument(
+        "--validate", action="store_true", help="Validate database integrity"
+    )
     args = parser.parse_args()
 
     if args.validate:

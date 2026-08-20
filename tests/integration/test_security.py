@@ -15,6 +15,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Generator
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -57,7 +58,12 @@ def temp_user_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 def _register(client: TestClient, username: str) -> Response:
-    return client.post("/register", json={"username": username, "password": PASSWORD})
+    # Local starlette uses the httpx2 fork; CI uses httpx — the runtime
+    # response object is compatible, so cast to keep both environments happy.
+    return cast(
+        Response,
+        client.post("/register", json={"username": username, "password": PASSWORD}),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +80,9 @@ def _register(client: TestClient, username: str) -> Response:
         "NoDigitsHere",  # no digit
     ],
 )
-def test_register_weak_password_422(client: TestClient, temp_user_db: str, weak: str) -> None:
+def test_register_weak_password_422(
+    client: TestClient, temp_user_db: str, weak: str
+) -> None:
     resp = client.post("/register", json={"username": temp_user_db, "password": weak})
     assert resp.status_code == 422
 
@@ -100,9 +108,13 @@ def test_login_returns_refresh_token(client: TestClient, temp_user_db: str) -> N
 
 def test_refresh_returns_new_pair(client: TestClient, temp_user_db: str) -> None:
     _register(client, temp_user_db)
-    tokens = client.post("/token", json={"username": temp_user_db, "password": PASSWORD}).json()
+    tokens = client.post(
+        "/token", json={"username": temp_user_db, "password": PASSWORD}
+    ).json()
 
-    resp = client.post("/token/refresh", json={"refresh_token": tokens["refresh_token"]})
+    resp = client.post(
+        "/token/refresh", json={"refresh_token": tokens["refresh_token"]}
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["access_token"]
@@ -118,18 +130,28 @@ def test_refresh_with_garbage_token_401(client: TestClient) -> None:
     assert resp.status_code == 401
 
 
-def test_refresh_token_rejected_as_access_token(client: TestClient, temp_user_db: str) -> None:
+def test_refresh_token_rejected_as_access_token(
+    client: TestClient, temp_user_db: str
+) -> None:
     _register(client, temp_user_db)
-    tokens = client.post("/token", json={"username": temp_user_db, "password": PASSWORD}).json()
+    tokens = client.post(
+        "/token", json={"username": temp_user_db, "password": PASSWORD}
+    ).json()
 
-    me = client.get("/me", headers={"Authorization": f"Bearer {tokens['refresh_token']}"})
+    me = client.get(
+        "/me", headers={"Authorization": f"Bearer {tokens['refresh_token']}"}
+    )
     assert me.status_code == 200
     assert me.json()["authenticated"] is False
 
 
-def test_access_token_rejected_as_refresh_token(client: TestClient, temp_user_db: str) -> None:
+def test_access_token_rejected_as_refresh_token(
+    client: TestClient, temp_user_db: str
+) -> None:
     _register(client, temp_user_db)
-    tokens = client.post("/token", json={"username": temp_user_db, "password": PASSWORD}).json()
+    tokens = client.post(
+        "/token", json={"username": temp_user_db, "password": PASSWORD}
+    ).json()
 
     resp = client.post("/token/refresh", json={"refresh_token": tokens["access_token"]})
     assert resp.status_code == 401
@@ -140,7 +162,9 @@ def test_access_token_rejected_as_refresh_token(client: TestClient, temp_user_db
 # ---------------------------------------------------------------------------
 
 
-def test_lockout_after_five_failed_logins(client: TestClient, temp_user_db: str) -> None:
+def test_lockout_after_five_failed_logins(
+    client: TestClient, temp_user_db: str
+) -> None:
     _register(client, temp_user_db)
     payload = {"username": temp_user_db, "password": "WrongPass1"}
 
@@ -160,7 +184,9 @@ def test_lockout_after_five_failed_logins(client: TestClient, temp_user_db: str)
     assert resp.status_code == 423
 
 
-def test_successful_login_clears_failure_count(client: TestClient, temp_user_db: str) -> None:
+def test_successful_login_clears_failure_count(
+    client: TestClient, temp_user_db: str
+) -> None:
     _register(client, temp_user_db)
     bad = {"username": temp_user_db, "password": "WrongPass1"}
     good = {"username": temp_user_db, "password": PASSWORD}
@@ -190,7 +216,9 @@ def test_security_headers_on_api_response(client: TestClient) -> None:
     assert resp.headers["X-Content-Type-Options"] == "nosniff"
     assert resp.headers["X-Frame-Options"] == "DENY"
     assert resp.headers["X-XSS-Protection"] == "1; mode=block"
-    assert resp.headers["Strict-Transport-Security"] == ("max-age=31536000; includeSubDomains")
+    assert resp.headers["Strict-Transport-Security"] == (
+        "max-age=31536000; includeSubDomains"
+    )
     assert resp.headers["Content-Security-Policy"] == "default-src 'self'"
 
 
@@ -246,7 +274,11 @@ def test_backtest_rejects_future_dates() -> None:
 
 
 def test_check_request_strips_and_sanitizes_wheel_name() -> None:
-    req = api.CheckRequest(wheel="  single1  ", draw=[3, 11, 19, 27, 33, 40], powerball=5)
+    req = api.CheckRequest(
+        wheel="  single1  ", draw=[3, 11, 19, 27, 33, 40], powerball=5
+    )
     assert req.wheel == "single1"
     with pytest.raises(ValidationError):
-        api.CheckRequest(wheel="<b>single1</b>", draw=[3, 11, 19, 27, 33, 40], powerball=5)
+        api.CheckRequest(
+            wheel="<b>single1</b>", draw=[3, 11, 19, 27, 33, 40], powerball=5
+        )

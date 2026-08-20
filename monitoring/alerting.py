@@ -82,7 +82,9 @@ def evaluate_rules() -> list[dict[str, Any]]:
 
     from monitoring import metrics as m
 
-    families = {f.name: f for f in text_string_to_metric_families(m.render_metrics().decode())}
+    families = {
+        f.name: f for f in text_string_to_metric_families(m.render_metrics().decode())
+    }
 
     rules: list[dict[str, Any]] = []
 

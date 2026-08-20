@@ -150,7 +150,9 @@ def engineer_features(draw: Sequence[int]) -> np.ndarray:
         np.ndarray of shape (12,), float32, all values in [0, 1].
     """
     if len(draw) < NUM_MAIN:
-        raise ValueError(f"Each draw needs at least {NUM_MAIN} numbers, got {len(draw)}.")
+        raise ValueError(
+            f"Each draw needs at least {NUM_MAIN} numbers, got {len(draw)}."
+        )
 
     main = sorted(int(n) for n in draw[:NUM_MAIN])
     bonus = int(draw[NUM_MAIN]) if len(draw) > NUM_MAIN and draw[NUM_MAIN] else 0
@@ -260,7 +262,9 @@ def build_model(class_weights: np.ndarray, window: int = WINDOW) -> keras.Model:
         [
             keras.layers.Input(shape=(window, NUM_FEATURES)),
             keras.layers.Masking(mask_value=0.0),
-            keras.layers.LSTM(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2),
+            keras.layers.LSTM(
+                128, return_sequences=True, dropout=0.2, recurrent_dropout=0.2
+            ),
             keras.layers.LSTM(64, dropout=0.2, recurrent_dropout=0.2),
             keras.layers.Dense(128, activation="relu"),
             keras.layers.Dropout(0.3),
@@ -268,7 +272,9 @@ def build_model(class_weights: np.ndarray, window: int = WINDOW) -> keras.Model:
         ]
     )
     model.compile(
-        optimizer=keras.optimizers.AdamW(learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY),
+        optimizer=keras.optimizers.AdamW(
+            learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY
+        ),
         loss=weighted_categorical_crossentropy(class_weights),
         metrics=["accuracy"],
     )
@@ -358,7 +364,9 @@ class DeepPredictor:
             Training summary dict (samples, epochs run, paths).
         """
         if len(draws) < self.window + 2:
-            raise ValueError(f"Need at least {self.window + 2} draws to train, got {len(draws)}.")
+            raise ValueError(
+                f"Need at least {self.window + 2} draws to train, got {len(draws)}."
+            )
 
         x, y = build_training_data(draws, self.window)
         class_weights = compute_class_weights(draws)
@@ -373,7 +381,9 @@ class DeepPredictor:
 
         # Augmentation: Gaussian noise on numerical features (train only)
         rng = np.random.default_rng(seed)
-        x_train = x_train + rng.normal(0.0, NOISE_SIGMA, x_train.shape).astype(np.float32)
+        x_train = x_train + rng.normal(0.0, NOISE_SIGMA, x_train.shape).astype(
+            np.float32
+        )
 
         self.model = build_model(class_weights, self.window)
         self.model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -420,7 +430,9 @@ class DeepPredictor:
                 json.dumps(
                     {
                         "loss": [float(v) for v in history.history.get("loss", [])],
-                        "val_loss": [float(v) for v in history.history.get("val_loss", [])],
+                        "val_loss": [
+                            float(v) for v in history.history.get("val_loss", [])
+                        ],
                     }
                 )
             )
@@ -564,7 +576,9 @@ class DeepPredictor:
         total = float(importance.sum())
         if total > 0:
             importance = importance / total
-        return {name: float(v) for name, v in zip(FEATURE_NAMES, importance, strict=True)}
+        return {
+            name: float(v) for name, v in zip(FEATURE_NAMES, importance, strict=True)
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -591,7 +605,11 @@ class StubDeepPredictor:
 
     def train(self, draws: list[list[int]], **kwargs: Any) -> dict[str, Any]:
         logger.warning("StubDeepPredictor.train() is a no-op (TensorFlow missing).")
-        return {"stub": True, "samples": max(0, len(draws) - self.window), "epochs_run": 0}
+        return {
+            "stub": True,
+            "samples": max(0, len(draws) - self.window),
+            "epochs_run": 0,
+        }
 
     def load(self) -> bool:
         return False
@@ -639,7 +657,9 @@ def create_predictor(
     global _default_predictor
     if use_cache and _default_predictor is not None:
         return _default_predictor
-    cls: type[DeepPredictor | StubDeepPredictor] = DeepPredictor if HAS_TF else StubDeepPredictor
+    cls: type[DeepPredictor | StubDeepPredictor] = (
+        DeepPredictor if HAS_TF else StubDeepPredictor
+    )
     predictor = cls(model_path=model_path)
     if use_cache:
         _default_predictor = predictor
@@ -664,7 +684,11 @@ if __name__ == "__main__":
     number_probs = np.array([1.0 / (n**0.3) for n in range(1, POOL_SIZE + 1)])
     number_probs /= number_probs.sum()
     synthetic_draws = [
-        sorted(rng.choice(range(1, POOL_SIZE + 1), size=6, replace=False, p=number_probs).tolist())
+        sorted(
+            rng.choice(
+                range(1, POOL_SIZE + 1), size=6, replace=False, p=number_probs
+            ).tolist()
+        )
         + [int(rng.integers(1, 11))]  # bonus
         for _ in range(100)
     ]

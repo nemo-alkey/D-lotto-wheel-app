@@ -48,7 +48,8 @@ class EnsemblePredictor:
     def _load_draws(self) -> list[tuple[list[int], int, int, str]]:
         """Load draws from the database."""
         cursor = self.conn.execute(
-            "SELECT numbers, powerball, bonus, draw_date " "FROM draws ORDER BY draw_date ASC"
+            "SELECT numbers, powerball, bonus, draw_date "
+            "FROM draws ORDER BY draw_date ASC"
         )
         draws = []
         for nums_str, pb, bonus, date in cursor:
@@ -214,7 +215,7 @@ class EnsemblePredictor:
             from predictions import HierarchicalBonusPredictor
 
             hbp = HierarchicalBonusPredictor(bonus_draws, recency_halflife_days=90)
-            hbp.fit()  # type: ignore[no-untyped-call]  # predictions.py is untyped
+            hbp.fit()
             top_b = hbp.predict_top_k(k=bonus_top)
             bonus = [(n, round(p, 6)) for n, p, _ in top_b]
 

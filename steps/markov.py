@@ -25,11 +25,15 @@ NUM_MAIN = 40  # Number of main lottery numbers
 NUM_POWERBALL = 10  # Number of Powerball numbers
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Total output length (50 probabilities)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 # Configure logging format and default log level
 
 
-def generate_markov_matrix(sequence: Sequence[int], num_states: int) -> npt.NDArray[np.float64]:
+def generate_markov_matrix(
+    sequence: Sequence[int], num_states: int
+) -> npt.NDArray[np.float64]:
     """Build normalized transition matrix [num_states x num_states]."""
 
     mat = np.zeros((num_states, num_states), dtype=float)

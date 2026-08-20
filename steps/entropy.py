@@ -24,7 +24,9 @@ NUM_POWERBALL = 10
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # = 50
 
 # Configure logging output format and verbosity
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def shannon_entropy_features(pipeline: DataPipeline) -> None:
@@ -44,7 +46,9 @@ def shannon_entropy_features(pipeline: DataPipeline) -> None:
 
     # If fusion data is missing or malformed, fall back to uniform distribution
     if fusion is None or len(fusion) != NUM_TOTAL:
-        logging.warning("Fusion distribution missing — fallback to uniform entropy features.")
+        logging.warning(
+            "Fusion distribution missing — fallback to uniform entropy features."
+        )
 
         # Create a uniform probability distribution over 50 symbols
         uniform = np.ones(NUM_TOTAL) / NUM_TOTAL

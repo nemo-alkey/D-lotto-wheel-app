@@ -16,7 +16,9 @@ from collections import Counter
 from typing import Any
 
 
-def classify_numbers(conn: sqlite3.Connection, window_draws: int = 20) -> dict[str, Any]:
+def classify_numbers(
+    conn: sqlite3.Connection, window_draws: int = 20
+) -> dict[str, Any]:
     """Classify numbers 1-40 into positive, negative, and never-drawn sets.
 
     Parameters

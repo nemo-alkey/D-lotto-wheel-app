@@ -92,7 +92,9 @@ def test_get_wheel_valid(authenticated_client: tuple[TestClient, str]) -> None:
         assert len(ticket) == 6
 
 
-def test_get_wheel_invalid_returns_404(authenticated_client: tuple[TestClient, str]) -> None:
+def test_get_wheel_invalid_returns_404(
+    authenticated_client: tuple[TestClient, str],
+) -> None:
     client, _ = authenticated_client
     resp = client.get("/wheel/no-such-wheel")
     assert resp.status_code == 404

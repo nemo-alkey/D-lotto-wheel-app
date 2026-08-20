@@ -34,7 +34,13 @@ from rotation_scheduler import build_rotation
 
 class TestWheels:
     def test_all_wheels_present(self) -> None:
-        assert set(WHEELS.keys()) == {"single1", "single2", "double", "five-if-six", "jackpot7"}
+        assert set(WHEELS.keys()) == {
+            "single1",
+            "single2",
+            "double",
+            "five-if-six",
+            "jackpot7",
+        }
 
     def test_each_wheel_has_tickets_and_pb(self) -> None:
         for name, (tickets, pb) in WHEELS.items():
@@ -162,7 +168,9 @@ class TestExportWheel:
         with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as f:
             path = f.name
         try:
-            with patch("sys.stdout", io.StringIO()), patch("builtins.input", return_value="y"):
+            with patch("sys.stdout", io.StringIO()), patch(
+                "builtins.input", return_value="y"
+            ):
                 export_wheel("single1", path)
             with open(path) as f:
                 reader = csv.reader(f)
@@ -223,7 +231,9 @@ class TestPositiveNegativeSplit:
 
     def test_many_draws(self) -> None:
         draws = [([1, 2, 3, 4, 5, 6], 3, 0, f"2024-01-{d:02d}") for d in range(1, 31)]
-        draws.extend([([7, 8, 9, 10, 11, 12], 3, 0, f"2024-02-{d:02d}") for d in range(1, 31)])
+        draws.extend(
+            [([7, 8, 9, 10, 11, 12], 3, 0, f"2024-02-{d:02d}") for d in range(1, 31)]
+        )
         pos, neg, freq = positive_negative_split(draws, last_n=30)
         # Last 30 are all [7..12], so those are positive
         assert set(pos) == {7, 8, 9, 10, 11, 12}
@@ -255,7 +265,9 @@ class TestSumRange:
         assert low <= high
 
     def test_known_sum(self) -> None:
-        draws = [([10, 20, 30, 31, 32, 33], 3, 0, f"2024-01-{d:02d}") for d in range(1, 31)]
+        draws = [
+            ([10, 20, 30, 31, 32, 33], 3, 0, f"2024-01-{d:02d}") for d in range(1, 31)
+        ]
         low, high = sum_range(draws, last_n=30)
         assert low <= 156 <= high
 
@@ -290,7 +302,10 @@ class TestBayesianPosterior:
         assert abs(posterior[7] - 1 / 46) < 1e-10
 
     def test_all_numbers_seen_once(self) -> None:
-        draws = [([n * 6 + i + 1 for i in range(6)], 3, 0, f"2024-01-{n:02d}") for n in range(7)]
+        draws = [
+            ([n * 6 + i + 1 for i in range(6)], 3, 0, f"2024-01-{n:02d}")
+            for n in range(7)
+        ]
         posterior = bayesian_posterior(draws, alpha=1.0)
         # Number 1 appears 1 time (in draw 0). Total count = 7*6 = 42.
         # posterior[1] = (1 + 1) / (42 + 40) = 2/82
@@ -300,14 +315,14 @@ class TestBayesianPosterior:
 class TestBanditRecommendation:
     def test_returns_6_numbers(self) -> None:
         draws = [([1, 2, 3, 4, 5, 6], 3, 0, "2024-01-01")]
-        result = bandit_recommendation(draws)  # type: ignore[no-untyped-call]
+        result = bandit_recommendation(draws)
         assert len(result) == 6
         for n in result:
             assert 1 <= n <= 40
 
     def test_all_numbers_unique(self) -> None:
         draws = [([1, 2, 3, 4, 5, 6], 3, 0, "2024-01-01")]
-        result = bandit_recommendation(draws)  # type: ignore[no-untyped-call]
+        result = bandit_recommendation(draws)
         assert len(set(result)) == 6
 
 
@@ -357,7 +372,9 @@ class TestRotationSchedulerBayesian:
 # =========================================================================
 
 
-def _score_tickets_against_draw(wheel_name: str, draw_str: str, pb: int) -> dict[str, int]:
+def _score_tickets_against_draw(
+    wheel_name: str, draw_str: str, pb: int
+) -> dict[str, int]:
     """Run check_wheel logic silently and return division counts."""
     from lotto_wheels import DIVISIONS, WHEELS
 

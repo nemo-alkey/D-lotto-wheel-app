@@ -155,7 +155,9 @@ def fetch_all_draws() -> list[dict[str, Any]]:
     engine = get_engine()
     with engine.connect() as conn:
         result = conn.execute(
-            text("SELECT draw_date, numbers, bonus, powerball FROM draws ORDER BY draw_date ASC")
+            text(
+                "SELECT draw_date, numbers, bonus, powerball FROM draws ORDER BY draw_date ASC"
+            )
         )
         rows = result.fetchall()
         draws_list = []

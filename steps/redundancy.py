@@ -20,7 +20,9 @@ NUM_MAIN_NUMBERS = 40
 NUM_POWERBALL_NUMBERS = 10
 NUM_TOTAL_NUMBERS = NUM_MAIN_NUMBERS + NUM_POWERBALL_NUMBERS
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 # ============================================================
@@ -119,7 +121,9 @@ def sequential_features(pipeline: DataPipeline) -> None:
         return
 
     # ===================== MAIN (1–40) =====================
-    recency_main = calculate_recency_features(historical_data, "numbers", NUM_MAIN_NUMBERS)
+    recency_main = calculate_recency_features(
+        historical_data, "numbers", NUM_MAIN_NUMBERS
+    )
     gap_main = calculate_gap_frequency(historical_data, "numbers", NUM_MAIN_NUMBERS)
 
     # variance normalization to avoid one dominating
@@ -129,8 +133,12 @@ def sequential_features(pipeline: DataPipeline) -> None:
     combined_main = (recency_main / rec_main_std + gap_main / gap_main_std) / 2.0
 
     # ===================== POWERBALL (1–10) =====================
-    recency_power = calculate_recency_features(historical_data, "powerball", NUM_POWERBALL_NUMBERS)
-    gap_power = calculate_gap_frequency(historical_data, "powerball", NUM_POWERBALL_NUMBERS)
+    recency_power = calculate_recency_features(
+        historical_data, "powerball", NUM_POWERBALL_NUMBERS
+    )
+    gap_power = calculate_gap_frequency(
+        historical_data, "powerball", NUM_POWERBALL_NUMBERS
+    )
 
     rec_power_std = np.std(recency_power) or 1.0
     gap_power_std = np.std(gap_power) or 1.0
@@ -160,4 +168,6 @@ def sequential_features(pipeline: DataPipeline) -> None:
     combined_features = (combined_features - min_v) / ptp_v
 
     pipeline.add_data("redundancy", combined_features)
-    logging.info("Sequential / Temporal features generated successfully (cluster-modulated).")
+    logging.info(
+        "Sequential / Temporal features generated successfully (cluster-modulated)."
+    )

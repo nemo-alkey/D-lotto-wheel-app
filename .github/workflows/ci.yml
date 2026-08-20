@@ -50,10 +50,9 @@ jobs:
       - name: Ruff format (fail if unformatted)
         run: ruff format --check .
 
-      # Informational only: the codebase has ~900 legacy strict-mypy errors.
-      # Runs and reports, but does not fail the build until types are cleaned up.
-      - name: Mypy (informational)
-        continue-on-error: true
+      # Mypy strict — blocking. The codebase is fully typed (zero errors);
+      # any new error fails the build.
+      - name: Mypy (fail on error)
         run: mypy .
 
   # ---------------------------------------------------------------------------

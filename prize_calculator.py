@@ -397,7 +397,10 @@ def get_prize_for_draw(
     }
 
     details = [
-        (f"Lotto {main_labels.get(cast(int, lotto_div), f'Div {lotto_div}')}", main_prize),
+        (
+            f"Lotto {main_labels.get(cast(int, lotto_div), f'Div {lotto_div}')}",
+            main_prize,
+        ),
     ]
     if pb_prize > 0:
         details.append((f"Powerball {pb_label}", pb_prize))
@@ -408,7 +411,9 @@ def get_prize_for_draw(
         "pb_prize": pb_prize,
         "main_division": lotto_div,
         "pb_division": pb_division,
-        "main_label": main_labels.get(cast(int, lotto_div), f"Div {lotto_div} (no win)"),
+        "main_label": main_labels.get(
+            cast(int, lotto_div), f"Div {lotto_div} (no win)"
+        ),
         "pb_label": pb_label,
         "is_estimated": is_estimated,
         "draw_date": draw_date_str,
@@ -481,7 +486,12 @@ def get_prize_for_matches(
 
     total = main_prize + pb_prize
 
-    details = [(f"Lotto {main_labels.get(cast(int, lotto_div), f'Div {lotto_div}')}", main_prize)]
+    details = [
+        (
+            f"Lotto {main_labels.get(cast(int, lotto_div), f'Div {lotto_div}')}",
+            main_prize,
+        )
+    ]
     if pb_prize > 0:
         details.append((f"Powerball {pb_label}", pb_prize))
 
@@ -501,7 +511,9 @@ def get_prize_for_matches(
         "pb_prize": pb_prize,
         "main_division": lotto_div,
         "pb_division": pb_division,
-        "main_label": main_labels.get(lotto_div, f"Div {lotto_div}") if lotto_div else "No win",
+        "main_label": main_labels.get(lotto_div, f"Div {lotto_div}")
+        if lotto_div
+        else "No win",
         "pb_label": pb_label,
         "combined_label": combined_label,
         "is_estimated": is_estimated,
@@ -765,23 +777,32 @@ def allocate_pool(
             winning_divs = [
                 d
                 for d in range(1, 7)
-                if winners_per_division.get(d, 0) > 0 and not (d == 1 and div1_was_capped)
+                if winners_per_division.get(d, 0) > 0
+                and not (d == 1 and div1_was_capped)
             ]
             if winning_divs:
-                total_winners = sum(winners_per_division.get(d, 0) for d in winning_divs)
+                total_winners = sum(
+                    winners_per_division.get(d, 0) for d in winning_divs
+                )
                 for d in winning_divs:
                     n = winners_per_division.get(d, 0)
                     extra = round(unallocated * n / total_winners, 2)
                     per_winner[d] = round(per_winner.get(d, 0.0) + extra / n, 2)
-                    total_per_division[d] = round(total_per_division.get(d, 0.0) + extra, 2)
+                    total_per_division[d] = round(
+                        total_per_division.get(d, 0.0) + extra, 2
+                    )
                     unallocated -= extra
 
         # Any final leftover pennies go to Div 1 if uncapped and has winners
         if unallocated > 0.005 and not div1_was_capped:
             d1_winners = winners_per_division.get(1, 0)
             if d1_winners > 0:
-                per_winner[1] = round(per_winner.get(1, 0.0) + unallocated / d1_winners, 2)
-                total_per_division[1] = round(total_per_division.get(1, 0.0) + unallocated, 2)
+                per_winner[1] = round(
+                    per_winner.get(1, 0.0) + unallocated / d1_winners, 2
+                )
+                total_per_division[1] = round(
+                    total_per_division.get(1, 0.0) + unallocated, 2
+                )
                 unallocated = 0.0
 
     # --- Step 4: Div 7 per-winner and total ---
@@ -941,7 +962,9 @@ def apply_jackpot(
                     n = cascade_winner_counts[d]
                     share = round(carried_jackpot * n / total_w, 2)
                     per_winner[d] = round(per_winner.get(d, 0.0) + share / n, 2)
-                    total_per_division[d] = round(total_per_division.get(d, 0.0) + share, 2)
+                    total_per_division[d] = round(
+                        total_per_division.get(d, 0.0) + share, 2
+                    )
                     distributed += share
 
                 new_carried_jackpot = round(carried_jackpot - distributed, 2)
@@ -949,7 +972,9 @@ def apply_jackpot(
             else:
                 # No winners in any lower division either — carry forward
                 new_carried_jackpot = carried_jackpot
-                new_consecutive = 0  # reset even if no lower winners (jackpot was distributed)
+                new_consecutive = (
+                    0  # reset even if no lower winners (jackpot was distributed)
+                )
         else:
             # Normal rollover: add Div 1 share from this draw to carried jackpot
             d1_share = total_per_division.get(1, 0.0)
@@ -1175,7 +1200,9 @@ def main() -> None:
     print()
     print("  === Prize Calculation ===")
     print(f"  Draw date:  {info['draw_date']}")
-    print(f"  Source:     {'API (live)' if not info['is_estimated'] else 'Static estimate'}")
+    print(
+        f"  Source:     {'API (live)' if not info['is_estimated'] else 'Static estimate'}"
+    )
     print()
     for label, amount in info["details"]:
         if amount > 0:

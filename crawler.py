@@ -65,7 +65,13 @@ def _insert_draw(conn: sqlite3.Connection, draw: dict[str, Any]) -> bool:
         conn.execute(
             "INSERT INTO draws (draw_id, draw_date, numbers, bonus, powerball) "
             "VALUES (?, ?, ?, ?, ?)",
-            (new_id, draw["draw_date"], nums_str, draw.get("bonus", 0), draw["powerball"]),
+            (
+                new_id,
+                draw["draw_date"],
+                nums_str,
+                draw.get("bonus", 0),
+                draw["powerball"],
+            ),
         )
         conn.commit()
         return True
@@ -87,7 +93,10 @@ def _check_robots() -> bool:
         if resp.status_code != 200:
             return True  # no robots.txt = assume allowed
         for line in resp.text.splitlines():
-            if line.strip().lower().startswith("disallow:") and "/results/lotto" in line:
+            if (
+                line.strip().lower().startswith("disallow:")
+                and "/results/lotto" in line
+            ):
                 return False
         return True
     except requests.RequestException:
@@ -179,7 +188,10 @@ def _find_previous_link(soup: BeautifulSoup, base_url: str) -> str | None:
     for a in soup.find_all("a", href=True):
         text = a.get_text(strip=True).lower()
         href = cast(str, a["href"])
-        if any(kw in text or kw in href.lower() for kw in ("previous", "older", "next", "prev")):
+        if any(
+            kw in text or kw in href.lower()
+            for kw in ("previous", "older", "next", "prev")
+        ):
             return urljoin(base_url, href)
     return None
 
@@ -252,7 +264,9 @@ def crawl_historical_results(
     # Resume from saved progress if available
     saved_url, saved_pages, saved_inserted = _load_progress()
     if saved_url:
-        print(f"Resuming from {PROGRESS_FILE}: page {saved_pages}, {saved_inserted} inserted")
+        print(
+            f"Resuming from {PROGRESS_FILE}: page {saved_pages}, {saved_inserted} inserted"
+        )
         url = saved_url
         pages = saved_pages
         inserted = saved_inserted
@@ -313,7 +327,9 @@ def crawl_historical_results(
     conn.close()
     after = sqlite3.connect(DB_PATH).execute("SELECT COUNT(*) FROM draws").fetchone()[0]
     total_new = after - before
-    print(f"\nDone. {pages} pages visited, {total_new} new draws inserted. DB: {after} draws.")
+    print(
+        f"\nDone. {pages} pages visited, {total_new} new draws inserted. DB: {after} draws."
+    )
 
     # Clear progress file on successful completion
     if os.path.exists(PROGRESS_FILE):
@@ -330,9 +346,13 @@ def crawl_historical_results(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Crawl MyLotto historical results.")
-    parser.add_argument("--start-date", help="Stop when draws are older than YYYY-MM-DD")
+    parser.add_argument(
+        "--start-date", help="Stop when draws are older than YYYY-MM-DD"
+    )
     parser.add_argument("--max-pages", type=int, default=50, help="Max pages to visit")
-    parser.add_argument("--resume", action="store_true", help="Resume from saved progress")
+    parser.add_argument(
+        "--resume", action="store_true", help="Resume from saved progress"
+    )
     args = parser.parse_args()
 
     # Load progress if resuming
@@ -345,7 +365,9 @@ def main() -> None:
             start_url = saved_url
             visited_pages = saved_pages
             inserted_count = saved_inserted
-            print(f"Resuming from: {start_url} (page {visited_pages}, {inserted_count} inserted)")
+            print(
+                f"Resuming from: {start_url} (page {visited_pages}, {inserted_count} inserted)"
+            )
 
     crawl_historical_results(
         start_url=start_url,

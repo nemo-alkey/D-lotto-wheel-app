@@ -20,14 +20,20 @@ st.set_page_config(page_title="Racing Platform", layout="wide")
 st.title("Racing Analytics Dashboard")
 
 # ── Data loading ──────────────────────────────────────────────
-RAW_DATA_PATH = "D:/Racing/racing_platform/Racing/Data/HorseRacing/data/raw/australian_racing"
-ENRICHED_DATA_PATH = "D:/Racing/racing_platform/Racing/Platforms/racing_platform/data/enriched"
+RAW_DATA_PATH = (
+    "D:/Racing/racing_platform/Racing/Data/HorseRacing/data/raw/australian_racing"
+)
+ENRICHED_DATA_PATH = (
+    "D:/Racing/racing_platform/Racing/Platforms/racing_platform/data/enriched"
+)
 
 
 def _load_race_files(path: str) -> tuple[list[tuple[str, pd.DataFrame]], str]:
     """Read every CSV under *path*, returning (name, df) pairs."""
     csv_files = (
-        sorted(f for f in os.listdir(path) if f.endswith(".csv")) if os.path.isdir(path) else []
+        sorted(f for f in os.listdir(path) if f.endswith(".csv"))
+        if os.path.isdir(path)
+        else []
     )
     races: list[tuple[str, pd.DataFrame]] = []
     for fname in csv_files:
@@ -302,7 +308,8 @@ with tab_odds:
 with tab_enriched:
     col1, col2, col3 = st.columns(3)
     col1.metric(
-        "Rows with Last_10", race_df["Last_10"].notna().sum() if "Last_10" in race_df.columns else 0
+        "Rows with Last_10",
+        race_df["Last_10"].notna().sum() if "Last_10" in race_df.columns else 0,
     )
     col2.metric(
         "Rows with Gear_Change",
@@ -310,7 +317,9 @@ with tab_enriched:
     )
     col3.metric(
         "Rows with Reynolds_Rating",
-        race_df["Reynolds_Rating"].notna().sum() if "Reynolds_Rating" in race_df.columns else 0,
+        race_df["Reynolds_Rating"].notna().sum()
+        if "Reynolds_Rating" in race_df.columns
+        else 0,
     )
 
 # ---------- Predictions Engine Integration ----------
@@ -335,7 +344,9 @@ with tab_bias:
 
         if not track_data.empty:
             distances = sorted(track_data["distance"].unique())
-            selected_dist = st.selectbox("Select Distance (m)", distances, key="bias_dist")
+            selected_dist = st.selectbox(
+                "Select Distance (m)", distances, key="bias_dist"
+            )
             dist_data = track_data[track_data["distance"] == selected_dist]
 
             if not dist_data.empty:
@@ -348,7 +359,10 @@ with tab_bias:
                         x="barrier",
                         y="adv_lengths",
                         title="Average Advantage (lengths) by Barrier",
-                        labels={"barrier": "Barrier", "adv_lengths": "Advantage (lengths)"},
+                        labels={
+                            "barrier": "Barrier",
+                            "adv_lengths": "Advantage (lengths)",
+                        },
                         color="adv_lengths",
                         color_continuous_scale=["#f44336", "#ffeb3b", "#4caf50"],
                     )
@@ -357,7 +371,8 @@ with tab_bias:
                         error_y={
                             "type": "data",
                             "array": dist_data["ci_upper"] - dist_data["adv_lengths"],
-                            "arrayminus": dist_data["adv_lengths"] - dist_data["ci_lower"],
+                            "arrayminus": dist_data["adv_lengths"]
+                            - dist_data["ci_lower"],
                             "visible": True,
                         }
                     )
@@ -385,7 +400,9 @@ with tab_bias:
         else:
             st.warning(f"No data available for {selected_track}")
     else:
-        st.warning("Barrier bias cache not found. Run `python draw_analyzer.py` to generate it.")
+        st.warning(
+            "Barrier bias cache not found. Run `python draw_analyzer.py` to generate it."
+        )
 import streamlit as st
 import yaml  # type: ignore[import-untyped]
 from services.prediction_service import PredictionService
@@ -406,13 +423,19 @@ kelly_method = st.sidebar.selectbox(
 )
 max_single = (
     st.sidebar.slider(
-        "Max Single Bet (%)", 0.5, 10.0, float(config["risk"]["max_single_race_exposure"]) * 100
+        "Max Single Bet (%)",
+        0.5,
+        10.0,
+        float(config["risk"]["max_single_race_exposure"]) * 100,
     )
     / 100.0
 )
 max_total = (
     st.sidebar.slider(
-        "Max Total Exposure (%)", 0.5, 20.0, float(config["risk"]["max_total_exposure"]) * 100
+        "Max Total Exposure (%)",
+        0.5,
+        20.0,
+        float(config["risk"]["max_total_exposure"]) * 100,
     )
     / 100.0
 )
@@ -471,7 +494,9 @@ if predictions:
                         "Live Odds": f"{b['live_odds']:.2f}",
                         "Kelly Stake": f"${b['kelly_stake']:.2f}",
                         "Value": "🔥 VALUE"
-                        if (b.get("ev", 0) > 0 and b["live_odds"] / b["fair_odds"] > 1.2)
+                        if (
+                            b.get("ev", 0) > 0 and b["live_odds"] / b["fair_odds"] > 1.2
+                        )
                         else "",
                     }
                 )
@@ -480,4 +505,6 @@ if predictions:
             df = pd.DataFrame(rows)
             st.dataframe(df, width="stretch")
 else:
-    st.info("No predictions available. Upload race CSV files or check your data folder.")
+    st.info(
+        "No predictions available. Upload race CSV files or check your data folder."
+    )

@@ -144,7 +144,11 @@ PB_DIVISION_LABELS = {
 
 
 def score_ticket(
-    ticket_nums: tuple[int, ...], wheel_pb: int, draw_nums: list[int], draw_pb: int, draw_bonus: int
+    ticket_nums: tuple[int, ...],
+    wheel_pb: int,
+    draw_nums: list[int],
+    draw_pb: int,
+    draw_bonus: int,
 ) -> tuple[int, bool, bool]:
     """Return (main_matches, bonus_match, pb_hit) tuple."""
     matches = len(set(ticket_nums) & set(draw_nums))
@@ -158,7 +162,9 @@ def score_ticket(
 # ---------------------------------------------------------------------------
 
 
-def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | None = None) -> None:
+def backtest(
+    wheel_name: str, num_draws: int | None, draw_pb_override: int | None = None
+) -> None:
     if wheel_name not in WHEELS:
         print(f"Unknown wheel: '{wheel_name}'")
         print(f"Available: {', '.join(WHEELS)}")
@@ -270,7 +276,9 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
                         upgrade_breakdown[key] = upgrade_breakdown.get(key, 0) + 1
 
             # Accumulate prize without bonus for comparison
-            without_total = prize_lookup.get((matches, False, pb_hit), {}).get("total_prize", 0.0)
+            without_total = prize_lookup.get((matches, False, pb_hit), {}).get(
+                "total_prize", 0.0
+            )
             total_prize_without_bonus += without_total
 
             if lotto_div:
@@ -331,7 +339,9 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
         print("  Guarantee hits:  N/A (condition never triggered)")
     print()
 
-    print(f"  {'Lotto Division':<20s}  {'Winners':>8s}  {'Avg Prize':>10s}  {'Total':>12s}")
+    print(
+        f"  {'Lotto Division':<20s}  {'Winners':>8s}  {'Avg Prize':>10s}  {'Total':>12s}"
+    )
     print(f"  {'-' * 52}")
     for div_num in sorted(DIVISION_LABELS):
         idx = div_num - 1
@@ -363,7 +373,9 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
         avg = lotto_prizes_acc[idx] / num_draws
         bar_len = int(lotto_counts[idx] / max_hits * 30)
         bar = "#" * bar_len
-        print(f"  {DIVISION_LABELS[div_num]:<20s}  {lotto_counts[idx]:>6d}  ${avg:>8,.2f}  {bar}")
+        print(
+            f"  {DIVISION_LABELS[div_num]:<20s}  {lotto_counts[idx]:>6d}  ${avg:>8,.2f}  {bar}"
+        )
     print()
 
     print(
@@ -417,7 +429,11 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
         print(f"  {'-' * 48}")
         for r in best:
             nums = ",".join(f"{n:02d}" for n in r["nums"])
-            pb_field = f"  {r['pb']:>4d}" if draw_pb_override is not None else f"  {r['pb']:>3d}"
+            pb_field = (
+                f"  {r['pb']:>4d}"
+                if draw_pb_override is not None
+                else f"  {r['pb']:>3d}"
+            )
             print(f"  {r['date']:<14s}  {nums:>22s}{pb_field}  {r['overlap']:>4d}/6")
         print()
 
@@ -425,7 +441,9 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
 # ---------------------------------------------------------------------------
 
 
-def backtest_bonus_impact(wheel_name: str, num_draws: int | None = None) -> dict[str, Any]:
+def backtest_bonus_impact(
+    wheel_name: str, num_draws: int | None = None
+) -> dict[str, Any]:
     """Return structured bonus-impact data for a wheel (no console output).
 
     Runs a lightweight internal backtest and returns the bonus-related metrics
@@ -493,7 +511,11 @@ def backtest_bonus_impact(wheel_name: str, num_draws: int | None = None) -> dict
                         key = f"{from_div}->{to_div}"
                         upgrade_breakdown[key] = upgrade_breakdown.get(key, 0) + 1
 
-    premium = (total_prize - total_prize_wo) / total_prize_wo * 100 if total_prize_wo > 0 else 0.0
+    premium = (
+        (total_prize - total_prize_wo) / total_prize_wo * 100
+        if total_prize_wo > 0
+        else 0.0
+    )
 
     return {
         "wheel": wheel_name,
@@ -536,7 +558,9 @@ def build_prize_lookup() -> dict[tuple[int, bool, bool], float]:
         for bm in (False, True):
             for pb in (False, True):
                 ld, pd = resolve_divisions(m, bm, pb)
-                prize = (lotto_prizes.get(ld, 0) if ld else 0) + (pb_prizes.get(pd, 0) if pd else 0)
+                prize = (lotto_prizes.get(ld, 0) if ld else 0) + (
+                    pb_prizes.get(pd, 0) if pd else 0
+                )
                 lookup[(m, bm, pb)] = float(prize)
     return lookup
 
@@ -577,7 +601,9 @@ def compute_analytical_ev(
                 pb = False  # first compute without PB
                 prize_wo = prize_lookup.get((k, bm, pb), 0.0)
                 prize_w = prize_lookup.get((k, bm, True), 0.0)
-                ev_ticket = p_match * p_bonus * ((1 - pb_prob) * prize_wo + pb_prob * prize_w)
+                ev_ticket = (
+                    p_match * p_bonus * ((1 - pb_prob) * prize_wo + pb_prob * prize_w)
+                )
                 total_ev += ev_ticket
 
     return total_ev
@@ -737,7 +763,9 @@ def simulate_bonus_ev(
 
         ev_with = total_with / num_sims
         ev_without = total_without / num_sims
-        premium_pct = ((ev_with - ev_without) / ev_without * 100) if ev_without > 0 else 0.0
+        premium_pct = (
+            ((ev_with - ev_without) / ev_without * 100) if ev_without > 0 else 0.0
+        )
 
         result = {
             "ev_with_bonus": round(ev_with, 4),
@@ -815,7 +843,9 @@ def simulate_bonus_ev(
         "ev_without_bonus": round(ev_without, 4),
         "bonus_premium_percent": round(premium_pct, 2),
         "upgrade_count": upgrade_count,
-        "avg_prize_with": round(total_with / upgrade_count, 2) if upgrade_count else 0.0,
+        "avg_prize_with": round(total_with / upgrade_count, 2)
+        if upgrade_count
+        else 0.0,
         "avg_prize_without": round(total_without / num_sims, 2),
     }
 
@@ -1157,7 +1187,9 @@ def _paired_ttest(a: list[float], b: list[float]) -> float:
 # ===========================================================================
 
 
-def run_single_wheel_per_draw(wheel_name: str, num_draws: int | None = None) -> list[float]:
+def run_single_wheel_per_draw(
+    wheel_name: str, num_draws: int | None = None
+) -> list[float]:
     """Run backtest and return per-draw total prize list (for bootstrap)."""
     from prize_calculator import fetch_payouts, resolve_divisions
 
@@ -1183,7 +1215,9 @@ def run_single_wheel_per_draw(wheel_name: str, num_draws: int | None = None) -> 
         for bm in (False, True):
             for pb in (False, True):
                 ld, pd = resolve_divisions(m, bm, pb)
-                lookup[(m, bm, pb)] = (lp.get(ld, 0) if ld else 0) + (pp.get(pd, 0) if pd else 0)
+                lookup[(m, bm, pb)] = (lp.get(ld, 0) if ld else 0) + (
+                    pp.get(pd, 0) if pd else 0
+                )
 
     per_draw = []
     for draw_nums, draw_pb, draw_bonus, _date in recent:
@@ -1318,7 +1352,9 @@ def main() -> None:
 
     if args.multi:
         nd = args.draws if args.draws > 0 else 10
-        start = args.start_draw if args.start_draw > 0 else max(0, len(load_draws()) - nd)
+        start = (
+            args.start_draw if args.start_draw > 0 else max(0, len(load_draws()) - nd)
+        )
         result = run_multi_draw_backtest(
             args.wheel,
             start_draw_id=start,

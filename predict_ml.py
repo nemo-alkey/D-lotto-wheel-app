@@ -133,7 +133,11 @@ def build_features_for_draw(
 
     results = []
     for n in num_range:
-        gap = target_idx - last_appearance.get(n, 0) - 1 if n in last_appearance else target_idx
+        gap = (
+            target_idx - last_appearance.get(n, 0) - 1
+            if n in last_appearance
+            else target_idx
+        )
         gap = min(gap, 500)
         total_draws = max(len(past_draws), 1)
         avg_pos = position_sums[n] / position_n[n] if position_n[n] > 0 else -1.0
@@ -162,7 +166,9 @@ def build_features_for_draw(
         ]
 
         label = 1 if n in current_nums else 0
-        results.append({"features": features, "label": label, "num": n, "is_powerball": is_pb})
+        results.append(
+            {"features": features, "label": label, "num": n, "is_powerball": is_pb}
+        )
 
     return results
 
@@ -202,7 +208,9 @@ def predict(
         if pb_rows:
             x_pb = np.array([r["features"] for r in pb_rows], dtype=np.float32)
             probs_pb = pb_model.predict_proba(x_pb)[:, 1]
-            pb_candidates = [(r["num"], float(probs_pb[i])) for i, r in enumerate(pb_rows)]
+            pb_candidates = [
+                (r["num"], float(probs_pb[i])) for i, r in enumerate(pb_rows)
+            ]
             pb_candidates.sort(key=lambda x: x[1], reverse=True)
             pb = pb_candidates[0][0]
             pb_prob = pb_candidates[0][1]
