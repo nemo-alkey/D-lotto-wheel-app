@@ -37,8 +37,14 @@ jobs:
           python-version: "3.11"
           cache: "pip"                      # cache pip downloads between runs
 
-      - name: Install linters
-        run: pip install ruff==0.5.0 mypy==1.10.0 types-requests
+      # mypy needs the real dependencies installed: with ignore_missing_imports
+      # they would degrade to Any, which strict mode rejects (e.g. "Class
+      # cannot subclass BaseSettings (has type Any)"). Install the pinned
+      # project deps first so local and CI mypy results match.
+      - name: Install linters + project dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ruff==0.5.0 mypy==1.10.0 types-requests
 
       # Config lives in pyproject.toml (ruff) and mypy.ini (mypy, strict).
       # Any error from either tool fails the build.
