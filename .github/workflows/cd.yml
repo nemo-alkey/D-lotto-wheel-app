@@ -10,6 +10,10 @@
 # Required secrets:
 #   STAGING_HOST, STAGING_USER, STAGING_SSH_KEY, STAGING_URL
 #   PROD_HOST,    PROD_USER,    PROD_SSH_KEY,    PROD_URL
+# Deploy gate:
+#   Deploy jobs are SKIPPED unless the repo variable DEPLOY_ENABLED=true is
+#   set (Settings → Secrets and variables → Actions → Variables). The build
+#   job always runs, so every release still publishes a ghcr.io image.
 # Required one-time setup:
 #   Settings → Environments → "production" → enable "Required reviewers"
 #   (that rule is what makes deploy-production wait for manual approval).
@@ -70,6 +74,12 @@ jobs:
     name: Deploy to staging
     needs: build
     runs-on: ubuntu-latest
+    # Opt-in gate: only runs when the repo variable DEPLOY_ENABLED is set to
+    # "true" (Settings → Secrets and variables → Actions → Variables) AND the
+    # STAGING_* / PROD_* secrets are configured. Without them the SSH action
+    # fails with "missing server host", so releases stay green until a real
+    # staging server exists.
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
     environment: staging
     steps:
       # Pull the freshly built image on the staging host and restart the
