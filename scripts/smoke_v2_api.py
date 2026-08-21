@@ -31,9 +31,7 @@ with TestClient(app) as client:
             pass
 
     # --- auth: register + make admin ---
-    r = client.post(
-        "/register", json={"username": "smokeadmin", "password": "pass12345"}
-    )
+    r = client.post("/register", json={"username": "smokeadmin", "password": "pass12345"})
     results.append(("register", r.status_code, r.status_code == 201))
     conn = sqlite3.connect(os.path.join(tmp, "lotto.db"))
     conn.execute("UPDATE users SET is_admin = 1 WHERE username = 'smokeadmin'")
@@ -85,9 +83,7 @@ with TestClient(app) as client:
             "bonus": 8,
         },
     )
-    results.append(
-        ("POST /draws duplicate date -> 409", r.status_code, r.status_code == 409)
-    )
+    results.append(("POST /draws duplicate date -> 409", r.status_code, r.status_code == 409))
 
     r = client.post(
         "/draws",
@@ -99,15 +95,11 @@ with TestClient(app) as client:
             "bonus": 8,
         },
     )
-    results.append(
-        ("POST /draws bad payload -> 422", r.status_code, r.status_code == 422)
-    )
+    results.append(("POST /draws bad payload -> 422", r.status_code, r.status_code == 422))
 
     # --- POST /predictions ---
     reset()
-    r = client.post(
-        "/predictions", headers=headers, json={"method": "frequency", "top_k": 10}
-    )
+    r = client.post("/predictions", headers=headers, json={"method": "frequency", "top_k": 10})
     ok = r.status_code == 200 and len(r.json()["numbers"]) == 10
     if ok:
         probs = r.json()["probabilities"]
@@ -123,12 +115,8 @@ with TestClient(app) as client:
         )
     )
 
-    r = client.post(
-        "/predictions", headers=headers, json={"method": "bogus", "top_k": 6}
-    )
-    results.append(
-        ("POST /predictions bogus method -> 422", r.status_code, r.status_code == 422)
-    )
+    r = client.post("/predictions", headers=headers, json={"method": "bogus", "top_k": 6})
+    results.append(("POST /predictions bogus method -> 422", r.status_code, r.status_code == 422))
 
     # --- POST /wheels/generate ---
     reset()
@@ -205,9 +193,7 @@ with TestClient(app) as client:
             "end_date": "2099-12-31",
         },
     )
-    results.append(
-        ("POST /backtest date window -> 200", r.status_code, r.status_code == 200)
-    )
+    results.append(("POST /backtest date window -> 200", r.status_code, r.status_code == 200))
 
     r = client.post(
         "/backtest",
@@ -216,9 +202,7 @@ with TestClient(app) as client:
             "wheel_type": "no-such-wheel",
         },
     )
-    results.append(
-        ("POST /backtest bad wheel -> 404", r.status_code, r.status_code == 404)
-    )
+    results.append(("POST /backtest bad wheel -> 404", r.status_code, r.status_code == 404))
 
     r = client.post(
         "/backtest",
@@ -229,9 +213,7 @@ with TestClient(app) as client:
             "end_date": "2000-01-01",
         },
     )
-    results.append(
-        ("POST /backtest inverted dates -> 400", r.status_code, r.status_code == 400)
-    )
+    results.append(("POST /backtest inverted dates -> 400", r.status_code, r.status_code == 400))
 
     # --- GET /docs/custom ---
     r = client.get("/docs/custom")

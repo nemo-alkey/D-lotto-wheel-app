@@ -255,10 +255,7 @@ def add_ticket(
         members = get_members(syndicate_id)
         total_pct = sum(m["contribution_pct"] for m in members)
         contributor_splits = (
-            {
-                m["user_id"]: round(m["contribution_pct"] / total_pct * 100, 4)
-                for m in members
-            }
+            {m["user_id"]: round(m["contribution_pct"] / total_pct * 100, 4) for m in members}
             if total_pct > 0
             else {}
         )
@@ -274,9 +271,7 @@ def add_ticket(
                 "sid": syndicate_id,
                 "nums": json.dumps(nums),
                 "did": str(draw_id).strip(),
-                "splits": json.dumps(
-                    {str(k): v for k, v in contributor_splits.items()}
-                ),
+                "splits": json.dumps({str(k): v for k, v in contributor_splits.items()}),
             },
         )
         conn.commit()
@@ -357,9 +352,7 @@ def calculate_prize_split(syndicate_id: int, total_prize: float) -> dict[int, fl
 # ---------------------------------------------------------------------------
 
 
-def auto_notify_winners(
-    syndicate_id: int, draw_results: dict[str, Any]
-) -> dict[str, Any]:
+def auto_notify_winners(syndicate_id: int, draw_results: dict[str, Any]) -> dict[str, Any]:
     """Notify all members of their prize share via notifier.py email.
 
     Args:
@@ -375,12 +368,8 @@ def auto_notify_winners(
     """
     import notifier
 
-    total_prize = float(
-        draw_results.get("total_prize") or draw_results.get("prize") or 0.0
-    )
-    draw_label = (
-        draw_results.get("draw_date") or draw_results.get("draw_id") or "unknown draw"
-    )
+    total_prize = float(draw_results.get("total_prize") or draw_results.get("prize") or 0.0)
+    draw_label = draw_results.get("draw_date") or draw_results.get("draw_id") or "unknown draw"
 
     splits = calculate_prize_split(syndicate_id, total_prize)
     members = {m["user_id"]: m for m in get_members(syndicate_id)}

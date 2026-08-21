@@ -91,9 +91,7 @@ def _get_logger() -> logging.Logger:
         encoding="utf-8",
     )
     handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S%z"
-        )
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S%z")
     )
     logger.addHandler(handler)
     logger.propagate = False
@@ -151,13 +149,10 @@ def _table_row_counts(db_path: Path) -> dict[str, int]:
         tables = [
             row[0]
             for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' "
-                "AND name NOT LIKE 'sqlite_%'"
+                "SELECT name FROM sqlite_master WHERE type='table' " "AND name NOT LIKE 'sqlite_%'"
             )
         ]
-        return {
-            t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in tables
-        }
+        return {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in tables}
     finally:
         conn.close()
 
@@ -456,9 +451,7 @@ def upload_to_cloud(backup_path: Path) -> list[str]:
 
             def _azure() -> None:
                 service = BlobServiceClient.from_connection_string(azure_conn)
-                blob = service.get_blob_client(
-                    container=_AZURE_CONTAINER, blob=backup_path.name
-                )
+                blob = service.get_blob_client(container=_AZURE_CONTAINER, blob=backup_path.name)
                 with open(backup_path, "rb") as fh:
                     blob.upload_blob(fh, overwrite=True)
 
@@ -473,9 +466,7 @@ def upload_to_cloud(backup_path: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def list_backups(
-    backup_dir: Path | None = None, days: int | None = None
-) -> list[dict[str, Any]]:
+def list_backups(backup_dir: Path | None = None, days: int | None = None) -> list[dict[str, Any]]:
     """List backups newest-first with size and age metadata.
 
     Args:
@@ -576,10 +567,7 @@ def main(argv: list[str] | None = None) -> int:
         for e in entries:
             size_kb = e["size_bytes"] / 1024
             tag = " (gzipped)" if e["compressed"] else ""
-            print(
-                f"{e['created']:%Y-%m-%d %H:%M:%S}  {size_kb:9.1f} KB  "
-                f"{e['name']}{tag}"
-            )
+            print(f"{e['created']:%Y-%m-%d %H:%M:%S}  {size_kb:9.1f} KB  " f"{e['name']}{tag}")
         return 0
 
     if args.command == "verify":

@@ -17,9 +17,7 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LOTTO_DB = os.path.join(PROJECT_ROOT, "lotto.db")
 
 DRAW = {
@@ -50,9 +48,7 @@ class TestInsertDraw:
         assert row[2] == 9
         assert row[3] == 4
 
-    def test_draw_exists_and_duplicate_rejected(
-        self, db_connection: sqlite3.Connection
-    ) -> None:
+    def test_draw_exists_and_duplicate_rejected(self, db_connection: sqlite3.Connection) -> None:
         from update_draws import draw_exists, insert_draw
 
         assert draw_exists(db_connection, cast(str, DRAW["draw_date"])) is False
@@ -81,10 +77,7 @@ class TestRealSchema:
         conn = sqlite3.connect(f"file:{LOTTO_DB}?mode=ro", uri=True)
         try:
             tables = {
-                r[0]
-                for r in conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                )
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
             assert "draws" in tables
 
@@ -115,8 +108,7 @@ class TestPosNegPersistence:
         conn = sqlite3.connect(db_path)
         try:
             row = conn.execute(
-                "SELECT draw_id, classification_json, shift_detected "
-                "FROM pos_neg_history"
+                "SELECT draw_id, classification_json, shift_detected " "FROM pos_neg_history"
             ).fetchone()
         finally:
             conn.close()

@@ -177,9 +177,7 @@ class ResponseCache:
                 TTL_PREDICTIONS: cast(
                     TTLCache[str, Any], TTLCache(maxsize=128, ttl=TTL_PREDICTIONS)
                 ),
-                TTL_ANALYTICS: cast(
-                    TTLCache[str, Any], TTLCache(maxsize=128, ttl=TTL_ANALYTICS)
-                ),
+                TTL_ANALYTICS: cast(TTLCache[str, Any], TTLCache(maxsize=128, ttl=TTL_ANALYTICS)),
             }
 
     @property
@@ -401,9 +399,7 @@ async def security_headers(
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = (
-        "max-age=31536000; includeSubDomains"
-    )
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = (
         _CSP_DOCS if request.url.path in _DOCS_PATHS else _CSP_STRICT
     )
@@ -436,12 +432,8 @@ async def metrics_and_access_log(
     metrics.HTTP_REQUESTS_TOTAL.labels(
         method=request.method, endpoint=endpoint, status=str(response.status_code)
     ).inc()
-    metrics.HTTP_REQUEST_DURATION.labels(
-        method=request.method, endpoint=endpoint
-    ).observe(duration)
-    metrics.record_active(
-        user_id if user_id != "-" else f"ip:{get_remote_address(request)}"
-    )
+    metrics.HTTP_REQUEST_DURATION.labels(method=request.method, endpoint=endpoint).observe(duration)
+    metrics.record_active(user_id if user_id != "-" else f"ip:{get_remote_address(request)}")
 
     app_logger.info(
         "%s %s -> %s",
@@ -522,9 +514,7 @@ def custom_openapi() -> dict[str, Any]:
     # HTTPBearer is declared explicitly so it is present even if no endpoint
     # currently in the schema depends on it; OAuth2PasswordBearer (from
     # auth.py's /me) is added by FastAPI automatically.
-    security_schemes = schema.setdefault("components", {}).setdefault(
-        "securitySchemes", {}
-    )
+    security_schemes = schema.setdefault("components", {}).setdefault("securitySchemes", {})
     security_schemes.setdefault(
         "HTTPBearer",
         {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
@@ -548,9 +538,7 @@ app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 @app.exception_handler(RateLimitExceeded)
-async def rate_limit_exceeded_handler(
-    request: Request, exc: RateLimitExceeded
-) -> JSONResponse:
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """Custom 429 response with a Retry-After header."""
     # exc.detail looks like "60 per 1 minute" — derive the window seconds
     retry_after = 60
@@ -655,9 +643,7 @@ class CheckRequest(BaseModel):
     """Request body for POST /check (wheel vs draw win check)."""
 
     wheel: str = Field(description="Wheel name (e.g. double, single1, jackpot7)")
-    draw: list[int] = Field(
-        min_length=6, max_length=6, description="6 main draw numbers"
-    )
+    draw: list[int] = Field(min_length=6, max_length=6, description="6 main draw numbers")
     powerball: int = Field(ge=1, le=10, description="Powerball (1-10)")
 
     _clean_wheel = field_validator("wheel")(_sanitize_string)
@@ -686,9 +672,7 @@ class CheckRequest(BaseModel):
 class DrawCreate(BaseModel):
     """Payload for recording a new Lotto draw."""
 
-    draw_number: int = Field(
-        ge=1, description="Official draw number (stored as draw_id)"
-    )
+    draw_number: int = Field(ge=1, description="Official draw number (stored as draw_id)")
     date: str = Field(
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         description="Draw date in ISO format (YYYY-MM-DD)",
@@ -734,9 +718,7 @@ class PredictionRequest(BaseModel):
         description="How many top-ranked numbers to return",
     )
 
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"method": "ensemble", "top_k": 12}]}
-    )
+    model_config = ConfigDict(json_schema_extra={"examples": [{"method": "ensemble", "top_k": 12}]})
 
 
 class PredictionResponse(BaseModel):
@@ -956,9 +938,7 @@ def require_admin_http(
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
-        payload = jwt.decode(
-            credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM]
-        )
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise JWTError("missing sub")
@@ -1061,9 +1041,7 @@ def prometheus_metrics() -> Response:
     Raises:
         Nothing.
     """
-    return Response(
-        content=metrics.render_metrics(), media_type=metrics.CONTENT_TYPE_LATEST
-    )
+    return Response(content=metrics.render_metrics(), media_type=metrics.CONTENT_TYPE_LATEST)
 
 
 @app.post("/register", status_code=201, tags=["Auth"])
@@ -1159,9 +1137,7 @@ def refresh_access_token(req: RefreshRequest, request: Request) -> Token:
     username = payload["sub"]
     user = get_user_record(username)
     if user is None:
-        security_logger.warning(
-            "refresh_failed_unknown_user username=%s ip=%s", username, ip
-        )
+        security_logger.warning("refresh_failed_unknown_user username=%s ip=%s", username, ip)
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
 
     security_logger.info("refresh_success username=%s ip=%s", username, ip)
@@ -1291,9 +1267,7 @@ async def internal_new_draw(
         if x_internal_token != INTERNAL_NOTIFY_TOKEN:
             raise HTTPException(status_code=403, detail="Invalid internal token.")
     elif get_remote_address(request) not in ("127.0.0.1", "::1", "localhost"):
-        raise HTTPException(
-            status_code=403, detail="Internal endpoint: localhost only."
-        )
+        raise HTTPException(status_code=403, detail="Internal endpoint: localhost only.")
 
     payload = {
         "type": "new_draw",
@@ -1390,9 +1364,7 @@ def check_wheel(req: CheckRequest) -> dict[str, Any]:
     if len(set(req.draw)) != 6:
         raise HTTPException(status_code=400, detail="Draw numbers must be unique.")
     if any(n < 1 or n > 40 for n in req.draw):
-        raise HTTPException(
-            status_code=400, detail="Main numbers must be between 1 and 40."
-        )
+        raise HTTPException(status_code=400, detail="Main numbers must be between 1 and 40.")
 
     tickets, wheel_pb = WHEELS[req.wheel]
     draw_set = set(req.draw)
@@ -1537,9 +1509,7 @@ def get_stats() -> dict[str, Any]:
     low_sum, high_sum = sum_range(draws)
     adj_ratio = numerical_attraction(draws)
     bayes = bayesian_posterior(draws)
-    top_bayes = [
-        n for n, _ in sorted(bayes.items(), key=lambda x: x[1], reverse=True)[:10]
-    ]
+    top_bayes = [n for n, _ in sorted(bayes.items(), key=lambda x: x[1], reverse=True)[:10]]
     bandit_top = bandit_recommendation(draws)
 
     result = {
@@ -1629,10 +1599,7 @@ def predict_bonus_gap(k: int = 5) -> list[dict[str, Any]]:
     conn = sqlite3.connect("lotto.db")
     try:
         top_k = bonus_gap_prediction(conn, k=min(k, 40))
-        return [
-            {"rank": i + 1, "bonus_number": n, "score": s}
-            for i, (n, s) in enumerate(top_k)
-        ]
+        return [{"rank": i + 1, "bonus_number": n, "score": s} for i, (n, s) in enumerate(top_k)]
     finally:
         conn.close()
 
@@ -1656,9 +1623,7 @@ def predict_bonus_hierarchical(k: int = 5, halflife: int = 90) -> list[dict[str,
 
     conn = sqlite3.connect("lotto.db")
     try:
-        rows = conn.execute(
-            "SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC"
-        ).fetchall()
+        rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
         conn.close()
 
@@ -1698,9 +1663,7 @@ def predict_bonus_probability(num: int, halflife: int = 90) -> dict[str, Any]:
 
     conn = sqlite3.connect("lotto.db")
     try:
-        rows = conn.execute(
-            "SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC"
-        ).fetchall()
+        rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
         conn.close()
 
@@ -1814,9 +1777,7 @@ def ev_simulation_endpoint(
             detail=f"Unknown wheel '{req.wheel}'. Available: {list(WHEELS.keys())}",
         )
     if not (10_000 <= req.num_sims <= 5_000_000):
-        raise HTTPException(
-            status_code=400, detail="num_sims must be 10 000 – 5 000 000."
-        )
+        raise HTTPException(status_code=400, detail="num_sims must be 10 000 – 5 000 000.")
 
     from backtest import simulate_bonus_ev
 
@@ -1953,10 +1914,7 @@ def cooccurrence_triplets_endpoint(top_n: int = 10) -> list[dict[str, Any]]:
         from analysis_bonus_pairs import get_top_triplets
 
         triplets = get_top_triplets(conn, top_n=top_n)
-        return [
-            {"bonus": b, "main1": m1, "main2": m2, "count": c}
-            for b, m1, m2, c in triplets
-        ]
+        return [{"bonus": b, "main1": m1, "main2": m2, "count": c} for b, m1, m2, c in triplets]
     finally:
         conn.close()
 
@@ -2077,9 +2035,7 @@ def _frequency_probs(last_n: int = 30) -> dict[int, float]:
         422: {"model": ErrorResponse, "description": "Payload validation failed."},
     },
 )
-def create_draw(
-    draw: DrawCreate, admin: User = Depends(require_admin_http)
-) -> dict[str, Any]:
+def create_draw(draw: DrawCreate, admin: User = Depends(require_admin_http)) -> dict[str, Any]:
     """Record a new Lotto draw (admin only).
 
     Maps DrawCreate onto the draws table: draw_number -> draw_id,
@@ -2298,9 +2254,7 @@ def generate_wheel(
         if len(set(req.user_numbers)) != len(req.user_numbers):
             raise HTTPException(status_code=400, detail="user_numbers must be unique.")
         if any(n < 1 or n > 40 for n in req.user_numbers):
-            raise HTTPException(
-                status_code=400, detail="user_numbers must be between 1 and 40."
-            )
+            raise HTTPException(status_code=400, detail="user_numbers must be between 1 and 40.")
         pool = sorted(set(req.user_numbers))
     else:
         freq = _frequency_probs(last_n=30)
@@ -2327,9 +2281,7 @@ def generate_wheel(
     for ticket in tickets:
         covered_pairs.update(itertools.combinations(sorted(set(ticket)), 2))
     total_pairs = math.comb(len(pool), 2)
-    pair_coverage_pct = (
-        round(len(covered_pairs) / total_pairs * 100, 2) if total_pairs else 0.0
-    )
+    pair_coverage_pct = round(len(covered_pairs) / total_pairs * 100, 2) if total_pairs else 0.0
 
     metrics.WHEELS_GENERATED.labels(system_type=req.guarantee_type).inc()
     security_logger.info(
@@ -2399,9 +2351,7 @@ def run_backtest(
             detail=f"Unknown wheel '{req.wheel_type}'. Available: {list(WHEELS.keys())}",
         )
     if req.start_date and req.end_date and req.start_date > req.end_date:
-        raise HTTPException(
-            status_code=400, detail="start_date must not be after end_date."
-        )
+        raise HTTPException(status_code=400, detail="start_date must not be after end_date.")
 
     all_draws = load_draws()
     if not all_draws:
@@ -2413,17 +2363,13 @@ def run_backtest(
     if req.start_date and req.end_date:
         idxs = [i for i, d in enumerate(dates) if req.start_date <= d <= req.end_date]
         if not idxs:
-            raise HTTPException(
-                status_code=404, detail="No draws in the specified date range."
-            )
+            raise HTTPException(status_code=404, detail="No draws in the specified date range.")
         start_idx: int | None = idxs[0]
         n_draws = len(idxs)
     elif req.start_date:
         start_idx = next((i for i, d in enumerate(dates) if d >= req.start_date), None)
         if start_idx is None:
-            raise HTTPException(
-                status_code=404, detail="No draws on or after start_date."
-            )
+            raise HTTPException(status_code=404, detail="No draws on or after start_date.")
         n_draws = min(req.ticket_count, total - start_idx)
     elif req.end_date:
         end_idx = next(
@@ -2431,9 +2377,7 @@ def run_backtest(
             None,
         )
         if end_idx is None:
-            raise HTTPException(
-                status_code=404, detail="No draws on or before end_date."
-            )
+            raise HTTPException(status_code=404, detail="No draws on or before end_date.")
         n_draws = min(req.ticket_count, end_idx + 1)
         start_idx = end_idx - n_draws + 1
     else:
@@ -2442,9 +2386,7 @@ def run_backtest(
     from backtest import run_multi_draw_backtest
 
     assert start_idx is not None  # every branch above either sets an int or raises
-    result = run_multi_draw_backtest(
-        req.wheel_type, start_draw_id=start_idx, num_draws=n_draws
-    )
+    result = run_multi_draw_backtest(req.wheel_type, start_draw_id=start_idx, num_draws=n_draws)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
 
@@ -2560,9 +2502,7 @@ def custom_docs() -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 # Serve the built React app (mobile-frontend/dist) at /mobile when present.
-_mobile_dist = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "mobile-frontend", "dist"
-)
+_mobile_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mobile-frontend", "dist")
 if os.path.isdir(_mobile_dist):
     from fastapi.staticfiles import StaticFiles
 

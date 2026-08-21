@@ -127,19 +127,14 @@ def analyze_attraction(
     all_pairs = set(consec_counter.keys()) | set(plus2_counter.keys())
     raw_scores = {}
     for pair in all_pairs:
-        raw_scores[pair] = consec_counter.get(pair, 0) + 0.5 * plus2_counter.get(
-            pair, 0
-        )
+        raw_scores[pair] = consec_counter.get(pair, 0) + 0.5 * plus2_counter.get(pair, 0)
 
     # Normalize to 0-1 range
     if raw_scores:
         max_score = max(raw_scores.values())
         min_score = min(raw_scores.values())
         score_range = max_score - min_score if max_score != min_score else 1.0
-        normalized = {
-            pair: (score - min_score) / score_range
-            for pair, score in raw_scores.items()
-        }
+        normalized = {pair: (score - min_score) / score_range for pair, score in raw_scores.items()}
     else:
         normalized = {}
 
@@ -220,9 +215,7 @@ def score_wheel_attraction(
 
     # Coverage ratio: how many of the top hot pairs are covered?
     top_pairs = sorted(profile.normalized_scores.items(), key=lambda x: -x[1])[:20]
-    covered = sum(
-        1 for pair, _ in top_pairs if pair[0] in wheel_set and pair[1] in wheel_set
-    )
+    covered = sum(1 for pair, _ in top_pairs if pair[0] in wheel_set and pair[1] in wheel_set)
     coverage_ratio = covered / len(top_pairs) if top_pairs else 0.0
 
     # Albert alignment: how close is this wheel to the ~63% pattern?
@@ -317,9 +310,7 @@ def get_attraction_constraints(
     return {
         "favored_consecutive_pairs": [list(p) for p, _ in top_consec],
         "favored_plus_two_pairs": [list(p) for p, _ in top_plus2],
-        "must_include_numbers": list(
-            dict.fromkeys(must_include)
-        ),  # dedupe, preserve order
+        "must_include_numbers": list(dict.fromkeys(must_include)),  # dedupe, preserve order
         "avoid_numbers": profile.cold_numbers[:5],
         "summary": profile.summary,
     }
@@ -333,15 +324,9 @@ def save_profile(
     data = {
         "lookback_draws": profile.lookback_draws,
         "total_draws_analyzed": profile.total_draws_analyzed,
-        "consecutive_pairs": {
-            f"{a},{b}": c for (a, b), c in profile.consecutive_pairs.items()
-        },
-        "plus_two_pairs": {
-            f"{a},{b}": c for (a, b), c in profile.plus_two_pairs.items()
-        },
-        "normalized_scores": {
-            f"{a},{b}": s for (a, b), s in profile.normalized_scores.items()
-        },
+        "consecutive_pairs": {f"{a},{b}": c for (a, b), c in profile.consecutive_pairs.items()},
+        "plus_two_pairs": {f"{a},{b}": c for (a, b), c in profile.plus_two_pairs.items()},
+        "normalized_scores": {f"{a},{b}": s for (a, b), s in profile.normalized_scores.items()},
         "hot_numbers": profile.hot_numbers,
         "cold_numbers": profile.cold_numbers,
         "summary": profile.summary,
@@ -358,10 +343,7 @@ def load_profile(
         data = json.load(f)
 
     def _parse_pairs(d: dict[str, Any]) -> dict[tuple[int, int], Any]:
-        return {
-            cast(tuple[int, int], tuple(map(int, k.split(",")))): v
-            for k, v in d.items()
-        }
+        return {cast(tuple[int, int], tuple(map(int, k.split(",")))): v for k, v in d.items()}
 
     # NOTE: saved JSON predates the raw_attraction_scores field, so this call
     # intentionally omits it (raw scores are recomputed, never persisted).

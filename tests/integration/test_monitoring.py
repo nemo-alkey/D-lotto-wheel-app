@@ -63,18 +63,14 @@ def test_health_payload_shape(client: TestClient) -> None:
 
 
 def test_health_503_on_database_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        health_checks, "check_database", lambda path: "fail: connection timeout"
-    )
+    monkeypatch.setattr(health_checks, "check_database", lambda path: "fail: connection timeout")
     result = health_checks.run_all_checks("lotto.db", "redis://localhost:6379", "2.0.0")
     assert result["status"] == "unhealthy"
     assert result["http_status"] == 503
 
 
 def test_health_warn_levels(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        health_checks, "check_redis", lambda url: "fail: connection refused"
-    )
+    monkeypatch.setattr(health_checks, "check_redis", lambda url: "fail: connection refused")
     result = health_checks.run_all_checks("lotto.db", "redis://localhost:6379", "2.0.0")
     # Redis failure degrades but does not 503 (in-memory fallback exists).
     assert result["status"] == "degraded"
@@ -126,9 +122,7 @@ def test_predictions_counter_increments(client: TestClient) -> None:
 
 
 def test_wheels_counter_increments(client: TestClient) -> None:
-    resp = client.post(
-        "/wheels/generate", json={"pool_size": 8, "guarantee_type": "4 if 4"}
-    )
+    resp = client.post("/wheels/generate", json={"pool_size": 8, "guarantee_type": "4 if 4"})
     assert resp.status_code == 200
     text = client.get("/metrics").text
     assert 'wheels_generated_total{system_type="4 if 4"}' in text

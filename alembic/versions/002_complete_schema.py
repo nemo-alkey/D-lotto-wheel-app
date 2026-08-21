@@ -94,9 +94,7 @@ def upgrade() -> None:
             sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
             sa.Column("name", sa.Text, nullable=False),
             sa.Column("created_by", sa.Integer, nullable=False),
-            sa.Column(
-                "created_at", sa.Text, server_default=sa.text("CURRENT_TIMESTAMP")
-            ),
+            sa.Column("created_at", sa.Text, server_default=sa.text("CURRENT_TIMESTAMP")),
             sa.Column(
                 "total_contribution",
                 sa.Float,
@@ -113,9 +111,7 @@ def upgrade() -> None:
             sa.Column("user_id", sa.Integer, nullable=False),
             sa.Column("contribution_pct", sa.Float, nullable=False),
             sa.Column("email", sa.Text),
-            sa.UniqueConstraint(
-                "syndicate_id", "user_id", name="uq_member_syndicate_user"
-            ),
+            sa.UniqueConstraint("syndicate_id", "user_id", name="uq_member_syndicate_user"),
         )
 
     if "syndicate_tickets" not in existing:

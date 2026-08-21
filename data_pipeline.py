@@ -55,9 +55,7 @@ class DataFetcher:
             )
             conn.commit()
 
-    def _record_stat(
-        self, source: str, draw_date: str, success: bool, error: str = ""
-    ) -> None:
+    def _record_stat(self, source: str, draw_date: str, success: bool, error: str = "") -> None:
         engine = get_engine()
         with engine.connect() as conn:
             conn.execute(
@@ -294,9 +292,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Unified data pipeline")
     parser.add_argument("--date", help="Specific draw date (YYYY-MM-DD)")
-    parser.add_argument(
-        "--validate", action="store_true", help="Validate database integrity"
-    )
+    parser.add_argument("--validate", action="store_true", help="Validate database integrity")
     args = parser.parse_args()
 
     if args.validate:

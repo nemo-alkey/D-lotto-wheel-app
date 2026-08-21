@@ -60,9 +60,7 @@ def verify_draw_order() -> None:
     if dates == sorted(dates):
         print("Verification Passed: draw_id correctly reflects chronological order.")
     else:
-        print(
-            "Verification Failed: draw_id does NOT correctly reflect chronological order."
-        )
+        print("Verification Failed: draw_id does NOT correctly reflect chronological order.")
 
 
 def get_latest_draw_date() -> datetime | None:
@@ -118,9 +116,7 @@ def view_number_stats(pipeline: DataPipeline) -> None:
 # ============================================================
 # Safe Execution Wrapper
 # ============================================================
-def safe_run(
-    step_fn: Callable[[DataPipeline], Any], pipeline: DataPipeline, name: str
-) -> None:
+def safe_run(step_fn: Callable[[DataPipeline], Any], pipeline: DataPipeline, name: str) -> None:
     """Safely execute pipeline stage with error handling."""
     try:
         step_fn(pipeline)
@@ -155,9 +151,7 @@ def main() -> None:
             else:
                 print("\n--- Current Ticket ---")
                 for idx, line in enumerate(current_ticket, 1):
-                    print(
-                        f"Line {idx}: {line['line']} | Powerball: {line['powerball']}"
-                    )
+                    print(f"Line {idx}: {line['line']} | Powerball: {line['powerball']}")
 
         elif choice == "2":
             last_draws = fetch_recent_draws(10)
@@ -184,9 +178,7 @@ def main() -> None:
 
             latest_date = get_latest_draw_date()
             if latest_date and datetime.strptime(draw_date, "%Y-%m-%d") <= latest_date:
-                print(
-                    f"Error: New draw date must be after {latest_date.strftime('%Y-%m-%d')}."
-                )
+                print(f"Error: New draw date must be after {latest_date.strftime('%Y-%m-%d')}.")
                 continue
 
             try:
@@ -199,21 +191,15 @@ def main() -> None:
                     )
                 )
                 if len(numbers) != NUM_PICK_MAIN or len(set(numbers)) != NUM_PICK_MAIN:
-                    raise ValueError(
-                        f"Exactly {NUM_PICK_MAIN} distinct numbers required."
-                    )
+                    raise ValueError(f"Exactly {NUM_PICK_MAIN} distinct numbers required.")
                 if any(n < 1 or n > MAX_MAIN_NUMBER for n in numbers):
-                    raise ValueError(
-                        f"Numbers must be between 1 and {MAX_MAIN_NUMBER}."
-                    )
+                    raise ValueError(f"Numbers must be between 1 and {MAX_MAIN_NUMBER}.")
                 bonus = int(input(f"Enter bonus number (1-{MAX_MAIN_NUMBER}): "))
                 if not (1 <= bonus <= MAX_MAIN_NUMBER):
                     raise ValueError(f"Bonus must be between 1 and {MAX_MAIN_NUMBER}.")
                 powerball = int(input(f"Enter Powerball (1-{NUM_POWERBALL}): "))
                 if not (1 <= powerball <= NUM_POWERBALL):
-                    raise ValueError(
-                        f"Powerball must be between 1 and {NUM_POWERBALL}."
-                    )
+                    raise ValueError(f"Powerball must be between 1 and {NUM_POWERBALL}.")
             except ValueError as e:
                 print(f"Invalid input: {e}")
                 continue
@@ -302,18 +288,14 @@ if __name__ == "__main__":
                 )
 
         elif cmd == "crawl":
-            parser = argparse.ArgumentParser(
-                description="Crawl MyLotto historical results"
-            )
+            parser = argparse.ArgumentParser(description="Crawl MyLotto historical results")
             parser.add_argument("command", help="Sub-command")
             parser.add_argument(
                 "--start-date",
                 default=None,
                 help="Stop when draws older than YYYY-MM-DD",
             )
-            parser.add_argument(
-                "--max-pages", type=int, default=50, help="Max pages to visit"
-            )
+            parser.add_argument("--max-pages", type=int, default=50, help="Max pages to visit")
             args = parser.parse_args()
 
             from crawler import crawl_historical_results
@@ -324,9 +306,7 @@ if __name__ == "__main__":
             )
 
         elif cmd == "apiverve":
-            parser = argparse.ArgumentParser(
-                description="Fetch lottery via APIVerve API"
-            )
+            parser = argparse.ArgumentParser(description="Fetch lottery via APIVerve API")
             parser.add_argument("command", help="Sub-command")
             parser.add_argument("--api-key", required=True, help="APIVerve API key")
             parser.add_argument("--lottery", default="powerball", help="Lottery name")
@@ -342,9 +322,7 @@ if __name__ == "__main__":
                 print(f"Powerball: {api_result['powerball']}")
 
         elif cmd == "import-csv":
-            parser = argparse.ArgumentParser(
-                description="Import lottery draws from CSV"
-            )
+            parser = argparse.ArgumentParser(description="Import lottery draws from CSV")
             parser.add_argument("command", help="Sub-command")
             parser.add_argument("--file", required=True, help="CSV file path")
             parser.add_argument(
@@ -352,9 +330,7 @@ if __name__ == "__main__":
                 default=None,
                 help="Column mapping: 'Date:draw_date,Numbers:numbers,...'",
             )
-            parser.add_argument(
-                "--auto", action="store_true", help="Auto-detect columns"
-            )
+            parser.add_argument("--auto", action="store_true", help="Auto-detect columns")
             args = parser.parse_args()
 
             from csv_importer import import_csv, import_csv_draws

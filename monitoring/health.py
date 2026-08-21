@@ -161,14 +161,12 @@ def run_all_checks(db_path: str, redis_url: str, version: str) -> dict[str, Any]
     if age is None:
         checks["last_draw_age_hours"] = "warn: no draws found"
     else:
-        checks["last_draw_age_hours"] = (
-            f"warn: {age}h old" if age > DRAW_STALE_HOURS else age
-        )
+        checks["last_draw_age_hours"] = f"warn: {age}h old" if age > DRAW_STALE_HOURS else age
 
     values = [v if isinstance(v, str) else "ok" for v in checks.values()]
-    critical_failed = any(
-        v.startswith("fail") for v in (checks["database"],)
-    ) or checks["disk_space"].startswith("fail")
+    critical_failed = any(v.startswith("fail") for v in (checks["database"],)) or checks[
+        "disk_space"
+    ].startswith("fail")
     any_warn = any(v.startswith(("warn", "fail")) for v in values)
 
     if critical_failed:

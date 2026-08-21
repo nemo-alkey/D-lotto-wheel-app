@@ -104,9 +104,7 @@ def analyze_block_distribution(
             "albert_favored": cfg["favored"],
             "hot_zone": best_zone,
             "frequency": best_hits if best_hits > 0 else 0,
-            "coverage_pct": round(best_hits / block_hits * 100, 1)
-            if block_hits
-            else 0.0,
+            "coverage_pct": round(best_hits / block_hits * 100, 1) if block_hits else 0.0,
             "block_hits": block_hits,
             "avg_per_draw": round(block_hits / len(recent), 2) if recent else 0.0,
             "number_freq": {n: freq.get(n, 0) for n in numbers},

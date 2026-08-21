@@ -43,9 +43,7 @@ def load_stored_tickets() -> list[Any]:
 def save_tickets(tickets: list[Any]) -> None:
     """Save a ticket list to the store."""
     with open(TICKET_STORE, "w", encoding="utf-8") as f:
-        json.dump(
-            {"tickets": tickets, "saved_at": datetime.now().isoformat()}, f, indent=2
-        )
+        json.dump({"tickets": tickets, "saved_at": datetime.now().isoformat()}, f, indent=2)
 
 
 # ---------------------------------------------------------------------------
@@ -236,9 +234,7 @@ def check_job() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lotto Alert Scheduler")
-    parser.add_argument(
-        "--daemon", action="store_true", help="Run as background scheduler"
-    )
+    parser.add_argument("--daemon", action="store_true", help="Run as background scheduler")
     args = parser.parse_args()
 
     if args.daemon:

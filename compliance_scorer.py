@@ -113,12 +113,7 @@ def score_wheel(
     attract_score /= n
 
     # Weighted total
-    total = (
-        pos_neg_score * 0.40
-        + block_score * 0.30
-        + sum_score * 0.20
-        + attract_score * 0.10
-    )
+    total = pos_neg_score * 0.40 + block_score * 0.30 + sum_score * 0.20 + attract_score * 0.10
     return round(total, 1)
 
 
@@ -177,8 +172,7 @@ def get_score_breakdown(
                 key = str(slot)
                 if (
                     key in block_ranges
-                    and _bucket_index(sorted_t[slot])
-                    == block_ranges[key]["optimal_bucket"]
+                    and _bucket_index(sorted_t[slot]) == block_ranges[key]["optimal_bucket"]
                 ):
                     matches += 1
             block_comp += (matches / 6.0) * 100.0

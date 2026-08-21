@@ -107,9 +107,7 @@ def fetch_draw(date: str | None = None) -> dict[str, Any] | None:
             wn = lotto.get("lottoWinningNumbers", {})
             numbers_raw = wn.get("numbers", [])
             if len(numbers_raw) != 6:
-                raise ValueError(
-                    f"Expected 6 numbers, got {len(numbers_raw)}: {numbers_raw}"
-                )
+                raise ValueError(f"Expected 6 numbers, got {len(numbers_raw)}: {numbers_raw}")
 
             numbers = [int(n) for n in numbers_raw]
 
@@ -217,9 +215,7 @@ def _scraper_fallback(date: str | None = None) -> dict[str, Any] | None:
         except Exception as e:
             log(f"  Selenium fallback error: {e}")
     else:
-        log(
-            "  Selenium fallback disabled (set USE_SELENIUM_FALLBACK=True in config.py)."
-        )
+        log("  Selenium fallback disabled (set USE_SELENIUM_FALLBACK=True in config.py).")
 
     return None
 
@@ -245,9 +241,7 @@ def init_db(conn: sqlite3.Connection) -> None:
 
 def draw_exists(conn: sqlite3.Connection, draw_date: str) -> bool:
     """Return True if a draw with this date already exists."""
-    row = conn.execute(
-        "SELECT 1 FROM draws WHERE draw_date = ?", (draw_date,)
-    ).fetchone()
+    row = conn.execute("SELECT 1 FROM draws WHERE draw_date = ?", (draw_date,)).fetchone()
     return row is not None
 
 
@@ -377,9 +371,7 @@ def check_selenium() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Fetch NZ Lotto draws and update the database."
-    )
+    parser = argparse.ArgumentParser(description="Fetch NZ Lotto draws and update the database.")
     parser.add_argument(
         "--date",
         help="Fetch a specific draw date (YYYY-MM-DD). Default: latest.",
@@ -456,8 +448,7 @@ def main() -> None:
 
     # Show last 3
     rows = conn.execute(
-        "SELECT draw_date, numbers, bonus, powerball "
-        "FROM draws ORDER BY draw_date DESC LIMIT 3"
+        "SELECT draw_date, numbers, bonus, powerball " "FROM draws ORDER BY draw_date DESC LIMIT 3"
     ).fetchall()
     if rows:
         log("Most recent draws:")

@@ -1,0 +1,34 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = [
+    "venv",
+    "mobile-frontend",
+    "data",
+    "exports",
+    "backups",
+    ".git",
+    "main.py.bak",
+]
+
+# Import sorting (isort-style): stdlib, third-party, first-party, local.
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = [
+    "E501",  # line length handled by the formatter
+    "E402",  # sys.path bootstrap pattern (also ignored by CI)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "auth", "settings", "config", "monitoring", "steps"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom uses calls in defaults by design.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "Depends"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"

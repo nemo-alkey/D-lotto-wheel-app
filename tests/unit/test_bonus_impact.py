@@ -273,9 +273,7 @@ class TestBacktestBonusImpact:
         assert default["total_prize_with_bonus"] == clamped["total_prize_with_bonus"]
 
     @pytest.mark.integration
-    def test_real_single_draw_database(
-        self, mock_payouts: None, tmp_path: Path
-    ) -> None:
+    def test_real_single_draw_database(self, mock_payouts: None, tmp_path: Path) -> None:
         # Hermetic single-draw database. The original version of this test
         # ran against the local lotto.db, which is gitignored and whose
         # contents vary per machine (CI seeds 60 synthetic draws), making

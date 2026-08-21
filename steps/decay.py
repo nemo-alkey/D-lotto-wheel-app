@@ -16,9 +16,7 @@ from settings import settings
 
 DECAY_PER_DRAW = settings.decay_per_draw
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Constants
 NUM_MAIN = 40
@@ -26,9 +24,7 @@ NUM_POWERBALL = 10
 TOTAL_NUMBERS = NUM_MAIN + NUM_POWERBALL  # 50
 
 
-def calculate_decay_factors(
-    pipeline: DataPipeline, decay_rate: float = DECAY_PER_DRAW
-) -> None:
+def calculate_decay_factors(pipeline: DataPipeline, decay_rate: float = DECAY_PER_DRAW) -> None:
     """
     Calculates decay-weighted frequency distributions for main numbers (1-40)
     and Powerball numbers (1-10), normalizes separately, and concatenates into
@@ -60,9 +56,7 @@ def calculate_decay_factors(
             if isinstance(num, int) and 1 <= num <= NUM_MAIN:
                 main_frequency[num - 1] += weight
             else:
-                logging.warning(
-                    f"Invalid main number {num!r} in draw at index {i}; ignored."
-                )
+                logging.warning(f"Invalid main number {num!r} in draw at index {i}; ignored.")
 
         # Powerball(s)
         pb = draw.get("powerball")
@@ -75,9 +69,7 @@ def calculate_decay_factors(
             if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:
                 powerball_frequency[p - 1] += weight
             else:
-                logging.warning(
-                    f"Invalid Powerball value {p!r} in draw at index {i}; ignored."
-                )
+                logging.warning(f"Invalid Powerball value {p!r} in draw at index {i}; ignored.")
 
     # ---- Normalise separately and concatenate ----
     main_sum = main_frequency.sum()

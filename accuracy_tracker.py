@@ -45,9 +45,7 @@ class ScoreCard:
     exact_match_6: float
 
 
-def brier_score(
-    probs: list[float] | None, actual: list[int], pool_size: int = 40
-) -> float:
+def brier_score(probs: list[float] | None, actual: list[int], pool_size: int = 40) -> float:
     if not probs or len(probs) != pool_size:
         return float("nan")
     y = np.zeros(pool_size)
@@ -75,9 +73,7 @@ def mean_reciprocal_rank(recommended: list[int], actual: list[int]) -> float:
     return 0.0
 
 
-def exact_match_counts(
-    recommended: list[int], actual: list[int]
-) -> tuple[int, int, int, int]:
+def exact_match_counts(recommended: list[int], actual: list[int]) -> tuple[int, int, int, int]:
     hits = len(set(recommended[:6]) & set(actual))
     return (
         1 if hits >= 3 else 0,
@@ -226,9 +222,7 @@ def update_all_scorecards(db_path: Path = DB_PATH) -> list[ScoreCard]:
     _ensure_schema(conn)
     names = [
         r[0]
-        for r in conn.execute(
-            "SELECT DISTINCT predictor_name FROM prediction_records"
-        ).fetchall()
+        for r in conn.execute("SELECT DISTINCT predictor_name FROM prediction_records").fetchall()
     ]
     conn.close()
     cards: list[ScoreCard] = []
@@ -241,9 +235,7 @@ def update_all_scorecards(db_path: Path = DB_PATH) -> list[ScoreCard]:
     return cards
 
 
-def get_leaderboard(
-    window_size: int = 20, db_path: Path = DB_PATH
-) -> list[dict[str, Any]]:
+def get_leaderboard(window_size: int = 20, db_path: Path = DB_PATH) -> list[dict[str, Any]]:
     conn = sqlite3.connect(str(db_path))
     rows = conn.execute(
         "SELECT * FROM scorecards WHERE window_size=? ORDER BY hit_rate DESC, top15_accuracy DESC, brier_score ASC",

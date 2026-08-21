@@ -33,9 +33,7 @@ def _parse_guarantee(guarantee: str) -> tuple[int, int]:
     try:
         return int(parts[0]), int(parts[1])
     except ValueError:
-        raise ValueError(
-            f"Invalid guarantee format: '{guarantee}'. Use 'X if Y'."
-        ) from None
+        raise ValueError(f"Invalid guarantee format: '{guarantee}'. Use 'X if Y'.") from None
 
 
 def _guarantee_description(guarantee: str, pool_size: int) -> str:
@@ -119,13 +117,11 @@ def generate_abbreviated_wheel(
         raise ValueError(f"win_match ({win_match}) must be 2–{ticket_size}.")
     if trigger_match < win_match:
         raise ValueError(
-            f"trigger_match ({trigger_match}) cannot be less than "
-            f"win_match ({win_match})."
+            f"trigger_match ({trigger_match}) cannot be less than " f"win_match ({win_match})."
         )
     if pool_size < trigger_match:
         desc = (
-            f"Need at least {trigger_match} numbers in your pool "
-            f"for the {guarantee} guarantee."
+            f"Need at least {trigger_match} numbers in your pool " f"for the {guarantee} guarantee."
         )
         return [], desc
     if pool_size < ticket_size:
@@ -177,9 +173,7 @@ def generate_abbreviated_wheel(
 
     # --- Heuristic fallback for very large pools ---
     if pool_size > 20:
-        return _heuristic_wheel(
-            nums, win_match, trigger_match, max_tickets, desc, verbose
-        )
+        return _heuristic_wheel(nums, win_match, trigger_match, max_tickets, desc, verbose)
 
     # --- Build fast index: ticket -> set of trigger combos it covers ---
     # Each 6-number ticket covers exactly C(6, trigger_match) combos.
@@ -205,14 +199,11 @@ def generate_abbreviated_wheel(
     if sum_range is not None:
         lo_sum, hi_sum = sum_range
         before = len(ticket_coverage)
-        ticket_coverage = [
-            (t, cov) for t, cov in ticket_coverage if lo_sum <= sum(t) <= hi_sum
-        ]
+        ticket_coverage = [(t, cov) for t, cov in ticket_coverage if lo_sum <= sum(t) <= hi_sum]
         dropped = before - len(ticket_coverage)
         if dropped:
             logger.warning(
-                "Sum-range filter: dropped %d/%d candidate tickets outside "
-                "the %d–%d range.",
+                "Sum-range filter: dropped %d/%d candidate tickets outside " "the %d–%d range.",
                 dropped,
                 before,
                 lo_sum,
@@ -351,9 +342,7 @@ def _heuristic_wheel(
 
     result = sorted(selected)
     if verbose:
-        print(
-            f"  Heuristic: generated {len(result)} tickets " f"(pool size {pool_size})"
-        )
+        print(f"  Heuristic: generated {len(result)} tickets " f"(pool size {pool_size})")
 
     return result, desc + f" ({len(result)} tickets via heuristic)."
 

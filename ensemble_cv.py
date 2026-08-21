@@ -143,8 +143,7 @@ def expanding_window_cv(
     n = len(predictions_df)
     if n < min_train_size + 1:
         raise ValueError(
-            f"Not enough rows: {n} (need at least min_train_size + 1 = "
-            f"{min_train_size + 1})."
+            f"Not enough rows: {n} (need at least min_train_size + 1 = " f"{min_train_size + 1})."
         )
 
     y_all = predictions_df[actual_col].to_numpy(dtype=float)
@@ -164,9 +163,7 @@ def expanding_window_cv(
 
         train_score = _ensemble_score(p_all[:i], y_all[:i], w, metric)
         val_score = _ensemble_score(p_all[i:val_end], y_all[i:val_end], w, metric)
-        uniform_val_score = _ensemble_score(
-            p_all[i:val_end], y_all[i:val_end], uniform_w, metric
-        )
+        uniform_val_score = _ensemble_score(p_all[i:val_end], y_all[i:val_end], uniform_w, metric)
 
         cv_history.append(
             {
@@ -188,10 +185,7 @@ def expanding_window_cv(
 
     # --- Final production weights: refit on the full history ---
     final_w = _optimize_weights(p_all, y_all, metric)
-    weights = {
-        name: round(float(w), 6)
-        for name, w in zip(predictor_cols, final_w, strict=False)
-    }
+    weights = {name: round(float(w), 6) for name, w in zip(predictor_cols, final_w, strict=False)}
 
     fold_performance = pd.DataFrame(cv_history)
     mean_val = float(fold_performance["val_score"].mean())
@@ -365,9 +359,7 @@ def test_beats_uniform_weighting() -> None:
 
 
 def test_log_loss_metric_runs() -> None:
-    result = expanding_window_cv(
-        _make_synthetic(), min_train_size=20, step=5, metric="log_loss"
-    )
+    result = expanding_window_cv(_make_synthetic(), min_train_size=20, step=5, metric="log_loss")
     assert abs(sum(result.weights.values()) - 1.0) < 1e-6
     assert result.folds > 0
 

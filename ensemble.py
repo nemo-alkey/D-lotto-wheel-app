@@ -48,8 +48,7 @@ class EnsemblePredictor:
     def _load_draws(self) -> list[tuple[list[int], int, int, str]]:
         """Load draws from the database."""
         cursor = self.conn.execute(
-            "SELECT numbers, powerball, bonus, draw_date "
-            "FROM draws ORDER BY draw_date ASC"
+            "SELECT numbers, powerball, bonus, draw_date " "FROM draws ORDER BY draw_date ASC"
         )
         draws = []
         for nums_str, pb, bonus, date in cursor:

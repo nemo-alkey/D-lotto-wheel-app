@@ -280,9 +280,7 @@ def clean_data(df: pd.DataFrame, log: logging.Logger) -> pd.DataFrame:
     return df
 
 
-def engineer_features(
-    df: pd.DataFrame, log: logging.Logger
-) -> tuple[pd.DataFrame, list[str]]:
+def engineer_features(df: pd.DataFrame, log: logging.Logger) -> tuple[pd.DataFrame, list[str]]:
     """Engineer features from the raw CSV columns.
 
     Returns (feature_df, feature_name_list).
@@ -332,9 +330,7 @@ def engineer_features(
         derived["Derived_CareerWinRate"] = df["Career Wins"] / (df["Career Runs"] + 1)
 
     if "This Track Wins" in df.columns and "This Track Runs" in df.columns:
-        derived["Derived_TrackWinRate"] = df["This Track Wins"] / (
-            df["This Track Runs"] + 1
-        )
+        derived["Derived_TrackWinRate"] = df["This Track Wins"] / (df["This Track Runs"] + 1)
 
     if "This Distance Wins" in df.columns and "This Distance Runs" in df.columns:
         derived["Derived_DistanceWinRate"] = df["This Distance Wins"] / (
@@ -357,9 +353,7 @@ def engineer_features(
         derived["Derived_ImpliedProb"] = 1.0 / df[odds_col].clip(lower=1.01)
 
     # Jockey + Trainer combined strike rate
-    jockey_sr_cols = [
-        c for c in df.columns if "Jockey" in c and "Strike Rate" in c and "100" in c
-    ]
+    jockey_sr_cols = [c for c in df.columns if "Jockey" in c and "Strike Rate" in c and "100" in c]
     trainer_sr_cols = [
         c for c in df.columns if "Trainer" in c and "Strike Rate" in c and "100" in c
     ]
@@ -707,13 +701,9 @@ def main(
     log.info(f"  Live odds:   {'ON' if LIVE_ODDS_ENABLED else 'OFF'}")
     log.info(f"  Sectionals:  {'ON' if SECTIONAL_SCRAPING_ENABLED else 'OFF'}")
     if LIVE_ODDS_ENABLED:
-        log.info(
-            "  Live odds enabled — call update_race_odds() per race URL before training"
-        )
+        log.info("  Live odds enabled — call update_race_odds() per race URL before training")
     if SECTIONAL_SCRAPING_ENABLED:
-        log.info(
-            "  Sectional scraping enabled — call scrape_sectionals() and merge per race"
-        )
+        log.info("  Sectional scraping enabled — call scrape_sectionals() and merge per race")
 
     # 1. Discover CSV files
     log.info("\n[1/6] Discovering CSV files...")
@@ -802,9 +792,7 @@ def cross_validate_time_series(
     out = Path("logs/cv_metrics.json")
     avg_mae = np.mean([m["val_mae"] for m in metrics])
     with open(out, "w") as f:
-        json.dump(
-            {"folds": metrics, "mean_val_mae": round(float(avg_mae), 4)}, f, indent=2
-        )
+        json.dump({"folds": metrics, "mean_val_mae": round(float(avg_mae), 4)}, f, indent=2)
     log.info("CV metrics saved to %s", out)
     return metrics, model
 
@@ -820,9 +808,7 @@ def _plot_calibration(
         import matplotlib.pyplot as plt
         from sklearn.calibration import calibration_curve
 
-        frac_pos, mean_pred = calibration_curve(
-            y_true > y_true.median(), y_pred, n_bins=10
-        )
+        frac_pos, mean_pred = calibration_curve(y_true > y_true.median(), y_pred, n_bins=10)
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.plot(mean_pred, frac_pos, "s-", label="Model")
         ax.plot([0, 1], [0, 1], "k--", label="Perfect")
@@ -921,11 +907,7 @@ if __name__ == "__main__":
 
         # Synthetic position target for pipeline development only
         syn["Position"] = np.clip(
-            np.round(
-                1
-                + 11
-                * (1 - (syn["Best Fixed Odds"].rank(pct=True)) + rng.randn(n) * 0.2)
-            ),
+            np.round(1 + 11 * (1 - (syn["Best Fixed Odds"].rank(pct=True)) + rng.randn(n) * 0.2)),
             1,
             12,
         ).astype(int)
@@ -942,9 +924,7 @@ if __name__ == "__main__":
             from ml.racing_elm import ExtremeLearningMachine
 
             syn_log.info("Using Extreme Learning Machine (ELM)")
-            x_train, x_val, y_train, y_val = train_test_split(
-                X, y, test_size=0.2, random_state=42
-            )
+            x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
             elm = ExtremeLearningMachine(hidden_nodes=100, task="classification")
             t0 = __import__("time").perf_counter()
             elm.fit(x_train, y_train)
@@ -973,9 +953,7 @@ if __name__ == "__main__":
             _plot_calibration(y, model.predict(X), logging.getLogger("synthetic"))
             metrics = metrics_list[-1]
         else:
-            x_train, x_val, y_train, y_val = train_test_split(
-                X, y, test_size=0.2, random_state=42
-            )
+            x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
             model, metrics = train_model(
                 x_train,
                 y_train,
@@ -985,9 +963,7 @@ if __name__ == "__main__":
                 logging.getLogger("synthetic"),
             )
 
-        save_model(
-            model, metrics, feature_names, MODEL_DIR, logging.getLogger("synthetic")
-        )
+        save_model(model, metrics, feature_names, MODEL_DIR, logging.getLogger("synthetic"))
         write_training_report(
             metrics, feature_names, target_name, LOG_DIR, logging.getLogger("synthetic")
         )

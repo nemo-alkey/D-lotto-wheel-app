@@ -79,9 +79,7 @@ def _get_live_weights(weights: np.ndarray | None) -> np.ndarray:
     return np.asarray(weights, dtype=float)
 
 
-def _encode_state(
-    classical_vec: np.ndarray, weights: np.ndarray | None = None
-) -> np.ndarray:
+def _encode_state(classical_vec: np.ndarray, weights: np.ndarray | None = None) -> np.ndarray:
     """
     Encode a classical feature vector into a normalized quantum state.
 

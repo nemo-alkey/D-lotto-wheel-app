@@ -79,9 +79,7 @@ def load_user_wheels(path: Path | str = USER_WHEELS_PATH) -> dict[str, dict[str,
     if not p.exists():
         return {}
     try:
-        return cast(
-            dict[str, dict[str, Any]], json.loads(p.read_text(encoding="utf-8"))
-        )
+        return cast(dict[str, dict[str, Any]], json.loads(p.read_text(encoding="utf-8")))
     except json.JSONDecodeError:
         logger.warning("Could not parse %s — ignoring user wheels.", p)
         return {}

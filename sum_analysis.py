@@ -196,9 +196,7 @@ def backtest_sum_ranges(
             cm = sum(c) / len(c)
             cv = sum((x - cm) ** 2 for x in c) / len(c)
             all_vols.append(cv**0.5)
-        upper_q = (
-            sorted(all_vols)[int(len(all_vols) * 0.75)] if all_vols else current_vol
-        )
+        upper_q = sorted(all_vols)[int(len(all_vols) * 0.75)] if all_vols else current_vol
 
         multiplier = 1.5 if current_vol > upper_q else 2.5
         lo = mean - multiplier * std

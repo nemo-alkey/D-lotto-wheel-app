@@ -160,10 +160,7 @@ def build_bias_cache(
     output_path = Path(output_path) if output_path else _CACHE_PATH
 
     track_dist_pairs = (
-        df.groupby(["Track", "distance_m"])
-        .size()
-        .reset_index(name="count")
-        .drop(columns=["count"])
+        df.groupby(["Track", "distance_m"]).size().reset_index(name="count").drop(columns=["count"])
     )
 
     frames: list[pd.DataFrame] = []
@@ -210,9 +207,7 @@ def get_barrier_adjustment(
     if cache_df is None:
         path = Path(cache_path) if cache_path else _CACHE_PATH
         if not path.exists():
-            log.warning(
-                "Barrier cache not found at %s — returning neutral adjustments", path
-            )
+            log.warning("Barrier cache not found at %s — returning neutral adjustments", path)
             return pd.Series(1.0, index=horse_df.index, name="barrier_adj")
         cache_df = pd.read_csv(path)
 

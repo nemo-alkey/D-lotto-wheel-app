@@ -86,9 +86,7 @@ def test_validate_startup_prod_rejects_wildcard_cors() -> None:
 
 
 def test_validate_startup_prod_ok_with_real_config() -> None:
-    cfg = _isolated(
-        DEBUG=False, SECRET_KEY="s" * 40, CORS_ORIGINS="https://app.example.com"
-    )
+    cfg = _isolated(DEBUG=False, SECRET_KEY="s" * 40, CORS_ORIGINS="https://app.example.com")
     assert validate_startup(cfg) is cfg
 
 

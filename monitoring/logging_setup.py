@@ -22,21 +22,15 @@ import os
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 
-_LOG_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "logs"
-)
+_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "logs")
 _LOG_FILE = os.path.join(_LOG_DIR, "app.log")
 
 _MAX_BYTES = 10 * 1024 * 1024  # 10 MB per file
 _BACKUP_COUNT = 10  # keep 10 rotated backups
 
 # Per-request context, set by the API middleware.
-request_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "request_id", default="-"
-)
-user_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "user_id", default="-"
-)
+request_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+user_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("user_id", default="-")
 
 
 def bind_request_context(request_id: str, user_id: str = "-") -> None:

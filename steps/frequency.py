@@ -32,15 +32,11 @@ def analyze_number_frequency(pipeline: Any) -> None:
         pipeline["number_frequency_combined"]  -> shape (50,)
     """
 
-    historical_data = pipeline.get_data(
-        "historical_data"
-    )  # Retrieve stored historical draws
+    historical_data = pipeline.get_data("historical_data")  # Retrieve stored historical draws
 
     if not historical_data:  # If no data exists, cannot compute frequencies
         logging.warning("No historical data available for frequency analysis.")
-        pipeline.add_data(
-            "number_frequency", np.ones(NUM_MAIN) / NUM_MAIN
-        )  # Uniform fallback
+        pipeline.add_data("number_frequency", np.ones(NUM_MAIN) / NUM_MAIN)  # Uniform fallback
         pipeline.add_data(
             "powerball_frequency", np.ones(NUM_POWERBALL) / NUM_POWERBALL
         )  # Uniform fallback
@@ -127,24 +123,16 @@ def analyze_number_frequency(pipeline: Any) -> None:
         logging.warning("Invalid main numbers ignored: %s", sorted(set(invalid_main)))
 
     if invalid_pb:  # Log once if bad PB numbers were found
-        logging.warning(
-            "Invalid powerball numbers ignored: %s", sorted(set(invalid_pb))
-        )
+        logging.warning("Invalid powerball numbers ignored: %s", sorted(set(invalid_pb)))
 
     # ----------------------
     # SAVE
     # ----------------------
-    pipeline.add_data(
-        "number_frequency", number_frequency
-    )  # Store main probabilities (40,)
-    pipeline.add_data(
-        "powerball_frequency", powerball_frequency
-    )  # Store PB probabilities (10,)
+    pipeline.add_data("number_frequency", number_frequency)  # Store main probabilities (40,)
+    pipeline.add_data("powerball_frequency", powerball_frequency)  # Store PB probabilities (10,)
     pipeline.add_data(
         "number_frequency_combined",
-        np.concatenate(
-            [number_frequency, powerball_frequency]
-        ),  # Store combined vector (50,)
+        np.concatenate([number_frequency, powerball_frequency]),  # Store combined vector (50,)
     )
 
     logging.info("Number frequency analysis completed.")  # Confirm completion

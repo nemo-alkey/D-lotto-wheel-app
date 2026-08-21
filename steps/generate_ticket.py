@@ -24,7 +24,9 @@ import numpy.typing as npt  # NumPy type aliases for annotations
 
 from data_io import (
     save_current_ticket,
-)  # Import helper to persist the generated ticket to storage
+)
+
+# Import helper to persist the generated ticket to storage
 from pipeline import DataPipeline  # Pipeline type for step signatures
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,9 +46,7 @@ NUM_LINES = 12  # Total number of ticket lines to generate
 # Numeric safety
 # =========================
 
-MIN_PROBABILITY = (
-    1e-12  # Minimum probability floor to prevent zero-probability sampling failures
-)
+MIN_PROBABILITY = 1e-12  # Minimum probability floor to prevent zero-probability sampling failures
 
 
 # =========================
@@ -92,9 +92,7 @@ def safe_norm(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
     if s <= 0.0:  # Guard against degenerate vectors
         return np.full_like(arr, 1.0 / len(arr))  # Fallback to uniform distribution
 
-    return cast(
-        npt.NDArray[np.float64], arr / s
-    )  # Return properly normalised probabilities
+    return cast(npt.NDArray[np.float64], arr / s)  # Return properly normalised probabilities
 
 
 def _overlap_count(a: Iterable[int], b: Iterable[int]) -> int:
@@ -151,17 +149,13 @@ def generate_ticket(
     # Safety fallback if predictions missing/invalid
     # ---------------------------------------------
 
-    if (
-        predictions is None or len(predictions) != expected_len
-    ):  # Validate prediction vector
+    if predictions is None or len(predictions) != expected_len:  # Validate prediction vector
         print("Missing or invalid predictions. Using uniform fallback.")
 
         base_main_prob = (
             np.ones(NUM_MAIN_NUMBERS) / NUM_MAIN_NUMBERS
         )  # Uniform main-number distribution
-        base_pb_prob = (
-            np.ones(NUM_POWERBALLS) / NUM_POWERBALLS
-        )  # Uniform Powerball distribution
+        base_pb_prob = np.ones(NUM_POWERBALLS) / NUM_POWERBALLS  # Uniform Powerball distribution
 
     else:
         predictions = np.asarray(predictions, dtype=float)  # Ensure numeric array
@@ -177,12 +171,8 @@ def generate_ticket(
     # Usage tracking (diversity control only)
     # ---------------------------------------------
 
-    main_usage = np.zeros(
-        NUM_MAIN_NUMBERS, dtype=int
-    )  # Track how often each main number is used
-    pb_usage = np.zeros(
-        NUM_POWERBALLS, dtype=int
-    )  # Track how often each Powerball is used
+    main_usage = np.zeros(NUM_MAIN_NUMBERS, dtype=int)  # Track how often each main number is used
+    pb_usage = np.zeros(NUM_POWERBALLS, dtype=int)  # Track how often each Powerball is used
 
     ticket: list[dict[str, Any]] = []  # Store accepted ticket lines
 
@@ -202,9 +192,7 @@ def generate_ticket(
             main_penalty = np.power(
                 MAIN_USAGE_PENALTY, main_usage
             )  # Compute per-number main penalties
-            pb_penalty = np.power(
-                PB_USAGE_PENALTY, pb_usage
-            )  # Compute per-number PB penalties
+            pb_penalty = np.power(PB_USAGE_PENALTY, pb_usage)  # Compute per-number PB penalties
 
             effective_main_prob = safe_norm(
                 base_main_prob * main_penalty
@@ -241,8 +229,7 @@ def generate_ticket(
                 continue  # Reject candidate
 
             if any(  # Enforce overlap constraint
-                _overlap_count(cand_main, prev["line"]) > MAX_OVERLAP_MAIN
-                for prev in ticket
+                _overlap_count(cand_main, prev["line"]) > MAX_OVERLAP_MAIN for prev in ticket
             ):
                 continue  # Reject candidate
 

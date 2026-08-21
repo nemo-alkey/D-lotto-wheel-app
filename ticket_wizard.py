@@ -128,12 +128,8 @@ def _step_constraints() -> bool:
     st.markdown("### Step 4: Constraints")
     use_block = st.checkbox("Enforce block analysis", value=True, key="wiz_block")
     use_sum = st.checkbox("Enforce sum range", value=True, key="wiz_sum")
-    use_attract = st.checkbox(
-        "Enforce numerical attraction", value=False, key="wiz_attract"
-    )
-    min_comply = st.slider(
-        "Minimum compliance score", 0, 100, 60, 5, key="wiz_min_comply"
-    )
+    use_attract = st.checkbox("Enforce numerical attraction", value=False, key="wiz_attract")
+    min_comply = st.slider("Minimum compliance score", 0, 100, 60, 5, key="wiz_min_comply")
 
     st.session_state["wizard"]["constraints"] = {
         "block": use_block,
@@ -343,9 +339,7 @@ def render_wizard() -> None:
         st.session_state["wiz_step"] -= 1
         st.rerun()
     if step_idx < total - 1:
-        if c2.button(
-            "Next →", type="primary", use_container_width=True, disabled=not valid
-        ):
+        if c2.button("Next →", type="primary", use_container_width=True, disabled=not valid):
             st.session_state["wiz_step"] += 1
             st.rerun()
     else:

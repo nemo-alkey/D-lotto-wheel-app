@@ -148,9 +148,7 @@ def import_csv(
             conn.close()
             return 0
 
-        print(
-            f"Columns: date={date_col}, numbers={numbers_col}, bonus={bonus_col}, pb={pb_col}"
-        )
+        print(f"Columns: date={date_col}, numbers={numbers_col}, bonus={bonus_col}, pb={pb_col}")
 
         for row_num, row in enumerate(reader, 2):
             try:

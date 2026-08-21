@@ -12,9 +12,7 @@ import os  # For checking file existence
 from typing import Any, cast  # For type annotations
 
 # Configure logging for this module
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Constants for file paths
 CURRENT_TICKET_FILE = "current_ticket.json"  # The file storing the current ticket data
@@ -38,9 +36,7 @@ def load_current_ticket() -> dict[str, list[dict[str, Any]]]:
     """
     # Check if the file exists
     if not os.path.exists(CURRENT_TICKET_FILE):
-        logging.warning(
-            f"'{CURRENT_TICKET_FILE}' not found. Returning empty ticket structure."
-        )
+        logging.warning(f"'{CURRENT_TICKET_FILE}' not found. Returning empty ticket structure.")
         return {"current_ticket": []}
 
     try:
@@ -48,16 +44,12 @@ def load_current_ticket() -> dict[str, list[dict[str, Any]]]:
         with open(CURRENT_TICKET_FILE) as f:
             data = json.load(f)
             # Validate that the file contains the expected structure
-            if "current_ticket" not in data or not isinstance(
-                data["current_ticket"], list
-            ):
+            if "current_ticket" not in data or not isinstance(data["current_ticket"], list):
                 logging.error(
                     f"Invalid structure in '{CURRENT_TICKET_FILE}'. Expected 'current_ticket' as a list."
                 )
                 return {"current_ticket": []}
-            logging.info(
-                f"Successfully loaded ticket data from '{CURRENT_TICKET_FILE}'."
-            )
+            logging.info(f"Successfully loaded ticket data from '{CURRENT_TICKET_FILE}'.")
             return cast(dict[str, list[dict[str, Any]]], data)
     except json.JSONDecodeError as e:
         logging.error(
@@ -94,9 +86,7 @@ def save_current_ticket(ticket: list[dict[str, Any]]) -> None:
     for idx, line_dict in enumerate(ticket):
         # Validate that each entry is a dictionary
         if not isinstance(line_dict, dict):
-            logging.warning(
-                f"Skipping invalid ticket entry at index {idx}: Expected a dictionary."
-            )
+            logging.warning(f"Skipping invalid ticket entry at index {idx}: Expected a dictionary.")
             continue
         # Ensure each entry contains the required keys
         if "line" not in line_dict or "powerball" not in line_dict:

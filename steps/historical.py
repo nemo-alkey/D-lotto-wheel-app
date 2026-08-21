@@ -64,9 +64,7 @@ def process_historical_data(results: dict[str, Any], pipeline: DataPipeline) -> 
 
     # Informs the user or logs that the processing step is complete.
     if valid_historical_data:
-        print(
-            f"Processed {len(valid_historical_data)} valid historical draws into the pipeline."
-        )
+        print(f"Processed {len(valid_historical_data)} valid historical draws into the pipeline.")
     else:
         print(
             "No valid historical draws found after filtering. Stored an empty list in the pipeline."

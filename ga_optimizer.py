@@ -83,15 +83,11 @@ class WheelOptimizerGA:
             )
         if random.random() < 0.3:
             mutant["positive_ratio"] = round(
-                max(
-                    0.4, min(0.8, mutant["positive_ratio"] + random.uniform(-0.1, 0.1))
-                ),
+                max(0.4, min(0.8, mutant["positive_ratio"] + random.uniform(-0.1, 0.1))),
                 2,
             )
         if random.random() < 0.3:
-            mutant["max_overlap"] = max(
-                1, min(4, mutant["max_overlap"] + random.choice([-1, 1]))
-            )
+            mutant["max_overlap"] = max(1, min(4, mutant["max_overlap"] + random.choice([-1, 1])))
         if random.random() < 0.2:
             mutant["require_attraction"] = not mutant["require_attraction"]
         if random.random() < 0.2:
@@ -143,9 +139,7 @@ class WheelOptimizerGA:
     # ------------------------------------------------------------------
     def _tournament_select(self, fitnesses: list[float], k: int = 3) -> int:
         """Tournament selection: pick k random, return index of best."""
-        candidates = random.sample(
-            range(len(self.population)), k=min(k, len(self.population))
-        )
+        candidates = random.sample(range(len(self.population)), k=min(k, len(self.population)))
         return max(candidates, key=lambda i: fitnesses[i])
 
     # ------------------------------------------------------------------
@@ -193,9 +187,7 @@ class WheelOptimizerGA:
             while len(next_gen) < self.pop_size:
                 p1_idx = self._tournament_select(fitnesses)
                 p2_idx = self._tournament_select(fitnesses)
-                child = self._crossover(
-                    self.population[p1_idx], self.population[p2_idx]
-                )
+                child = self._crossover(self.population[p1_idx], self.population[p2_idx])
                 child = self._mutate(child)
                 next_gen.append(child)
 
@@ -215,9 +207,7 @@ class WheelOptimizerGA:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Genetic algorithm wheel-parameter optimisation."
-    )
+    parser = argparse.ArgumentParser(description="Genetic algorithm wheel-parameter optimisation.")
     parser.add_argument(
         "--quick",
         action="store_true",

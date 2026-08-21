@@ -143,9 +143,7 @@ Import with:  schtasks /Create /TN "LottoDrawMonitor" /XML lotto-monitor-task.xm
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Service supervisor for live_draw_monitor.py."
-    )
+    parser = argparse.ArgumentParser(description="Service supervisor for live_draw_monitor.py.")
     parser.add_argument(
         "--dry-run", action="store_true", help="Pass --dry-run through to the monitor."
     )

@@ -73,8 +73,7 @@ def _get_smtp_config() -> dict[str, Any]:
             "username": os.environ.get("SMTP_USERNAME"),
             "password": os.environ.get("SMTP_PASSWORD"),
             "from_addr": os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USERNAME"),
-            "to_addr": os.environ.get("ALERT_EMAIL_TO")
-            or os.environ.get("SMTP_USERNAME"),
+            "to_addr": os.environ.get("ALERT_EMAIL_TO") or os.environ.get("SMTP_USERNAME"),
         }
 
 
@@ -125,9 +124,7 @@ def send_email_to(to_addr: str, subject: str, body: str) -> bool:
     cfg = _get_smtp_config()
 
     if not cfg["username"] or not cfg["password"]:
-        log_alert(
-            f"Email to {to_addr} skipped: SMTP credentials not configured.", "WARN"
-        )
+        log_alert(f"Email to {to_addr} skipped: SMTP credentials not configured.", "WARN")
         return False
 
     try:
@@ -221,9 +218,7 @@ def notify_new_draw(
         f"Bonus: {bonus:02d}\n"
         f"Powerball: {pb}"
     )
-    log_alert(
-        f"NEW DRAW: {draw_date} — {nums_str} Bonus:{bonus} PB:{pb} [{source}]", "INFO"
-    )
+    log_alert(f"NEW DRAW: {draw_date} — {nums_str} Bonus:{bonus} PB:{pb} [{source}]", "INFO")
     send_email_alert(subject, body)
     send_desktop_notification(subject, body)
 

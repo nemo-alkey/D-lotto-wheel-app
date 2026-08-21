@@ -177,11 +177,7 @@ def build_features_for_draw(
     # --- Build feature vectors ---
     results = []
     for n in num_range:
-        gap = (
-            target_idx - last_appearance.get(n, 0) - 1
-            if n in last_appearance
-            else target_idx
-        )
+        gap = target_idx - last_appearance.get(n, 0) - 1 if n in last_appearance else target_idx
         gap = min(gap, 500)  # cap extreme gaps
         total_draws = len(past_draws)
         total_draws = max(total_draws, 1)
@@ -209,16 +205,13 @@ def build_features_for_draw(
             1.0 if n in lag_1 else 0.0,  # 5: lag-1
             1.0 if n in lag_2 else 0.0,  # 6: lag-2
             1.0 if n in lag_3 else 0.0,  # 7: lag-3
-            freq_10.get(n, 0)
-            / max(target_idx - max(0, target_idx - 10), 1),  # 8: rolling mean 10
+            freq_10.get(n, 0) / max(target_idx - max(0, target_idx - 10), 1),  # 8: rolling mean 10
             freq_30.get(n, 0) / 30.0,  # 9: rolling mean 30
             freq_all.get(n, 0) / total_draws,  # 10: overall rate
             avg_pos / 5.0,  # 11: normalized avg position
             most_common_pos,  # 12: most common position
             streak_max[n],  # 13: max streak
-            1.0
-            if n <= 10
-            else (2.0 if n <= 20 else (3.0 if n <= 30 else 4.0)),  # 14: decade
+            1.0 if n <= 10 else (2.0 if n <= 20 else (3.0 if n <= 30 else 4.0)),  # 14: decade
             1.0 if n % 2 == 1 else 0.0,  # 15: is odd
             min(cooccur_hot / 50.0, 1.0),  # 16: co-occurrence with hot nums
         ]
@@ -276,9 +269,7 @@ def create_dataset(
     x_train, x_test = x[:split_idx], x[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
 
-    print(
-        f"  Total examples: {len(x)}  ({n_draws_eligible} draws × {n_numbers} numbers)"
-    )
+    print(f"  Total examples: {len(x)}  ({n_draws_eligible} draws × {n_numbers} numbers)")
     print(f"  Train: {len(x_train)}  |  Test: {len(x_test)}")
     print(
         f"  Class balance — train: {y_train.mean():.3%} positive, "
@@ -489,20 +480,15 @@ def main() -> None:
     pb_model = None
     if not args.no_pb_model:
         print("\n--- Powerball (1-10) ---")
-        x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(
-            draws, range(1, 11)
-        )
-        pb_model = train_xgboost(
-            x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball"
-        )
+        x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(draws, range(1, 11))
+        pb_model = train_xgboost(x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball")
 
     # 4. Predict next draw
     print("\n--- Prediction for Next Draw ---")
     prediction = predict_next(draws, main_model, pb_model)
     nums_str = ", ".join(f"{n:02d}" for n in prediction["numbers"])
     prob_str = ", ".join(
-        f"#{n}: {prediction['number_probabilities'].get(n, 0):.2%}"
-        for n in prediction["numbers"]
+        f"#{n}: {prediction['number_probabilities'].get(n, 0):.2%}" for n in prediction["numbers"]
     )
     print(f"  Numbers:          {nums_str}")
     print(f"  Number probs:     {prob_str}")
@@ -548,9 +534,7 @@ def main() -> None:
     with open(args.output, "wb") as f:
         pickle.dump(model_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    print(
-        f"Model saved to {args.output}  ({os.path.getsize(args.output) / 1024:.0f} KB)"
-    )
+    print(f"Model saved to {args.output}  ({os.path.getsize(args.output) / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":

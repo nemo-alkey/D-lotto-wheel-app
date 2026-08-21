@@ -90,9 +90,7 @@ class WheelValidator:
 
         for _ in range(num_simulations):
             # Draw trigger_match numbers from the pool
-            draw = set(
-                rng.choice(self.pool_list, size=self._min_trigger, replace=False)
-            )
+            draw = set(rng.choice(self.pool_list, size=self._min_trigger, replace=False))
 
             # Count tickets meeting the win threshold
             winning = 0
@@ -110,9 +108,7 @@ class WheelValidator:
                 worst_case = best_matches
             trigger_count += 1  # every draw with trigger_match numbers counts
 
-        coverage = (
-            (trigger_count - failures) / trigger_count if trigger_count > 0 else 0.0
-        )
+        coverage = (trigger_count - failures) / trigger_count if trigger_count > 0 else 0.0
 
         return {
             "claimed_guarantee": self.claim,
@@ -139,9 +135,7 @@ class WheelValidator:
         matrix = np.zeros((n, n), dtype=int)
 
         for ticket in self.tickets:
-            indices = [
-                self.pool_list.index(num) for num in ticket if num in self.pool_list
-            ]
+            indices = [self.pool_list.index(num) for num in ticket if num in self.pool_list]
             for i in range(len(indices)):
                 # Diagonal: ticket count per number
                 matrix[indices[i], indices[i]] += 1

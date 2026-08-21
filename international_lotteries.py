@@ -97,9 +97,7 @@ class BasePrizeCalculator(ABC):
         """Return the division for a match combination, or None if no win."""
 
     @abstractmethod
-    def get_prize_amount(
-        self, division: int | None, jackpot_amount: float = 0
-    ) -> float:
+    def get_prize_amount(self, division: int | None, jackpot_amount: float = 0) -> float:
         """Return the prize for a division. "jackpot" divisions pay
         ``jackpot_amount`` (or the config's jackpot_estimate if 0)."""
 
@@ -132,16 +130,13 @@ class BasePrizeCalculator(ABC):
         for n in pool:
             if not (1 <= n <= self.pool_size_main):
                 raise ValueError(
-                    f"Number {n} out of range for {self.game_code} "
-                    f"(1-{self.pool_size_main})."
+                    f"Number {n} out of range for {self.game_code} " f"(1-{self.pool_size_main})."
                 )
 
         tickets: list[list[int]] = []
         seen = set()
         for ticket in wheel:
-            mapped = tuple(
-                sorted(pool[int(p) - 1] for p in ticket[: self.numbers_to_pick])
-            )
+            mapped = tuple(sorted(pool[int(p) - 1] for p in ticket[: self.numbers_to_pick]))
             if len(set(mapped)) != self.numbers_to_pick:
                 continue  # truncation produced a duplicate — skip
             if mapped not in seen:
@@ -158,9 +153,7 @@ class BasePrizeCalculator(ABC):
 class ConfigDrivenCalculator(BasePrizeCalculator):
     """Prize calculator driven entirely by a config dict/JSON entry."""
 
-    def __init__(
-        self, game_code: str | None = None, config: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, game_code: str | None = None, config: dict[str, Any] | None = None) -> None:
         if game_code:
             self.game_code = game_code
         super().__init__(config)
@@ -169,9 +162,7 @@ class ConfigDrivenCalculator(BasePrizeCalculator):
         rule = self._rules.get((main_matches, bonus_matches))
         return rule[0] if rule else None
 
-    def get_prize_amount(
-        self, division: int | None, jackpot_amount: float = 0
-    ) -> float:
+    def get_prize_amount(self, division: int | None, jackpot_amount: float = 0) -> float:
         if division is None:
             return 0.0
         for div, prize in self._rules.values():
@@ -188,17 +179,13 @@ class ConfigDrivenCalculator(BasePrizeCalculator):
         if any(n < 1 or n > self.pool_size_main for n in nums):
             return False
         bonus_list = [int(b) for b in bonus]
-        if len(bonus_list) != self.bonus_to_pick or len(set(bonus_list)) != len(
-            bonus_list
-        ):
+        if len(bonus_list) != self.bonus_to_pick or len(set(bonus_list)) != len(bonus_list):
             return False
         if any(b < 1 or b > self.pool_size_bonus for b in bonus_list):
             return False
         # Games where the bonus comes from the main pool (e.g. NZ Lotto)
         # must not overlap the main numbers
-        return not (
-            self.pool_size_bonus == self.pool_size_main and set(bonus_list) & set(nums)
-        )
+        return not (self.pool_size_bonus == self.pool_size_main and set(bonus_list) & set(nums))
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +298,7 @@ class NZLotto(ConfigDrivenCalculator):
     }
 
 
-_GAME_CLASSES = {
-    c.game_code: c for c in (NZLotto, PowerballUS, MegaMillions, EuroMillions)
-}
+_GAME_CLASSES = {c.game_code: c for c in (NZLotto, PowerballUS, MegaMillions, EuroMillions)}
 
 
 # ---------------------------------------------------------------------------
@@ -321,9 +306,7 @@ _GAME_CLASSES = {
 # ---------------------------------------------------------------------------
 
 
-def get_calculator(
-    game_code: str, config_path: Path | str | None = None
-) -> BasePrizeCalculator:
+def get_calculator(game_code: str, config_path: Path | str | None = None) -> BasePrizeCalculator:
     """Return the prize calculator for a game code.
 
     Known codes: NZ_LOTTO, POWERBALL_US, MEGA_MILLIONS, EUROMILLIONS.
@@ -367,9 +350,7 @@ def main() -> None:
     )
     parser.add_argument("--game", help="Game code, e.g. POWERBALL_US")
     parser.add_argument("--numbers", help="Your main numbers, comma-separated")
-    parser.add_argument(
-        "--bonus", default="", help="Your bonus number(s), comma-separated"
-    )
+    parser.add_argument("--bonus", default="", help="Your bonus number(s), comma-separated")
     parser.add_argument(
         "--draw-numbers",
         default="",
@@ -386,9 +367,7 @@ def main() -> None:
         default=0,
         help="Jackpot amount for jackpot divisions (0 = config estimate)",
     )
-    parser.add_argument(
-        "--list-games", action="store_true", help="List available game codes"
-    )
+    parser.add_argument("--list-games", action="store_true", help="List available game codes")
     args = parser.parse_args()
 
     if args.list_games:
@@ -436,10 +415,7 @@ def main() -> None:
     if division is None:
         print("Result:  no winning division")
     else:
-        print(
-            f"Result:  Division {division} — estimated prize "
-            f"{calc.currency} {prize:,.2f}"
-        )
+        print(f"Result:  Division {division} — estimated prize " f"{calc.currency} {prize:,.2f}")
 
 
 if __name__ == "__main__":

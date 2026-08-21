@@ -41,9 +41,7 @@ except ImportError:
 def _get_driver(headless: bool = True) -> webdriver.Chrome | None:
     """Create a headless Chrome driver."""
     if not SELENIUM_AVAILABLE:
-        print(
-            "Selenium not installed. Install with: pip install selenium webdriver-manager"
-        )
+        print("Selenium not installed. Install with: pip install selenium webdriver-manager")
         return None
 
     options = Options()
@@ -88,17 +86,12 @@ def _get_driver(headless: bool = True) -> webdriver.Chrome | None:
         print("Option 2 — Manual Chromedriver (Codespaces / headless servers):")
         print("    # Install Chrome for Testing")
         print("    wget -q -O /tmp/chrome.deb \\")
-        print(
-            "      https://dl.google.com/linux/direct/"
-            "google-chrome-stable_current_amd64.deb"
-        )
+        print("      https://dl.google.com/linux/direct/" "google-chrome-stable_current_amd64.deb")
         print("    sudo apt-get update && sudo apt-get install -y \\")
         print("      /tmp/chrome.deb")
         print()
         print("    # Download matching chromedriver")
-        print(
-            "    CHROME_VER=$(google-chrome --version | grep -oP '[0-9]+(?=\\.)' | head -1)"
-        )
+        print("    CHROME_VER=$(google-chrome --version | grep -oP '[0-9]+(?=\\.)' | head -1)")
         print("    wget -q -O /tmp/chromedriver.zip \\")
         print(
             "      https://storage.googleapis.com/chrome-for-testing-public/"
@@ -155,9 +148,7 @@ def selenium_scrape_results(
         # Wait for dynamic content to load
         try:
             WebDriverWait(driver, 15).until(
-                expected_conditions.presence_of_element_located(
-                    (By.ID, wait_element_id)
-                )
+                expected_conditions.presence_of_element_located((By.ID, wait_element_id))
             )
         except Exception:
             # Fallback: wait for any result-like element
@@ -196,9 +187,7 @@ def selenium_scrape_results(
 
             # Numbers
             full_text = card.get_text(separator=" ", strip=True)
-            all_nums = [
-                int(m) for m in number_re.findall(full_text) if 1 <= int(m) <= 40
-            ]
+            all_nums = [int(m) for m in number_re.findall(full_text) if 1 <= int(m) <= 40]
             seen: set[int] = set()
             numbers: list[int] = []
             for n in all_nums:
@@ -256,8 +245,6 @@ if __name__ == "__main__":
     if results:
         print(f"Found {len(results)} draw(s):")
         for r in results[:3]:
-            print(
-                f"  {r['draw_date']}: {r['numbers']} B:{r['bonus']} PB:{r['powerball']}"
-            )
+            print(f"  {r['draw_date']}: {r['numbers']} B:{r['bonus']} PB:{r['powerball']}")
     else:
         print("No results found (Chrome/WebDriver may not be installed).")

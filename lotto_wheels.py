@@ -53,9 +53,7 @@ def load_draws(limit: int | None = None) -> list[tuple[list[int], int, int, str]
     """Load draws from the database as list of (numbers_list, powerball, bonus, date)."""
     engine = get_engine()
     with engine.connect() as conn:
-        query = (
-            "SELECT draw_date, numbers, bonus, powerball FROM draws ORDER BY draw_date"
-        )
+        query = "SELECT draw_date, numbers, bonus, powerball FROM draws ORDER BY draw_date"
         params = {}
         if limit:
             query += " LIMIT :limit"
@@ -114,9 +112,7 @@ def block_analysis(
     return ranges
 
 
-def sum_range(
-    draws: list[tuple[list[int], int, int, str]], last_n: int = 30
-) -> tuple[int, int]:
+def sum_range(draws: list[tuple[list[int], int, int, str]], last_n: int = 30) -> tuple[int, int]:
     recent = draws[-last_n:]
     sums = [sum(nums) for nums, _, _, _ in recent]
     sums.sort()
@@ -126,9 +122,7 @@ def sum_range(
     return min(trimmed), max(trimmed)
 
 
-def numerical_attraction(
-    draws: list[tuple[list[int], int, int, str]], last_n: int = 30
-) -> float:
+def numerical_attraction(draws: list[tuple[list[int], int, int, str]], last_n: int = 30) -> float:
     recent = draws[-last_n:]
     count_with_adjacent = 0
     for nums, _, _, _ in recent:
@@ -148,9 +142,7 @@ def bayesian_posterior(
     for nums, _, _, _ in draws:
         counts.update(nums)
     total = sum(counts.values())
-    posterior = {
-        num: (counts.get(num, 0) + alpha) / (total + 40 * alpha) for num in range(1, 41)
-    }
+    posterior = {num: (counts.get(num, 0) + alpha) / (total + 40 * alpha) for num in range(1, 41)}
     return posterior
 
 
@@ -211,9 +203,7 @@ def get_bonus_stats(
     where_clause = (" WHERE " + " AND ".join(conditions)) if conditions else ""
 
     # Max draw_id in filtered range (for gap calculation)
-    max_id_row = conn.execute(
-        f"SELECT MAX(draw_id) FROM draws{where_clause}", params
-    ).fetchone()
+    max_id_row = conn.execute(f"SELECT MAX(draw_id) FROM draws{where_clause}", params).fetchone()
     max_draw_id = max_id_row[0] if max_id_row and max_id_row[0] is not None else 0
 
     # Count, last date, last draw_id per bonus number
@@ -229,9 +219,7 @@ def get_bonus_stats(
     counts = [bonus_map.get(n, (0, None, 0))[0] for n in range(1, 41)]
     total = sum(counts)
     mean_val = total / 40.0 if total > 0 else 0.0
-    std_val = (
-        math.sqrt(sum((c - mean_val) ** 2 for c in counts) / 40) if total > 0 else 0.0
-    )
+    std_val = math.sqrt(sum((c - mean_val) ** 2 for c in counts) / 40) if total > 0 else 0.0
 
     results = []
     for n in range(1, 41):
@@ -402,9 +390,7 @@ def show_wheel(name: str) -> None:
     print("Ticket combinations (main numbers):")
     for i, comb in enumerate(tickets, 1):
         print(f"{i:02d}: {', '.join(str(x) for x in sorted(comb))}")
-    print(
-        f"\nCost for NZ Lotto Powerball: {len(tickets)} x $1.50 = ${len(tickets)*1.50:.2f}"
-    )
+    print(f"\nCost for NZ Lotto Powerball: {len(tickets)} x $1.50 = ${len(tickets)*1.50:.2f}")
 
 
 def generate_report(draws: list[tuple[list[int], int, int, str]]) -> None:
@@ -544,18 +530,14 @@ def check_wheel(name: str, draw_numbers: str, powerball: int) -> None:
     print(f"  Draw:         {', '.join(f'{n:02d}' for n in nums)}  PB {powerball}")
     print(f"  Pool overlap: {len(draw_set & pool_set)} / {len(nums)}")
     prize_source = "live" if is_real and draw_date else "estimated"
-    print(
-        f"  Prizes:       {prize_source}{' (from ' + draw_date + ')' if draw_date else ''}"
-    )
+    print(f"  Prizes:       {prize_source}{' (from ' + draw_date + ')' if draw_date else ''}")
     print()
     print(f"  {'Division':<20s}  {'Winners':>8s}  {'Prize':>10s}  {'Total':>12s}")
     print(f"  {'-'*52}")
     for label, count, prize, winnings in winners:
         if count > 0:
             suffix = " (live)" if is_real else " (est)"
-            print(
-                f"  {label:<20s}  {count:>8d}  ${prize:>8,.0f}{suffix}  ${winnings:>10,.0f}"
-            )
+            print(f"  {label:<20s}  {count:>8d}  ${prize:>8,.0f}{suffix}  ${winnings:>10,.0f}")
     print()
     print(f"  Total prize:  ${total_prize:>10,.2f}")
     if net >= 0:
@@ -636,9 +618,7 @@ def check_all_wheels(
             if lotto_div is not None:
                 winning_tickets += 1
                 try:
-                    info = get_prize_for_matches(
-                        matches, ticket_bonus, pb_hit, draw_date=draw_date
-                    )
+                    info = get_prize_for_matches(matches, ticket_bonus, pb_hit, draw_date=draw_date)
                     prize = info["total_prize"]
                 except Exception:
                     fb = {
@@ -696,9 +676,7 @@ def export_wheel(name: str, output_path: str, fmt: str = "standard") -> None:
         If the wheel name is unknown or the output path is empty.
     """
     if not name or not output_path:
-        print(
-            "Usage: python lotto_wheels.py export <wheel_name> <output.csv> [--format mylotto]"
-        )
+        print("Usage: python lotto_wheels.py export <wheel_name> <output.csv> [--format mylotto]")
         sys.exit(1)
 
     if name not in WHEELS:
@@ -713,9 +691,7 @@ def export_wheel(name: str, output_path: str, fmt: str = "standard") -> None:
     tickets, pb = WHEELS[name]
 
     if os.path.exists(output_path):
-        response = (
-            input(f"'{output_path}' already exists. Overwrite? (y/N): ").strip().lower()
-        )
+        response = input(f"'{output_path}' already exists. Overwrite? (y/N): ").strip().lower()
         if response != "y":
             print("Export cancelled.")
             return
@@ -927,10 +903,7 @@ def _print_dip(
     print()
     print("  Lucky Dip:")
     print(f"  Numbers:    {', '.join(f'{n:02d}' for n in nums)}  |  PB {pb}")
-    print(
-        f"  Sum:        {s}"
-        + (f"  (range {sum_range[0]}–{sum_range[1]})" if sum_range else "")
-    )
+    print(f"  Sum:        {s}" + (f"  (range {sum_range[0]}–{sum_range[1]})" if sum_range else ""))
     print(f"  Pos/Neg:    {n_pos:>2d}+ / {n_neg:>2d}-")
     print(f"  Odd/Even:   {odd}o / {even}e")
     print(
@@ -944,9 +917,7 @@ def main() -> None:
     if not draws:
         print("No Powerball draws found. Run init_working_db first?")
         return
-    print(
-        f"Loaded {len(draws)} Powerball draws (since {draws[0][3]} to {draws[-1][3]})"
-    )
+    print(f"Loaded {len(draws)} Powerball draws (since {draws[0][3]} to {draws[-1][3]})")
 
     if len(sys.argv) < 2:
         print("Usage: python lotto_wheels.py [command]")
@@ -955,16 +926,10 @@ def main() -> None:
         print("  list-wheels                      List available wheel names")
         print("  show-wheel <name>                Show a wheel's tickets")
         print("  export <name> <output.csv>       Export a wheel to CSV")
-        print(
-            "    --format mylotto               No header, numbers comma-sep, PB 7th col"
-        )
+        print("    --format mylotto               No header, numbers comma-sep, PB 7th col")
         print('  check <name> "<nums>" <pb>       Check a wheel against a draw')
-        print(
-            "  lucky-dip                        Generate a random ticket with constraints"
-        )
-        print(
-            "  predict [--weights w1..w6]       Ensemble prediction (6 methods + weighted vote)"
-        )
+        print("  lucky-dip                        Generate a random ticket with constraints")
+        print("  predict [--weights w1..w6]       Ensemble prediction (6 methods + weighted vote)")
         print("  print-pdf <name> [output.pdf]    Generate A4 PDF playslip for a wheel")
 
     cmd = sys.argv[1]

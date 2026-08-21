@@ -82,9 +82,7 @@ def calculate_dynamic_sum_range(
 # ---------------------------------------------------------------------------
 
 
-def validate_wheel_sum(
-    wheel: list[int], min_sum: int, max_sum: int
-) -> tuple[bool, int, str]:
+def validate_wheel_sum(wheel: list[int], min_sum: int, max_sum: int) -> tuple[bool, int, str]:
     """Check a ticket's (or pool's) sum against the acceptable range.
 
     Args:

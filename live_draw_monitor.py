@@ -222,9 +222,7 @@ def extract_numbers_ocr(image_bytes: bytes) -> tuple[list[int], int, int | None]
     found = _parse_numbers_from_text(raw_text)
     plausible = [n for n in found if 1 <= n <= POOL_SIZE]
     if len(plausible) < NUM_MAIN + 1:
-        raise ValueError(
-            f"OCR found only {len(plausible)} plausible numbers: {plausible}"
-        )
+        raise ValueError(f"OCR found only {len(plausible)} plausible numbers: {plausible}")
 
     main = plausible[:NUM_MAIN]
     bonus = plausible[NUM_MAIN]
@@ -498,9 +496,7 @@ def process_new_draw(draw: dict[str, Any], dry_run: bool = False) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def run_monitor(
-    dry_run: bool = False, once: bool = False, interval: int = POLL_INTERVAL
-) -> None:
+def run_monitor(dry_run: bool = False, once: bool = False, interval: int = POLL_INTERVAL) -> None:
     """Poll during draw windows; detect, validate and process new draws."""
     mode = "DRY-RUN" if dry_run else "LIVE"
     log(f"=== Live draw monitor starting ({mode}, interval {interval}s) ===")
@@ -537,8 +533,7 @@ def run_monitor(
                     ocr_result = poll_once_ocr(driver)
                     ocr_failures = 0
                     log(
-                        f"  OCR detected: {ocr_result['numbers']} "
-                        f"+ bonus {ocr_result['bonus']}"
+                        f"  OCR detected: {ocr_result['numbers']} " f"+ bonus {ocr_result['bonus']}"
                     )
 
                     # Enrich with canonical date/powerball from the API
@@ -546,10 +541,7 @@ def run_monitor(
                     if api_draw:
                         draw = api_draw
                         if sorted(api_draw["numbers"]) != sorted(ocr_result["numbers"]):
-                            log(
-                                "  WARNING: OCR numbers differ from API — "
-                                "trusting the API."
-                            )
+                            log("  WARNING: OCR numbers differ from API — " "trusting the API.")
                     else:
                         # API not updated yet — trust OCR, use today's date
                         draw = {
@@ -560,15 +552,9 @@ def run_monitor(
                         }
                 except Exception as e:
                     ocr_failures += 1
-                    log(
-                        f"  OCR attempt failed ({ocr_failures}/"
-                        f"{OCR_MAX_FAILURES}): {e}"
-                    )
+                    log(f"  OCR attempt failed ({ocr_failures}/" f"{OCR_MAX_FAILURES}): {e}")
                     if ocr_failures >= OCR_MAX_FAILURES:
-                        log(
-                            "  OCR failed 3 times in a row — "
-                            "falling back to HTML scraping."
-                        )
+                        log("  OCR failed 3 times in a row — " "falling back to HTML scraping.")
                         use_fallback = True
 
             # --- Fallback path: HTML scrape, then official API ---
@@ -601,9 +587,7 @@ def run_monitor(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Monitor NZ Lotto live draws (OCR + fallbacks)."
-    )
+    parser = argparse.ArgumentParser(description="Monitor NZ Lotto live draws (OCR + fallbacks).")
     parser.add_argument(
         "--dry-run",
         action="store_true",

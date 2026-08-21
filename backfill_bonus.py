@@ -106,9 +106,7 @@ def update_bonus(conn: sqlite3.Connection, draw_id: int, bonus: int) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backfill bonus ball data from NZCity")
-    parser.add_argument(
-        "--start", type=int, default=None, help="Start from this draw_id"
-    )
+    parser.add_argument("--start", type=int, default=None, help="Start from this draw_id")
     parser.add_argument(
         "--dry-run", action="store_true", help="Just list missing draws, don't fetch"
     )
@@ -213,9 +211,7 @@ def main() -> None:
                 continue
 
         if bonus is None:
-            print(
-                f"  FAILED draw {draw_id} ({draw_date}) — no bonus after {retries} retries"
-            )
+            print(f"  FAILED draw {draw_id} ({draw_date}) — no bonus after {retries} retries")
             failed += 1
         elif bonus == -1:
             skipped += 1
@@ -246,9 +242,7 @@ def main() -> None:
     conn.close()
 
     elapsed = time.time() - start_time
-    print(
-        f"\nDone! {success} updated, {failed} failed, {skipped} skipped in {elapsed:.0f}s"
-    )
+    print(f"\nDone! {success} updated, {failed} failed, {skipped} skipped in {elapsed:.0f}s")
 
 
 if __name__ == "__main__":

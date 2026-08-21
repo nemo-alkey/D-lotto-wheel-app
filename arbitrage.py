@@ -209,9 +209,7 @@ def find_rollover_threshold(
         raise ValueError(f"{game}: no jackpot-division odds supplied.")
 
     fixed_ev = sum(
-        p * prizes[div] * (1.0 - tax_rate)
-        for div, p in odds.items()
-        if div != JACKPOT_DIVISION
+        p * prizes[div] * (1.0 - tax_rate) for div, p in odds.items() if div != JACKPOT_DIVISION
     )
     jackpot_weight = p_jp * lump_sum_ratio * (1.0 - tax_rate)
     return max(0.0, (float(ticket_price) - fixed_ev) / jackpot_weight)
@@ -311,9 +309,7 @@ def scan_opportunities(
         tax_rate = 0.0
         lump = 1.0
         if tax_adjusted:
-            tax_rate = float(cfg.get("federal_tax", 0.0)) + float(
-                cfg.get("state_tax", 0.0)
-            )
+            tax_rate = float(cfg.get("federal_tax", 0.0)) + float(cfg.get("state_tax", 0.0))
             lump = float(cfg.get("lump_sum_ratio", 1.0))
 
         ev = calculate_ev(
@@ -450,13 +446,8 @@ if __name__ == "__main__":
     assert pb_tax_threshold > 1_000_000_000, "lump sum + tax should push past $1B"
 
     # --- A $600M jackpot is raw-EV-positive for PB ---
-    ev_600 = calculate_ev(
-        "PB", 2.0, 600_000_000, *build_odds_and_prizes(pb, 600_000_000)
-    )
-    print(
-        f"Powerball EV at $600M jackpot: {ev_600:+.3f} "
-        f"(${ev_600/2:+.3f} per dollar)"
-    )
+    ev_600 = calculate_ev("PB", 2.0, 600_000_000, *build_odds_and_prizes(pb, 600_000_000))
+    print(f"Powerball EV at $600M jackpot: {ev_600:+.3f} " f"(${ev_600/2:+.3f} per dollar)")
     assert ev_600 > 0
 
     # --- NZ Lotto shared-pool odds sanity ---
@@ -465,10 +456,7 @@ if __name__ == "__main__":
     assert abs(nz_odds[1] - 1 / comb(40, 6)) < 1e-12, "NZ div1 = 6/40 exact"
     # div2 (5 + bonus): 6 winning combos of 5 mains, bonus must hit the 6th
     assert abs(nz_odds[2] - 6 / comb(40, 6)) < 1e-12, "NZ div2 shared-pool odds"
-    print(
-        f"\nNZ Lotto div1 odds: 1 in {1/nz_odds[1]:,.0f}  "
-        f"div2: 1 in {1/nz_odds[2]:,.0f}"
-    )
+    print(f"\nNZ Lotto div1 odds: 1 in {1/nz_odds[1]:,.0f}  " f"div2: 1 in {1/nz_odds[2]:,.0f}")
 
     # --- Scan (config fallback, no API key) ---
     results = scan_opportunities()

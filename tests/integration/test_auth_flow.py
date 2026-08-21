@@ -62,9 +62,7 @@ def _protected_app() -> FastAPI:
 
 
 def test_register_success(client: TestClient, temp_user_db: str) -> None:
-    resp = client.post(
-        "/register", json={"username": temp_user_db, "password": PASSWORD}
-    )
+    resp = client.post("/register", json={"username": temp_user_db, "password": PASSWORD})
     assert resp.status_code == 201
 
 
@@ -93,15 +91,11 @@ def test_login_success_returns_token(client: TestClient, temp_user_db: str) -> N
 
 def test_login_wrong_password_401(client: TestClient, temp_user_db: str) -> None:
     assert (
-        client.post(
-            "/register", json={"username": temp_user_db, "password": PASSWORD}
-        ).status_code
+        client.post("/register", json={"username": temp_user_db, "password": PASSWORD}).status_code
         == 201
     )
 
-    resp = client.post(
-        "/token", json={"username": temp_user_db, "password": "wrong-password"}
-    )
+    resp = client.post("/token", json={"username": temp_user_db, "password": "wrong-password"})
     assert resp.status_code == 401
 
 
@@ -110,17 +104,13 @@ def test_login_wrong_password_401(client: TestClient, temp_user_db: str) -> None
 # ---------------------------------------------------------------------------
 
 
-def test_protected_route_with_valid_token(
-    client: TestClient, temp_user_db: str
-) -> None:
+def test_protected_route_with_valid_token(client: TestClient, temp_user_db: str) -> None:
     payload = {"username": temp_user_db, "password": PASSWORD}
     assert client.post("/register", json=payload).status_code == 201
     token = client.post("/token", json=payload).json()["access_token"]
 
     protected_client = TestClient(_protected_app())
-    resp = protected_client.get(
-        "/protected", headers={"Authorization": f"Bearer {token}"}
-    )
+    resp = protected_client.get("/protected", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
     assert resp.json()["username"] == temp_user_db
 
@@ -133,15 +123,11 @@ def test_protected_route_without_token_401() -> None:
 
 def test_protected_route_garbage_token_401() -> None:
     protected_client = TestClient(_protected_app())
-    resp = protected_client.get(
-        "/protected", headers={"Authorization": "Bearer not-a-real-jwt"}
-    )
+    resp = protected_client.get("/protected", headers={"Authorization": "Bearer not-a-real-jwt"})
     assert resp.status_code == 401
 
 
-def test_logout_is_client_side_token_discard(
-    client: TestClient, temp_user_db: str
-) -> None:
+def test_logout_is_client_side_token_discard(client: TestClient, temp_user_db: str) -> None:
     """JWT logout = dropping the header; the route rejects us again."""
     payload = {"username": temp_user_db, "password": PASSWORD}
     assert client.post("/register", json=payload).status_code == 201
