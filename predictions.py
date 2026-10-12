@@ -13,6 +13,9 @@ The ensemble() function combines all methods with configurable weights.
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import math
 import random
 from collections import Counter
@@ -78,7 +81,7 @@ def bayesian(draws: list[Draw], alpha: float = 1.0) -> Prediction:
         n: (main_counts.get(n, 0) + alpha) / (total_main + 40 * alpha) for n in range(1, 41)
     }
     pb_posterior = {
-        p: (pb_counts.get(p, 0) + alpha) / (total_pb + 10 * alpha) for p in range(1, 11)
+        p: (pb_counts.get(p, 0) + alpha) / (total_pb + POWERBALL_MAX * alpha) for p in range(1, POWERBALL_MAX + 1)
     }
 
     top_nums = sorted(main_posterior, key=lambda n: main_posterior[n], reverse=True)[:6]
@@ -143,7 +146,7 @@ def markov(draws: list[Draw]) -> Prediction:
 
     last_pb = draws[-1][1]
     pb_scores = pb_trans[last_pb - 1]
-    top_pb = max(range(1, 11), key=lambda p: pb_scores[p - 1])
+    top_pb = max(range(1, POWERBALL_MAX + 1), key=lambda p: pb_scores[p - 1])
 
     return {"numbers": top_nums, "powerball": top_pb}
 
@@ -176,7 +179,7 @@ def weighted_random(draws: list[Draw]) -> Prediction:
     main_probs = [main_counts.get(n, 0) / total_main for n in range(1, 41)]
 
     total_pb = sum(pb_counts.values()) or 1
-    pb_probs = [pb_counts.get(p, 0) / total_pb for p in range(1, 11)]
+    pb_probs = [pb_counts.get(p, 0) / total_pb for p in range(1, POWERBALL_MAX + 1)]
 
     # Weighted random sample without replacement
     rng = random.Random()
@@ -195,7 +198,7 @@ def weighted_random(draws: list[Draw]) -> Prediction:
                 w.pop(i)
                 break
     top_nums = sorted(candidates)
-    top_pb = max(range(1, 11), key=lambda p: pb_probs[p - 1])
+    top_pb = max(range(1, POWERBALL_MAX + 1), key=lambda p: pb_probs[p - 1])
 
     return {"numbers": top_nums, "powerball": top_pb}
 
@@ -216,7 +219,7 @@ def due_numbers(draws: list[Draw]) -> Prediction:
 
     # Last appearance index for each number
     last_main = {n: -1 for n in range(1, 41)}
-    last_pb = {p: -1 for p in range(1, 11)}
+    last_pb = {p: -1 for p in range(1, POWERBALL_MAX + 1)}
     # Frequency count
     main_count: Counter[int] = Counter()
     pb_count: Counter[int] = Counter()
@@ -230,7 +233,7 @@ def due_numbers(draws: list[Draw]) -> Prediction:
 
     # Gap = draws since last appearance
     gaps_main = {n: n_draws - last_main[n] - 1 for n in range(1, 41)}
-    gaps_pb = {p: n_draws - last_pb[p] - 1 for p in range(1, 11)}
+    gaps_pb = {p: n_draws - last_pb[p] - 1 for p in range(1, POWERBALL_MAX + 1)}
 
     # Z-score normalisation for gap
     def z_scores(values: Mapping[int, float]) -> dict[int, float]:
@@ -244,11 +247,11 @@ def due_numbers(draws: list[Draw]) -> Prediction:
 
     # Frequency z-score (negative = less frequent = more due)
     z_freq_main = z_scores({n: -main_count.get(n, 0) for n in range(1, 41)})
-    z_freq_pb = z_scores({p: -pb_count.get(p, 0) for p in range(1, 11)})
+    z_freq_pb = z_scores({p: -pb_count.get(p, 0) for p in range(1, POWERBALL_MAX + 1)})
 
     # Combined score: high gap + low frequency = due
     score_main = {n: z_gap_main[n] + z_freq_main[n] for n in range(1, 41)}
-    score_pb = {p: z_gap_pb[p] + z_freq_pb[p] for p in range(1, 11)}
+    score_pb = {p: z_gap_pb[p] + z_freq_pb[p] for p in range(1, POWERBALL_MAX + 1)}
 
     top_nums = sorted(score_main, key=lambda n: score_main[n], reverse=True)[:6]
     top_pb = max(score_pb, key=lambda p: score_pb[p])
@@ -394,7 +397,7 @@ def ensemble(
         weights = [1.0] * len(methods)
 
     main_scores: dict[int, float] = {n: 0.0 for n in range(1, 41)}
-    pb_scores: dict[int, float] = {p: 0.0 for p in range(1, 11)}
+    pb_scores: dict[int, float] = {p: 0.0 for p in range(1, POWERBALL_MAX + 1)}
 
     for method, w in zip(methods, weights, strict=False):
         result = method(draws)

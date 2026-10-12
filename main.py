@@ -47,7 +47,9 @@ from steps.redundancy import sequential_features
 # Constants
 NUM_PICK_MAIN = 6
 MAX_MAIN_NUMBER = 40
-NUM_POWERBALL = 10
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+NUM_POWERBALL = POWERBALL_MAX
 TICKET_LINES = 12
 
 

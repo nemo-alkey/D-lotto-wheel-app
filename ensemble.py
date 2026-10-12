@@ -12,6 +12,9 @@ Requires a sqlite3.Connection to a 'draws' table.
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import sqlite3
 from collections import Counter
 from collections.abc import Callable
@@ -224,7 +227,7 @@ class EnsemblePredictor:
             if 1 <= pb <= 10:
                 pb_counts[pb] += 1
         total_pb = sum(pb_counts.values()) or 1
-        pb_probs = {p: pb_counts.get(p, 0) / total_pb for p in range(1, 11)}
+        pb_probs = {p: pb_counts.get(p, 0) / total_pb for p in range(1, POWERBALL_MAX + 1)}
         pb_ranked = sorted(pb_probs.items(), key=lambda x: x[1], reverse=True)
         powerball = [(p, round(prob, 6)) for p, prob in pb_ranked[:pb_top]]
 

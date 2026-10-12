@@ -8,6 +8,9 @@ Start with:  uvicorn api:app --host 0.0.0.0 --port 8000
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import asyncio
 import itertools
 import json
@@ -611,7 +614,7 @@ class CheckRequest(BaseModel):
 
     wheel: str = Field(description="Wheel name (e.g. double, single1, jackpot7)")
     draw: list[int] = Field(min_length=6, max_length=6, description="6 main draw numbers")
-    powerball: int = Field(ge=1, le=10, description="Powerball (1-10)")
+    powerball: int = Field(ge=1, le=14, description="Powerball (1-14 post-2026-09-16)")
 
     _clean_wheel = field_validator("wheel")(_sanitize_string)
 
@@ -1197,7 +1200,7 @@ class DrawEvent(BaseModel):
     draw_date: str
     numbers: list[int] = Field(min_length=6, max_length=6)
     bonus: int = Field(ge=1, le=40)
-    powerball: int = Field(ge=1, le=10)
+    powerball: int = Field(ge=1, le=14)
     winners: list[dict[str, Any]] = Field(default_factory=list)
     source: str = "internal"
 

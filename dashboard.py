@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import io
 import os
 import sqlite3
@@ -3965,7 +3968,7 @@ with tabs[3]:
 
             # Build full arrays (include zeros for numbers never drawn)
             main_freq = np.array([main_counter.get(n, 0) for n in range(1, 41)])
-            pb_freq = np.array([pb_counter.get(n, 0) for n in range(1, 11)])
+            pb_freq = np.array([pb_counter.get(n, 0) for n in range(1, POWERBALL_MAX + 1)])
 
             # Top 5 indices
             top5_main = np.argsort(main_freq)[-5:][::-1]
@@ -4028,11 +4031,11 @@ with tabs[3]:
                 np.where(np.isin(np.arange(10), top5_pb), "#f39c12", "#27ae60"),
             )
 
-            ax2.bar(np.arange(1, 11), pb_freq, color=colours2, edgecolor="white", linewidth=0.5)
+            ax2.bar(np.arange(1, POWERBALL_MAX + 1), pb_freq, color=colours2, edgecolor="white", linewidth=0.5)
             ax2.set_xlabel("Powerball Number")
             ax2.set_ylabel("Frequency (number of draws)")
             ax2.set_title("Occurrence Frequency of Powerball Numbers Across All Draws")
-            ax2.set_xticks(range(1, 11))
+            ax2.set_xticks(range(1, POWERBALL_MAX + 1))
             ax2.set_xlim(0.5, 10.5)
 
             for rank, idx in enumerate(top5_pb, 1):
@@ -4065,7 +4068,7 @@ with tabs[3]:
                 )
                 pb_df = pd.DataFrame(
                     {
-                        "Powerball": range(1, 11),
+                        "Powerball": range(1, POWERBALL_MAX + 1),
                         "Count": pb_freq,
                         "Percentage": pb_freq / pb_freq.sum() * 100,
                     }

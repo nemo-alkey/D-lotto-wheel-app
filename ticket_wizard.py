@@ -17,6 +17,9 @@ Uses st.session_state["wizard"] to persist all data across reruns.
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import sqlite3
 
 import pandas as pd
@@ -148,7 +151,7 @@ def _step_powerball() -> bool:
         key="wiz_pb_mode",
     )
     if pb_mode == "Manual":
-        pb = st.selectbox("Powerball", list(range(1, 11)), key="wiz_pb_manual")
+        pb = st.selectbox("Powerball", list(range(1, POWERBALL_MAX + 1)), key="wiz_pb_manual")
         st.session_state["wizard"]["powerball"] = pb
     elif pb_mode == "Auto (frequency)":
         st.session_state["wizard"]["powerball"] = "auto"

@@ -11,6 +11,9 @@ Usage:
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import argparse
 import os
 import pickle
@@ -198,7 +201,7 @@ def predict(
 
     # Powerball
     if pb_model is not None:
-        pb_rows = build_features_for_draw(draws, next_idx, range(1, 11))
+        pb_rows = build_features_for_draw(draws, next_idx, range(1, POWERBALL_MAX + 1))
         if pb_rows:
             x_pb = np.array([r["features"] for r in pb_rows], dtype=np.float32)
             probs_pb = pb_model.predict_proba(x_pb)[:, 1]

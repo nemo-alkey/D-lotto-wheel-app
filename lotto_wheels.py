@@ -8,6 +8,9 @@ Integrates:
 Uses the existing lotto.db from Callam7/LottoPipeline.
 """
 
+from powerball_rules import POWERBALL_MAX_NEW
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import csv
 import itertools
 import math
@@ -816,7 +819,7 @@ def lucky_dip(draws: list[tuple[list[int], int, int, str]]) -> None:
     pb_counts = Counter(pb for _, pb, _, _ in recent)
     top3_pbs = [pb for pb, _ in pb_counts.most_common(3)]
     if not top3_pbs:
-        top3_pbs = list(range(1, 11))
+        top3_pbs = list(range(1, POWERBALL_MAX + 1))
 
     best = None
 
