@@ -3,7 +3,9 @@
 train_ml_model.py — Train XGBoost models on NZ Lotto Powerball historical draws.
 
 Creates feature vectors from draw history, trains binary classifiers for
-each main number (1–40) and Powerball (1–10), and saves the models.
+each main number (1–40, all history allowed) and Powerball (era-aware:
+current-era draws only, pool 1–14 since 2026-09-16 — pre/post distributions
+are never mixed), and saves the models.
 
 Usage (local, if you have AVX):
     python3 train_ml_model.py
@@ -23,6 +25,8 @@ from collections import Counter
 from typing import Any
 
 import numpy as np
+
+from era_features import current_rule_era, powerball_pool_size
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -87,7 +91,10 @@ def build_features_for_draw(
 
     past_draws = draws[:target_idx]
     current_nums = draws[target_idx][0]
-    is_pb = num_range[0] == 1 and num_range[-1] == 10  # detect PB range
+    # Powerball rows are built over the era-aware pool (1-14 since 2026-09-16).
+    from era_features import powerball_pool_size
+
+    is_pb = len(num_range) == powerball_pool_size()  # detect PB pool (vs 40 main)
     if is_pb:
         current_nums = [draws[target_idx][1]] if target_idx < len(draws) else []
 
@@ -400,8 +407,11 @@ def predict_next(
     # Feature rows for the NEXT draw (target_idx = len(draws))
     next_idx = len(draws)
 
+    from era_features import current_rule_era, filter_draws_by_era, powerball_pool_size
+
+    pb_pool = powerball_pool_size()
     main_rows = build_features_for_draw(draws, next_idx, range(1, 41))
-    pb_rows = build_features_for_draw(draws, next_idx, range(1, 11))
+    pb_rows = build_features_for_draw(draws, next_idx, range(1, pb_pool + 1))
 
     if not main_rows:
         return {"numbers": [], "powerball": 0}
@@ -423,8 +433,11 @@ def predict_next(
         pb = pb_candidates[0][0]
         pb_prob = pb_candidates[0][1]
     else:
-        # Fallback: most common recent PB
-        recent_pbs = Counter(pb for _, pb, _ in draws[-30:])
+        # Fallback: most common recent PB within the CURRENT era only —
+        # never mix pre/post-2026-09-16 distributions.
+        era_draws = filter_draws_by_era(draws, current_rule_era(), date_index=3)
+        recent = era_draws[-30:] if era_draws else draws[-30:]
+        recent_pbs = Counter(pb for _, pb, _, _ in recent)
         pb = recent_pbs.most_common(1)[0][0]
         pb_prob = 0.0
 
@@ -476,12 +489,31 @@ def main() -> None:
     x_train, x_test, y_train, y_test = create_dataset(draws, range(1, 41))
     main_model = train_xgboost(x_train, x_test, y_train, y_test, label="main")
 
-    # 3. Powerball (1-10)
+    # 3. Powerball — era-aware: train ONLY on the current rule era
+    #    (1-14 pool since 2026-09-16). Never mix pre/post distributions.
     pb_model = None
     if not args.no_pb_model:
-        print("\n--- Powerball (1-10) ---")
-        x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(draws, range(1, 11))
-        pb_model = train_xgboost(x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball")
+        from era_features import (
+            check_single_era,
+            filter_draws_by_era,
+        )
+
+        pb_era = current_rule_era()
+        pb_pool = powerball_pool_size(pb_era)
+        pb_draws = filter_draws_by_era(draws, pb_era, date_index=3)
+        print(f"\n--- Powerball ({pb_era}, pool 1-{pb_pool}) ---")
+        if len(pb_draws) < MIN_HISTORY:
+            print(
+                f"  Refusing to train Powerball model: only {len(pb_draws)} draws in "
+                f"era {pb_era} (need {MIN_HISTORY}). Use --no-pb-model or wait for "
+                "more post-change draws. Mixing eras is never allowed."
+            )
+        else:
+            check_single_era(pb_draws, context="train_ml_model pb_model", date_index=3)
+            x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(
+                pb_draws, range(1, pb_pool + 1)
+            )
+            pb_model = train_xgboost(x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball")
 
     # 4. Predict next draw
     print("\n--- Prediction for Next Draw ---")
@@ -522,8 +554,10 @@ def main() -> None:
             "cooccur_hot",
         ],
         "n_main": 40,
-        "n_pb": 10,
+        "n_pb": powerball_pool_size(),
+        "pb_rule_era": current_rule_era(),
         "draws_used": len(draws),
+        "draws_used_pb": len(pb_draws) if not args.no_pb_model else 0,
         "date_range": (draws[0][3], draws[-1][3]),
         "train_metrics": {
             "main_test_auc": _roc_auc(y_test, main_model.predict_proba(x_test)[:, 1]),

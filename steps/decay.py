@@ -19,9 +19,11 @@ DECAY_PER_DRAW = settings.decay_per_draw
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Constants
+from era_features import powerball_pool_size
+
 NUM_MAIN = 40
-NUM_POWERBALL = 10
-TOTAL_NUMBERS = NUM_MAIN + NUM_POWERBALL  # 50
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
+TOTAL_NUMBERS = NUM_MAIN + NUM_POWERBALL
 
 
 def calculate_decay_factors(pipeline: DataPipeline, decay_rate: float = DECAY_PER_DRAW) -> None:
@@ -51,14 +53,22 @@ def calculate_decay_factors(pipeline: DataPipeline, decay_rate: float = DECAY_PE
         age = total_draws - i  # 1 for most recent, total_draws for oldest
         weight = decay_rate**age
 
-        # Main numbers
+        # Main numbers (all history allowed — main pool is unchanged 1-40)
         for num in draw.get("numbers", []) or []:
             if isinstance(num, int) and 1 <= num <= NUM_MAIN:
                 main_frequency[num - 1] += weight
             else:
                 logging.warning(f"Invalid main number {num!r} in draw at index {i}; ignored.")
 
-        # Powerball(s)
+    # ---- Powerball: current era only — never mix 1-10 / 1-14 distributions ----
+    from era_features import current_rule_era, filter_draws_by_era
+
+    era_draws = filter_draws_by_era(historical_data, current_rule_era())
+    era_total = len(era_draws)
+    for j, draw in enumerate(era_draws):
+        age = era_total - j  # 1 for most recent within the era
+        weight = decay_rate**age
+
         pb = draw.get("powerball")
         if pb is None:
             continue
@@ -69,7 +79,7 @@ def calculate_decay_factors(pipeline: DataPipeline, decay_rate: float = DECAY_PE
             if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:
                 powerball_frequency[p - 1] += weight
             else:
-                logging.warning(f"Invalid Powerball value {p!r} in draw at index {i}; ignored.")
+                logging.warning(f"Invalid Powerball value {p!r} in era draw at index {j}; ignored.")
 
     # ---- Normalise separately and concatenate ----
     main_sum = main_frequency.sum()

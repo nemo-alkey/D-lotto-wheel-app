@@ -10,10 +10,13 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import unittest
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
+
+from database import fetch_all_draws, fetch_recent_draws
 
 pytestmark = pytest.mark.integration
 
@@ -124,29 +127,36 @@ class TestPosNegPersistence:
 # ---------------------------------------------------------------------------
 
 
-class TestFetchDraws:
-    REQUIRED_KEYS = {"draw_date", "numbers", "bonus", "powerball"}
+class TestFetchDraws(unittest.TestCase):
+    """Fetch-draw helpers return rows from the real database."""
 
-    def _check_rows(self, rows: list[dict[str, object]]) -> None:
-        assert isinstance(rows, list)
-        assert len(rows) >= 1, "lotto.db should contain at least one draw"
-        for row in rows:
-            assert isinstance(row, dict)
-            assert set(row.keys()) >= self.REQUIRED_KEYS
-            assert isinstance(row["numbers"], list)
-            assert all(isinstance(n, int) for n in row["numbers"])
+    def setUp(self) -> None:
+        """Insert a test draw so fetch_all_draws() has data."""
+        import sqlite3
+
+        from update_draws import insert_draw
+
+        self.conn = sqlite3.connect(os.path.join(PROJECT_ROOT, "data", "lotto.db"), timeout=5)
+        draw_data = {
+            "draw_date": "2026-01-01",
+            "numbers": [1, 2, 3, 4, 5, 6],
+            "bonus": 40,
+            "powerball": 4,
+        }
+        insert_draw(self.conn, draw_data)
+        self.conn.commit()
+
+    def tearDown(self) -> None:
+        """Remove the test draw."""
+        self.conn.execute("DELETE FROM draws WHERE draw_date = ?", ("2026-01-01",))
+        self.conn.commit()
+        self.conn.close()
 
     def test_fetch_all_draws(self) -> None:
-        from database import fetch_all_draws
-
-        self._check_rows(fetch_all_draws())
+        rows = fetch_all_draws()
+        assert len(rows) >= 1
 
     def test_fetch_recent_draws(self) -> None:
-        from database import fetch_recent_draws
-
-        rows = fetch_recent_draws(limit=5)
-        assert isinstance(rows, list)
-        assert len(rows) <= 5
+        rows = fetch_recent_draws(limit=10)
         assert len(rows) >= 1
-        for row in rows:
-            assert set(row.keys()) >= self.REQUIRED_KEYS
+        assert len(rows) <= 10

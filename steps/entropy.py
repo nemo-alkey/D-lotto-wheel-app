@@ -18,7 +18,9 @@ from pipeline import DataPipeline
 NUM_MAIN = 40
 
 # Number of powerball-style balls
-NUM_POWERBALL = 10
+from era_features import powerball_pool_size
+
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 
 # Total symbols in the probability distribution
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # = 50

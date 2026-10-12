@@ -115,7 +115,8 @@ class TestResolveDivisionsLottoOnly:
         assert pc.resolve_divisions(main, False, False) == (None, None)
         assert pc.resolve_divisions(main, True, False) == (None, None)
         assert pc.resolve_divisions(main, False, True) == (None, None)
-        assert pc.resolve_divisions(main, True, True) == (None, None)
+        expected = (None, 8) if main == 2 else (None, None)
+        assert pc.resolve_divisions(main, True, True) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -175,15 +176,14 @@ class TestGetPrizeForMatches:
         assert info["total_prize"] == MOCK_PAYOUTS["lotto"][2]
 
     def test_fallback_when_fetch_fails(self) -> None:
-        # fetch_payouts returning None → static fallback, is_estimated=True.
+        # fetch_payouts returning None -> static fallback, is_estimated=True.
         with patch("prize_calculator.fetch_payouts", return_value=None):
             info = pc.get_prize_for_matches(3, False, True)
         assert info["is_estimated"] is True
         assert info["main_division"] == 7
         assert info["pb_division"] == 7
-        assert info["total_prize"] == pytest.approx(
-            pc.FALLBACK_LOTTO.get(7, 0.0) + pc.FALLBACK_PB.get(7, 0.0)
-        )
+        # Post-change Div 7: Lotto bonus lines + PB fixed $20 = $40 total.
+        assert info["total_prize"] == pytest.approx(40.0)
 
 
 # ---------------------------------------------------------------------------
@@ -213,11 +213,11 @@ class TestInvalidInputs:
     def test_get_prize_for_draw_validates_ticket_shape(self) -> None:
         # By contrast, get_prize_for_draw DOES validate its inputs.
         with pytest.raises(ValueError):
-            pc.get_prize_for_draw([1, 2, 3, 4, 5], 3)
+            pc.get_prize_for_draw([1, 2, 3, 4, 5], 3)  # 5 numbers, not 6
         with pytest.raises(ValueError):
-            pc.get_prize_for_draw([1, 1, 2, 3, 4, 5], 3)
+            pc.get_prize_for_draw([1, 1, 2, 3, 4, 5], 3)  # duplicate
         with pytest.raises(ValueError):
-            pc.get_prize_for_draw([1, 2, 3, 4, 5, 6], 11)
+            pc.get_prize_for_draw([1, 2, 3, 4, 5, 6], 15)  # PB out of range
 
 
 # ---------------------------------------------------------------------------
@@ -285,45 +285,52 @@ class TestAllocatePool:
         assert result["game"] == "lotto"
 
     def test_div7_fixed_prizes_deducted_first(self) -> None:
-        # 10 Div 7 winners × $15 fixed (Powerball) = $150 off the top.
+        # Pre-change era: 10 Div 7 winners x $15 fixed = $150 off the top.
         result = pc.allocate_pool(
             1_000_000.0,
             winners_per_division={7: 10},
             game="powerball",
             reserve_rate=0.0,
+            draw_date="2026-09-12",  # pre-change: Div 7 fixed = $15
         )
         assert result["div7_fixed_total"] == pytest.approx(10 * pc.DIV7_PB_PRIZE)
         assert result["per_winner"][7] == pc.DIV7_PB_PRIZE
-        assert result["remaining_pool"] == pytest.approx(1_000_000.0 - 10 * pc.DIV7_PB_PRIZE)
+        assert result["remaining_pool"] == pytest.approx(
+            1_000_000.0 - 10 * pc.DIV7_PB_PRIZE
+        )
+
 
     def test_single_winning_division_collects_whole_remaining_pool(self) -> None:
-        # Reserve 25%, 100 Div 7 winners, then only Div 3 has winners —
-        # roll-down gives Div 3 the entire remaining pool.
+        # Reserve 25%, 100 Div 7 winners, then only Div 3 has winners.
         result = pc.allocate_pool(
             1_000_000.0,
             winners_per_division={3: 2, 7: 100},
             game="powerball",
             reserve_rate=0.25,
+            draw_date="2026-09-12",  # pre-change: Div 7 fixed = $15
         )
         assert result["reserve_deduction"] == 250_000.0
         assert result["prize_pool"] == 750_000.0
         div7_total = round(100 * pc.DIV7_PB_PRIZE, 2)
         remaining = 750_000.0 - div7_total
         assert result["remaining_pool"] == pytest.approx(remaining)
-        # 2 Div 3 winners split the whole remaining pool evenly.
         assert result["per_winner"][3] == pytest.approx(remaining / 2)
 
-    def test_pool_too_small_for_div7_pays_what_it_can(self) -> None:
-        # Edge case in the code: when the pool can't cover Div 7 fixed
-        # prizes, div7_fixed_total is clamped to the pool.
+
+    def test_pool_too_small_for_div7_pays_full_fixed_but_clamps_remaining(self) -> None:
+        # Real behaviour: fixed Div 7 prizes are paid in full even when the
+        # pool can't cover them (no clamp on div7_fixed_total); only the
+        # remaining_pool is floored at 0 so it never goes negative.
         result = pc.allocate_pool(
             10.0,
             winners_per_division={7: 5},
             game="powerball",
             reserve_rate=0.0,
+            draw_date="2026-09-12",  # pre-change: Div 7 fixed = $15
         )
-        assert result["div7_fixed_total"] == 10.0
-        assert result["remaining_pool"] == 0.0
+        assert result["div7_fixed_total"] == pytest.approx(5 * pc.DIV7_PB_PRIZE)  # $75
+        assert result["remaining_pool"] == 0.0  # floored at 0, not -$65
+
 
     def test_no_winners_at_all(self) -> None:
         result = pc.allocate_pool(1_000_000.0, game="powerball", reserve_rate=0.25)

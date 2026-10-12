@@ -336,6 +336,32 @@ dependency vulnerability scan. 250+ tests.
 
 Full guides: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Short version:
 
+**Local dev:**
+
+```bash
+python -m venv venv
+source venv/bin/activate              # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env                  # then edit — set a real SECRET_KEY
+python -m uvicorn api:app --reload    # API → http://localhost:8000
+```
+
+**Docker:**
+
+```bash
+docker compose up --build             # app + redis + nginx
+```
+
+**Health check:**
+
+```bash
+curl http://localhost:8000/health     # {"status": "healthy", ...}
+```
+
+Before deploying, run `bash scripts/pre_deploy.sh` — it gates on lint,
+format, types, tests, migration status, and a verified backup, and prints
+`DEPLOY OK` or `DEPLOY BLOCKED` with reasons.
+
 - **Docker** (recommended): `docker compose -f docker-compose.yml up -d` —
   non-root image, migrations on boot, SQLite on a named volume, Redis included.
 - **AWS**: ECS/Fargate service behind an ALB, secrets in Secrets Manager,
@@ -348,6 +374,59 @@ Full guides: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Short version:
 Production checklist: real `SECRET_KEY`, `DEBUG=false`, explicit
 `CORS_ORIGINS`, SMTP or webhook alerts, `database_backup.py backup` on a
 schedule. The app **refuses to boot** with a placeholder secret in production.
+
+---
+
+## Monitoring
+
+The API exposes operational endpoints under the `System` tag:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Aggregated health: database, Redis, disk, memory, draw age, backup freshness. `200` when healthy, `503` when unhealthy (`status`: `healthy` / `degraded` / `unhealthy`). |
+| `GET /health/ready` | Readiness probe — database + Redis only. `200` ready / `503` not ready. |
+| `GET /health/live` | Liveness probe — always `200` while the process is up. |
+| `GET /metrics` | Prometheus text exposition: HTTP request counters/durations, predictions/wheels generated, active users, DB health gauges. |
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/metrics
+```
+
+**Alerts:** `monitoring/alerts.yml` defines Prometheus alert rules (API down,
+elevated error rate, stale draws, backup failures) and
+`monitoring/alerting.py` dispatches them via email (`SMTP_*` settings) or a
+Slack/Discord webhook (`ALERT_WEBHOOK_URL`). Optional Grafana dashboards and a
+pre-wired Prometheus stack:
+
+```bash
+docker compose -f docker-compose.monitoring.yml up -d   # Prometheus :9090, Grafana :3000
+```
+
+The Streamlit dashboard has a **🔔 System Health** page and a sidebar status
+indicator that poll `/health` and `/metrics`.
+
+---
+
+## Backup
+
+`database_backup.py` uses SQLite's Online Backup API, so backups are
+consistent even while the app is running (WAL-safe). Every backup is
+integrity-checked, gzip-compressed after `BACKUP_COMPRESS_AFTER_DAYS`
+(default 7), and deleted after `BACKUP_RETENTION_DAYS` (default 30). Optional
+off-site copies to S3 (`BACKUP_S3_BUCKET`) or Azure Blob
+(`BACKUP_AZURE_CONTAINER`). All operations log to `data/logs/backup.log` and
+email an alert on failure.
+
+```bash
+python database_backup.py backup [--now]     # create a verified backup now
+python database_backup.py list [--days 30]   # list available backups
+python database_backup.py verify <file>      # integrity-check a backup
+python database_backup.py restore <file>     # restore (overwrites the DB — stops app first)
+python database_backup.py daemon             # loop, backing up daily at BACKUP_SCHEDULE
+```
+
+Default destination: `backups/` (override with `BACKUP_DIR`).
 
 ---
 

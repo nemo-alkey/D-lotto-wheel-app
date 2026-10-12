@@ -17,8 +17,10 @@ logging.basicConfig(  # Configure global logging behavior
     format="%(asctime)s - %(levelname)s - %(message)s",  # Timestamped log format
 )
 
+from era_features import powerball_pool_size
+
 NUM_MAIN = 40  # Total possible main lottery numbers (1–40)
-NUM_POWERBALL = 10  # Total possible Powerball numbers (1–10)
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 TOTAL_NUM = NUM_MAIN + NUM_POWERBALL  # Combined output width (50)
 
 
@@ -66,11 +68,15 @@ def analyze_number_frequency(pipeline: Any) -> None:
         number_frequency = np.ones(NUM_MAIN) / NUM_MAIN  # Uniform fallback
 
     # ----------------------
-    # POWERBALL
+    # POWERBALL (current era only — never mix 1-10 / 1-14 distributions;
+    # main numbers above may still use all history)
     # ----------------------
-    all_pbs = []  # Collect every valid Powerball ever drawn
+    from era_features import current_rule_era, filter_draws_by_era
 
-    for draw in historical_data:  # Loop through draws again
+    era_draws = filter_draws_by_era(historical_data, current_rule_era())
+    all_pbs = []  # Collect every valid Powerball of the current era
+
+    for draw in era_draws:  # Loop through current-era draws only
         pb = draw.get("powerball")  # Powerball may be int or list
 
         if isinstance(pb, int) and 1 <= pb <= NUM_POWERBALL:  # Single PB value
@@ -100,9 +106,10 @@ def analyze_number_frequency(pipeline: Any) -> None:
         if not (isinstance(n, int) and 1 <= n <= NUM_MAIN)
     ]
 
-    invalid_pb = []  # Detect invalid PB entries
+    invalid_pb = []  # Detect invalid PB entries (current era only — pre-era
+    # 1-10 values are not "invalid" for post-era width 14, just out of scope)
 
-    for draw in historical_data:
+    for draw in era_draws:
         pb = draw.get("powerball")
 
         if pb is None:

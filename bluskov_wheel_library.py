@@ -96,6 +96,7 @@ DOUBLE_4IF4_10: list[list[int]] = [
 #       Do NOT use random or AI-generated combinations — the mathematical
 #       guarantee will be invalid.
 # ---------------------------------------------------------------------------
+# TODO: Fill exact combinations from Bluskov's book — do not generate
 DOUBLE_4IF4_11: list[list[int]] = []  # TODO: 54 combinations, Bluskov System #89
 
 # ---------------------------------------------------------------------------
@@ -118,6 +119,7 @@ DOUBLE_4IF4_11: list[list[int]] = []  # TODO: 54 combinations, Bluskov System #8
 #       Do NOT use random or AI-generated combinations — the mathematical
 #       guarantee will be invalid.
 # ---------------------------------------------------------------------------
+# TODO: Fill exact combinations from Bluskov's book — do not generate
 DOUBLE_4IF4_12: list[list[int]] = []  # TODO: 72 combinations, Bluskov System #90
 
 # ---------------------------------------------------------------------------
@@ -141,6 +143,7 @@ DOUBLE_4IF4_12: list[list[int]] = []  # TODO: 72 combinations, Bluskov System #9
 #       Do NOT use random or AI-generated combinations — the mathematical
 #       guarantee will be invalid.
 # ---------------------------------------------------------------------------
+# TODO: Fill exact combinations from Bluskov's book — do not generate
 TRIPLE_4IF5_12: list[list[int]] = []  # TODO: 22 combinations, Bluskov System #107
 
 # ---------------------------------------------------------------------------
@@ -163,6 +166,7 @@ TRIPLE_4IF5_12: list[list[int]] = []  # TODO: 22 combinations, Bluskov System #1
 #       Do NOT use random or AI-generated combinations — the mathematical
 #       guarantee will be invalid.
 # ---------------------------------------------------------------------------
+# TODO: Fill exact combinations from Bluskov's book — do not generate
 SIX_4IF5_12: list[list[int]] = []  # TODO: 44 combinations, Bluskov System #119
 
 # ---------------------------------------------------------------------------
@@ -263,8 +267,26 @@ def get_optimal_wheel(guarantee_type: str, pool_size: int) -> dict[str, Any]:
 
     entry = dict(WHEEL_REGISTRY[key])
     entry["key"] = key
-    entry["ready"] = len(entry["wheel"]) == entry["tickets"]
+    entry["ready"] = is_system_ready(key)
     return entry
+
+
+def is_system_ready(system_name: str) -> bool:
+    """
+    Check whether a registry system's combinations have been entered.
+
+    Args:
+        system_name: A key of WHEEL_REGISTRY, e.g. "double4_10".
+
+    Returns:
+        True only if the system exists and its wheel contains exactly the
+        published number of tickets (len(wheel) == tickets). Returns False
+        for pending (empty) systems and unknown names.
+    """
+    entry = WHEEL_REGISTRY.get(system_name)
+    if entry is None:
+        return False
+    return bool(len(entry["wheel"]) == entry["tickets"])
 
 
 def substitute_numbers(
@@ -318,6 +340,11 @@ def validate_balance(
 
     if not wheel:
         return False, {"error": "Wheel is empty"}
+
+    # Every number in every ticket must be a valid generic index 1..pool_size
+    out_of_range = sorted({n for ticket in wheel for n in ticket if not 1 <= n <= pool_size})
+    if out_of_range:
+        return False, {"error": f"Numbers out of range 1..{pool_size}: {out_of_range}"}
 
     ticket_len = len(wheel[0])
     total_pairs = pool_size * (pool_size - 1) // 2

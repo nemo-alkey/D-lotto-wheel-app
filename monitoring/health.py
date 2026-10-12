@@ -23,6 +23,9 @@ import sqlite3
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
 try:
     import psutil as psutil  # explicit re-export for monitoring.metrics
 except ImportError:  # pragma: no cover - psutil is a pinned dependency
@@ -184,3 +187,41 @@ def run_all_checks(db_path: str, redis_url: str, version: str) -> dict[str, Any]
         "draws": draw_count(db_path),
         "http_status": http_status,
     }
+
+
+def get_health_router(db_path: str, redis_url: str, version: str) -> APIRouter:
+    """Build the health APIRouter bound to the given runtime config.
+
+    Endpoints:
+      GET /health       — full system health (200 healthy/degraded, 503 unhealthy)
+      GET /health/ready — readiness probe (200 only when database and Redis are ok)
+      GET /health/live  — liveness probe (always 200)
+    """
+    router = APIRouter()
+
+    @router.get("/health", tags=["System"])
+    def health() -> JSONResponse:
+        """Full system health check (critical failures return HTTP 503)."""
+        result = run_all_checks(db_path, redis_url, version)
+        status_code = result.pop("http_status", 200)
+        return JSONResponse(content=result, status_code=status_code)
+
+    @router.get("/health/ready", tags=["System"])
+    def health_ready() -> JSONResponse:
+        """Readiness probe: 200 only when database and Redis both pass."""
+        checks = {
+            "database": check_database(db_path),
+            "redis": check_redis(redis_url),
+        }
+        ready = all(v == "ok" for v in checks.values())
+        return JSONResponse(
+            content={"status": "ready" if ready else "not_ready", "checks": checks},
+            status_code=200 if ready else 503,
+        )
+
+    @router.get("/health/live", tags=["System"])
+    def health_live() -> dict[str, str]:
+        """Liveness probe: the process is up and serving requests."""
+        return {"status": "alive"}
+
+    return router

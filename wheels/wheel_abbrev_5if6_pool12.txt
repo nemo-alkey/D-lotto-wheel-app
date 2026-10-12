@@ -1,0 +1,52 @@
+Abbreviated Wheel: 5 if 6
+Pool (12 numbers): [2, 5, 9, 10, 12, 14, 18, 21, 23, 25, 29, 34]
+Tickets: 46  (full wheel: 924)
+Reduction: 5.0% of full wheel
+Cost per draw: $32.20
+---------------------------------------------
+Ticket   1:  2  5  9 10 12 14
+Ticket   2:  2  5  9 18 21 23
+Ticket   3:  2  5  9 25 29 34
+Ticket   4:  2 10 12 18 21 25
+Ticket   5:  2 10 12 23 29 34
+Ticket   6:  2 14 18 21 29 34
+Ticket   7:  5 10 14 18 23 25
+Ticket   8:  5 12 14 21 23 29
+Ticket   9:  9 10 14 21 23 34
+Ticket  10:  9 12 14 18 25 29
+Ticket  11:  2 12 14 23 25 34
+Ticket  12:  5  9 10 12 18 34
+Ticket  13:  5  9 10 21 25 29
+Ticket  14: 18 21 23 25 29 34
+Ticket  15:  2  9 10 18 23 29
+Ticket  16:  5 12 14 21 25 34
+Ticket  17:  2  5 10 21 23 34
+Ticket  18:  2  5 12 18 25 29
+Ticket  19:  2  9 12 21 23 25
+Ticket  20:  2 10 14 21 25 29
+Ticket  21:  5  9 14 23 29 34
+Ticket  22:  2  9 10 18 25 34
+Ticket  23:  2  9 12 21 29 34
+Ticket  24:  5 10 14 18 29 34
+Ticket  25: 10 12 14 18 21 23
+Ticket  26: 10 12 23 25 29 34
+Ticket  27:  2  5  9 14 18 21
+Ticket  28:  5  9 12 18 23 34
+Ticket  29:  2  5 14 18 23 25
+Ticket  30:  5  9 10 12 23 25
+Ticket  31:  9 14 18 21 25 34
+Ticket  32:  5 10 12 18 21 29
+Ticket  33:  2 12 14 18 23 34
+Ticket  34:  9 10 12 14 25 29
+Ticket  35:  2  9 10 14 23 29
+Ticket  36:  5  9 18 21 23 25
+Ticket  37:  2  5 10 12 14 34
+Ticket  38:  9 10 18 21 23 29
+Ticket  39:  2  5 12 18 23 29
+Ticket  40:  2  5 18 21 25 29
+Ticket  41:  5  9 10 21 25 34
+Ticket  42: 10 12 14 18 29 34
+Ticket  43:  2  5  9 18 21 34
+Ticket  44:  2  5  9 10 23 25
+Ticket  45:  2  5 14 18 21 23
+Ticket  46:  2  9 14 21 23 25

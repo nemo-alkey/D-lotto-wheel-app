@@ -18,8 +18,10 @@ from pipeline import DataPipeline  # Pipeline type for step signatures
 # Configure logging format and default level
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+from era_features import powerball_pool_size
+
 NUM_MAIN = 40  # Total possible main numbers
-NUM_POWERBALL = 10  # Total possible Powerball numbers
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Combined vector length (50)
 NUM_PICK = 6  # Number of main numbers drawn per ticket line
 CLUSTER_MULTIPLIER = 1.2  # Base weight applied to clustering influence

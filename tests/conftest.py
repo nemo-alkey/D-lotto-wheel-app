@@ -27,11 +27,13 @@ def db_connection() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(":memory:")
     conn.execute("""
         CREATE TABLE draws (
-            draw_id    INTEGER PRIMARY KEY,
-            draw_date  TEXT NOT NULL UNIQUE,
-            numbers    TEXT NOT NULL,
-            bonus      INTEGER CHECK (bonus BETWEEN 1 AND 40),
-            powerball  INTEGER CHECK (powerball BETWEEN 1 AND 10)
+            draw_id     INTEGER PRIMARY KEY,
+            draw_number INTEGER UNIQUE,
+            draw_date   TEXT NOT NULL UNIQUE,
+            numbers     TEXT NOT NULL,
+            bonus       INTEGER CHECK (bonus BETWEEN 1 AND 40),
+            powerball   INTEGER CHECK (powerball BETWEEN 1 AND 14),
+            rule_era    TEXT
         )
     """)
     yield conn

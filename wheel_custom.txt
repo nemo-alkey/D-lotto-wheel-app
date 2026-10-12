@@ -1,0 +1,16 @@
+=================================================================
+ABBREVIATED LOTTO WHEEL
+Pool (8 numbers): [3, 7, 12, 18, 22, 29, 34, 36]
+Guarantee: 4 if 4
+Tickets generated: 8  (full wheel: 28)
+Reduction: 28.6% of full wheel
+Cost per draw: $5.60
+=================================================================
+Ticket   1:  3  7 12 18 22 29
+Ticket   2:  3  7 12 18 34 36
+Ticket   3:  3  7 22 29 34 36
+Ticket   4: 12 18 22 29 34 36
+Ticket   5:  3  7 12 18 22 34
+Ticket   6:  3  7 12 18 22 36
+Ticket   7:  3  7 12 18 29 34
+Ticket   8:  3  7 12 18 29 36

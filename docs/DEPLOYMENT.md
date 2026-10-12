@@ -164,12 +164,21 @@ detected port — point it at 8000 for the API.
 
 ## 7. Production checklist
 
-- [ ] `SECRET_KEY` (and `JWT_SECRET_KEY`) set to strong random values —
-      `config_manager.validate_startup()` exits with code 1 if `DEBUG=false`
-      and the key is still a placeholder
+- [ ] `ENVIRONMENT=production` set — this disables `.env` file loading, so
+      every secret must be injected as a real environment variable
+- [ ] `SECRET_KEY` (and `JWT_SECRET_KEY`) set to strong random values (≥ 32
+      chars) — `config_manager.validate_startup()` exits with code 1 if the
+      key is still a placeholder
 - [ ] `DEBUG=false`
-- [ ] `CORS_ORIGINS` lists explicit origins — a wildcard entry with
-      `DEBUG=false` is also fatal at startup
+- [ ] `CORS_ORIGINS` lists explicit origins — a wildcard entry in production
+      is fatal at startup
+- [ ] `DATABASE_URL` points at PostgreSQL for production (pooling via
+      `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` / `DB_POOL_TIMEOUT` /
+      `DB_POOL_RECYCLE`); SQLite remains the local-dev fallback
+- [ ] `REDIS_URL` set for distributed caching/rate limiting (in-memory
+      fallback only scales to one worker)
+- [ ] If `FEATURE_PAYMENTS=true`: all three Stripe keys set
+      (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`)
 - [ ] `ADMIN_USERNAME` / `ADMIN_PASSWORD` changed from defaults; admin seeded
       with `make seed-admin` (`JWT_ADMIN_PASSWORD` env var, optional
       `JWT_ADMIN_USERNAME`)
@@ -183,6 +192,24 @@ detected port — point it at 8000 for the API.
       (verify with `python migrate.py check`)
 - [ ] Backups verified: `python database_backup.py verify <file>` and a test
       restore before go-live
+
+### Pre-deploy / post-deploy config verification
+
+```bash
+# Pre-deploy: validate configuration without starting the app.
+# Exit codes: 0 = ok, 1 = critical errors, 2 = warnings only.
+python scripts/verify_config.py
+python scripts/verify_config.py --json     # machine-readable report
+
+# Post-deploy: smoke-test the live API's configuration endpoints.
+python scripts/smoke_config.py --base-url https://api.example.com \
+    --expect-version 2.0.0 --admin-token "$ADMIN_JWT"
+```
+
+`GET /config/health` exposes non-sensitive config (version, environment,
+feature flags, which integrations are configured). `GET /admin/config`
+returns the full configuration with all secrets masked — admin JWT only.
+
 
 ## 8. Upgrades & rollbacks
 

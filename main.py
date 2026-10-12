@@ -13,6 +13,9 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+# Configuration validation
+from config_manager import get_settings, validate_startup
+
 # Data I/O
 from data_io import load_current_ticket
 
@@ -129,6 +132,17 @@ def safe_run(step_fn: Callable[[DataPipeline], Any], pipeline: DataPipeline, nam
 # Main Program Loop
 # ============================================================
 def main() -> None:
+    cfg = get_settings()
+    print(f"=== {cfg.APP_NAME} ===")
+    print(f"Version:     {cfg.VERSION}")
+    print(f"Environment: {cfg.ENVIRONMENT}")
+    print(f"Health:      http://localhost:{cfg.API_PORT}/health")
+    try:
+        validate_startup(cfg)
+    except SystemExit:
+        print("Startup aborted: configuration validation failed.", file=sys.stderr)
+        raise
+
     initialize_database()
     verify_draw_order()
     pipeline = DataPipeline()

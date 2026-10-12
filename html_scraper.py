@@ -104,20 +104,32 @@ def _parse_draw_card(card: Tag) -> dict[str, Any] | None:
                 bonus = int(bonus_match[-1])
 
     # --- Powerball ---
+    # Regex must cover the full 1-14 pool (new rules from 2026-09-16).
     pb_el = card.find(string=re.compile(r"powerball", re.I))
     if pb_el:
         pb_parent = pb_el.find_parent()
         if pb_parent:
             pb_text = pb_parent.get_text()
-            pb_match = re.findall(r"\b(10|[1-9])\b", pb_text)
-            if pb_match:
-                powerball = int(pb_match[-1])
+            pb_match = re.findall(r"\b(1[0-4]|[1-9])\b", pb_text)
+            if not pb_match:
+                raise ValueError(
+                    f"Powerball value not found in card text for draw {date_iso!r}: {pb_text!r}"
+                )
+            powerball = int(pb_match[-1])
+
+    # Era-aware validation: raises if the parsed Powerball is invalid for the
+    # draw date. A card with no Powerball element at all (pre-Powerball era)
+    # keeps powerball=0.
+    if powerball:
+        from powerball_rules import validate_powerball
+
+        validate_powerball(powerball, date_iso)
 
     return {
         "draw_date": date_iso,
         "numbers": sorted(numbers),
         "bonus": bonus if 1 <= bonus <= 40 else 0,
-        "powerball": powerball if 1 <= powerball <= 10 else 0,
+        "powerball": powerball,
     }
 
 

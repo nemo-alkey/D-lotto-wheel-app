@@ -15,7 +15,6 @@ import math
 import os
 import sqlite3
 import time
-import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -68,7 +67,7 @@ from config.settings import Settings as AppSettings
 from config_manager import get_settings, validate_startup
 from monitoring import health as health_checks
 from monitoring import metrics
-from monitoring.logging_setup import app_logger, bind_request_context
+from monitoring.middleware import setup_middleware
 from security_log import security_logger
 
 # Canonical application configuration (config/settings.py singleton).
@@ -406,44 +405,12 @@ async def security_headers(
     return response
 
 
-@app.middleware("http")
-async def metrics_and_access_log(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
-    """Prometheus counters/histograms + structured JSON access log.
+# Health/metrics routers (see monitoring/health.py and monitoring/metrics.py).
+app.include_router(health_checks.get_health_router(_cfg.DB_PATH, REDIS_URL, app.version))
+app.include_router(metrics.get_metrics_router())
 
-    Auto-increments http_requests_total, observes
-    http_request_duration_seconds, tracks active users, and appends one
-    JSON line per request to data/logs/app.log with a request id.
-    """
-    start = time.perf_counter()
-    request_id = uuid.uuid4().hex[:12]
-
-    user_id = "-"
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        user_id = _decode_token(auth_header[7:]) or "-"
-    bind_request_context(request_id, user_id)
-
-    response = await call_next(request)
-
-    duration = time.perf_counter() - start
-    endpoint = metrics.route_template(request)
-    metrics.HTTP_REQUESTS_TOTAL.labels(
-        method=request.method, endpoint=endpoint, status=str(response.status_code)
-    ).inc()
-    metrics.HTTP_REQUEST_DURATION.labels(method=request.method, endpoint=endpoint).observe(duration)
-    metrics.record_active(user_id if user_id != "-" else f"ip:{get_remote_address(request)}")
-
-    app_logger.info(
-        "%s %s -> %s",
-        request.method,
-        request.url.path,
-        response.status_code,
-        extra={"duration_ms": round(duration * 1000, 1)},
-    )
-    response.headers["X-Request-ID"] = request_id
-    return response
+# Prometheus counters/histograms + structured JSON access log (monitoring/middleware.py).
+setup_middleware(app)
 
 
 # Scrape-time health gauges for Prometheus (see monitoring/alerts.yml).
@@ -979,32 +946,6 @@ def root() -> dict[str, Any]:
     return {"status": "ok", "message": "NZ Lotto Powerball API"}
 
 
-@app.get("/health", tags=["System"])
-def health() -> Response:
-    """Full system health check.
-
-    Runs the checks from monitoring.health: database connectivity
-    (critical), Redis (non-critical — in-memory fallback exists), disk
-    space (warn < 10% free), memory (warn > 90% used), and the age of the
-    latest draw in hours (warn > 72h).
-
-    Args:
-        None.
-
-    Returns:
-        JSONResponse: {"status", "timestamp", "version", "checks",
-        "draws"}. Status is "healthy" (all ok), "degraded" (warnings), or
-        "unhealthy" (critical failure).
-
-    Raises:
-        Nothing — check failures are reported in the payload: HTTP 200
-        for healthy/degraded, HTTP 503 when a critical check fails.
-    """
-    result = health_checks.run_all_checks(_cfg.DB_PATH, REDIS_URL, app.version)
-    http_status = result.pop("http_status")
-    return JSONResponse(content=result, status_code=http_status)
-
-
 @app.get("/config", tags=["System"])
 def read_config(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
     """Public, non-secret runtime configuration.
@@ -1026,22 +967,48 @@ def read_config(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
     }
 
 
-@app.get("/metrics", include_in_schema=False, tags=["System"])
-def prometheus_metrics() -> Response:
-    """Prometheus metrics exposition (text format).
+@app.get("/config/health", tags=["System"])
+def config_health(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
+    """Non-sensitive configuration health snapshot.
 
     Args:
-        None.
+        cfg: Injected application Settings singleton.
 
     Returns:
-        Response: text/plain; version=0.0.4 payload with request
-        counters/histograms, business counters, active users, DB query
-        durations, and scrape-time health gauges.
+        dict: app name, version, environment, debug flag, feature flags,
+        database backend/pooling, and whether Redis/SMTP/Stripe are
+        configured. Never includes secret values — only booleans.
 
     Raises:
         Nothing.
     """
-    return Response(content=metrics.render_metrics(), media_type=metrics.CONTENT_TYPE_LATEST)
+    return cfg.public_summary()
+
+
+@app.get("/admin/config", tags=["Admin"])
+def admin_config(
+    admin: User = Depends(require_admin_http),
+    cfg: AppSettings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Full runtime configuration with secrets masked (admin only).
+
+    Args:
+        admin: Authenticated admin user (HTTP Bearer JWT).
+        cfg: Injected application Settings singleton.
+
+    Returns:
+        dict: every Settings field; values whose name contains
+        SECRET/PASS/TOKEN/_KEY are replaced by "********", and passwords
+        inside URLs are masked.
+
+    Raises:
+        HTTPException: 401 if the token is missing/invalid, 403 if the
+            user is not an admin.
+    """
+    return {
+        "requested_by": admin.username,
+        "config": cfg.masked_dump(),
+    }
 
 
 @app.post("/register", status_code=201, tags=["Auth"])

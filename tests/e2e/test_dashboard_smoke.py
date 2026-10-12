@@ -23,12 +23,40 @@ DASHBOARD_PATH = os.path.join(
 
 @pytest.fixture(scope="module")
 def app() -> "AppTest":
-    """Run the dashboard script once via AppTest and return the result."""
+    """Run the dashboard script via AppTest with a stubbed API.
+
+    The dashboard hits /health (JSON) and /metrics (Prometheus text) at
+    load. We stub requests.get/post with a URL-aware fake so neither call
+    hits the network: /health returns {"status":"ok"}, everything else
+    returns an empty Prometheus body.
+    """
+    from unittest.mock import patch
+
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(DASHBOARD_PATH, default_timeout=120)
-    at.run(timeout=120)
-    return at
+    def _make_response(url: str) -> object:
+        is_health = "/health" in url
+        return type(
+            "FakeResponse",
+            (),
+            {
+                "status_code": 200,
+                "ok": True,
+                "raise_for_status": lambda self: None,
+                "json": (lambda self: {"status": "ok"}) if is_health else (lambda self: {}),
+                "text": "ok" if is_health else "",
+            },
+        )()
+
+    def fake_request(url, *args, **kwargs):
+        return _make_response(str(url))
+
+    with patch("requests.get", side_effect=fake_request), patch(
+        "requests.post", side_effect=fake_request
+    ):
+        at = AppTest.from_file(DASHBOARD_PATH, default_timeout=120)
+        at.run(timeout=120)
+        return at
 
 
 def test_dashboard_file_exists() -> None:
@@ -55,7 +83,7 @@ def test_dashboard_renders_landing_page(app: "AppTest") -> None:
         "NZ Lotto Powerball Wheel Dashboard" in t for t in markdown_texts
     ), "landing page header not found in rendered markdown"
 
-    # Sidebar navigation radio defaults to 'Wheels & Tickets'
-    nav_radios = [r for r in app.radio if r.label == "Go to"]
-    assert nav_radios, "navigation radio 'Go to' not found"
+    # Per-tab navigation radio; the Wheels tab is the default landing page
+    nav_radios = [r for r in app.radio if r.label == "🎡 Wheels section"]
+    assert nav_radios, "navigation radio 'Wheels section' not found"
     assert nav_radios[0].value == "Wheels & Tickets"

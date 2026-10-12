@@ -77,14 +77,15 @@ def get_engine() -> Engine:
             cursor.close()
 
     else:
-        # PostgreSQL / other databases
-        _engine = create_engine(
-            url,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,  # verify connections before use
-            echo=False,
-        )
+        # PostgreSQL / other databases — pooling parameters come from the
+        # canonical app config (DB_POOL_SIZE, DB_MAX_OVERFLOW, …).
+        try:
+            from config_manager import get_settings
+
+            pool_kwargs = get_settings().sqlalchemy_engine_kwargs()
+        except Exception:
+            pool_kwargs = {"pool_size": 5, "max_overflow": 10, "pool_pre_ping": True}
+        _engine = create_engine(url, echo=False, **pool_kwargs)
 
     return _engine
 
