@@ -28,3 +28,8 @@ _ci_checkout/
 # Frontend build artifacts
 node_modules/
 mobile-frontend/dist/
+
+# Coverage output
+.coverage
+htmlcov/
+.coverage.*
