@@ -19,5 +19,5 @@
 ## Recovery commands (once host is known)
 python backfill_by_drawnum.py --start 2400 --end 2400   # single test
 python backfill_by_drawnum.py --start 2309 --end 2511   # full gap
-python write_full_audit.py                              # verify counts
+python scripts\analysis\write_full_audit.py                              # verify counts
 python scripts\analysis\chi_square.py                   # verify uniformity
