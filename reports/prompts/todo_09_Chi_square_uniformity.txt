@@ -1,0 +1,4 @@
+﻿Not yet implemented: Chi-square uniformity
+Dispatch target: scripts.analysis.chi_square
+
+Create that module, then re-run with -Runnable.

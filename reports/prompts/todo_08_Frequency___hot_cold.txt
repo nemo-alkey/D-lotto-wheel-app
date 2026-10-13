@@ -1,0 +1,4 @@
+﻿Not yet implemented: Frequency / hot-cold
+Dispatch target: scripts.analysis.frequency
+
+Create that module, then re-run with -Runnable.

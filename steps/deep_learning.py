@@ -24,7 +24,7 @@ Pipeline stages:
 """
 
 import logging  # Standard Python logging
-from typing import cast  # For NumPy return casts
+from typing import Any, cast  # For NumPy return casts
 
 import numpy as np  # Core numerical array library used throughout
 import numpy.typing as npt  # NumPy type aliases for annotations

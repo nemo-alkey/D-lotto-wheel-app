@@ -1,0 +1,4 @@
+﻿Not yet implemented: Game-specific pipeline deltas
+Dispatch target: scripts.analysis.game_deltas
+
+Create that module, then re-run with -Runnable.

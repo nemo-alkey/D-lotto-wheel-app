@@ -93,9 +93,11 @@ def _fallback_pb_prizes(draw_date: "str | None") -> dict[int, float]:
     """
     from powerball_rules import POWERBALL_CHANGE_DATE, pb_fixed_prizes
 
+    from typing import Any as _Any, cast as _cast
+
     prizes = dict(FALLBACK_PB)
     effective = draw_date if draw_date is not None else POWERBALL_CHANGE_DATE
-    prizes.update(pb_fixed_prizes(effective))
+    prizes.update(pb_fixed_prizes(_cast(_Any, effective)))
     return prizes
 
 
@@ -736,8 +738,10 @@ def _pb_fixed_prizes_for(draw_date: "str | None") -> dict[int, float]:
     ``allocate_pool`` models a game played under a known rule set, so the
     current rules are the correct default for forward simulations.
     """
+    from typing import Any as _Any, cast as _cast
+
     effective = draw_date if draw_date is not None else POWERBALL_CHANGE_DATE
-    return pb_fixed_prizes(effective)
+    return pb_fixed_prizes(_cast(_Any, effective))
 
 
 def allocate_pool(
