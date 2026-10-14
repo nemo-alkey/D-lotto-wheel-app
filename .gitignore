@@ -33,3 +33,11 @@ mobile-frontend/dist/
 .coverage
 htmlcov/
 .coverage.*
+
+# Generated artifacts
+data/features.parquet
+data/plots/
+models/
+model.pkl
+reports/optuna/
+reports/predictions/
