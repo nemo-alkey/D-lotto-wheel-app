@@ -14,6 +14,14 @@ Wednesday 16 September 2026:
 Draws before POWERBALL_CHANGE_DATE are valid only with Powerball 1-10;
 draws on or after it are valid with Powerball 1-14.
 
+Historical era (verified via scripts/analysis/verify_pool_change.py): the
+Powerball pool was 1-8 from its August 2001 launch through 2007, then expanded
+to 1-10 around the start of 2008. The full pre-2026 history shows a PB 9/10
+deficit (chi-square p=0.0001), but restricting to 2008+ is uniform over 1-10
+(p=0.54) and over 1-8 (p=0.49) — so that deficit is a legitimate era, not data
+corruption. This module intentionally validates pre-2026 draws against 1-10;
+the stored 2001-2007 data already contains only Powerball 1-8.
+
 Everything that validates, generates, or models Powerball values should take
 its era boundaries from here instead of hardcoding 10 or 14.
 """

@@ -54,13 +54,18 @@ def main() -> int:
     # ---- Powerball, era split ----
     section("Chi-square: Powerball by era")
 
-    for era_label, era_key, pool_size in [
-        ("Pre-2026-09-16 (pool 1-10)", "pre_2026_09_16", 10),
-        ("Post-2026-09-16 (pool 1-14)", "post_2026_09_16", 14),
+    for era_label, era_key, pool_size, min_date, max_date in [
+        ("2001-2007 (pool 1-8, excluded)", "pre_2026_09_16", 8, None, "2008-01-01"),
+        ("2008-2026-09-15 (pool 1-10)", "pre_2026_09_16", 10, "2008-01-01", None),
+        ("Post-2026-09-16 (pool 1-14)", "post_2026_09_16", 14, None, None),
     ]:
         subset = [
             d for d in draws
-            if d["rule_era"] == era_key and 1 <= d["powerball"] <= pool_size
+            if d["rule_era"] == era_key
+            and d["powerball"] is not None
+            and 1 <= d["powerball"] <= pool_size
+            and (min_date is None or d["draw_date"] >= min_date)
+            and (max_date is None or d["draw_date"] < max_date)
         ]
         subsection(era_label)
         if not subset:
@@ -73,6 +78,12 @@ def main() -> int:
         print(f"Draws in era:          {len(subset)}")
         print(f"PB appearances:        {pb_total}")
         print(f"Expected per PB:       {pb_total / pool_size:.1f}")
+        if max_date is not None:
+            # Pre-2008 window: the Powerball pool was 1-8, not 1-10. Excluded
+            # from the uniformity test because the pool size changed in 2008,
+            # so its distribution is not comparable with the 1-10 era after it.
+            print("Excluded - pool 1-8 era (pool size changed in 2008).")
+            continue
         if pb_total < 2 * pool_size:
             print("Sample too small for a reliable chi-square. Skipping.")
             continue
