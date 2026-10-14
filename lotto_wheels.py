@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lotto Powerball Wheel Manager – NZ Lotto 6/40 + PB 1-10
+Lotto Powerball Wheel Manager – NZ Lotto 6/40 + PB 1-10; 2008-2026-09-15, 1-14 after
 Integrates:
 - Albert's Lotto Code (pos/neg, blocks, sum range, numerical attraction)
 - Bluskov's wheels (System #11, #20, #88, full jackpot)

@@ -622,7 +622,7 @@ def simulate_bonus_ev(
     """Monte Carlo simulation of bonus ball premium for a wheel.
 
     For each simulated draw, randomly generates 6 main numbers (1-40,
-    without replacement), 1 bonus ball (1-40), and 1 Powerball (1-10).
+    without replacement), 1 bonus ball (1-40), and 1 Powerball (1-10; 2008-2026-09-15, 1-14 after).
     Computes the total prize across all tickets with and without the
     bonus ball matching.  Uses vectorised numpy operations for speed.
 

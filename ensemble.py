@@ -5,7 +5,7 @@ ensemble.py — Dynamic ensemble predictor fusing Bayesian, Markov, and Albert m
 Walks forward over recent draws to compute each sub-predictor's accuracy
 (Brier score), then assigns softmax-normalised weights.  The ensemble
 prediction is a weighted average of sub-predictor probabilities for each
-number (1-40 for mains, 1-40 for bonus, 1-10 for Powerball).
+number (1-40 for mains, 1-40 for bonus, 1-10 for Powerball; 2008-2026-09-15, 1-14 after).
 
 Requires a sqlite3.Connection to a 'draws' table.
 """

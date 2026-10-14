@@ -1,29 +1,27 @@
 @{
     Prompts = @(
         # ---- Runnable: has backing code ----
-      
+
         @{ Id = 4;  Title = "Scrape historical draws";        Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\backfill_draws.py" } }
         @{ Id = 5;  Title = "Selenium scraper";               Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "selenium_scraper.py" } }
         @{ Id = 6;  Title = "Repair scraped data";            Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\repair_powerball_zero.py" } }
+        @{ Id = 8;  Title = "Frequency / hot-cold";           Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\frequency.py" } }
+        @{ Id = 9;  Title = "Chi-square uniformity";          Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\chi_square.py" } }
+        @{ Id = 10; Title = "Autocorrelation / runs test";    Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\runs_test.py" } }
+        @{ Id = 12; Title = "Compare model architectures";    Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\architectures.py" } }
+        @{ Id = 13; Title = "Feature engineering pipeline";   Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\features.py" } }
+        @{ Id = 14; Title = "ML framing (multi-label)";       Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\framing.py" } }
         @{ Id = 15; Title = "Train with time split";          Category = "Runnable";    Dispatch = @{ Type = "Shell";  Path = "python train_ml_model.py --db data\lotto.db" } }
+        @{ Id = 16; Title = "Overfitting / cross-val";        Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\overfitting.py" } }
+        @{ Id = 17; Title = "Simulate vs random";             Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\simulate_random.py" } }
+        @{ Id = 18; Title = "Hyperparameter tuning (Optuna)"; Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\optuna_tune.py" } }
+        @{ Id = 21; Title = "Top-5 candidate sets";           Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\candidate_sets.py" } }
+        @{ Id = 22; Title = "Prediction report template";     Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\prediction_report.py" } }
+        @{ Id = 23; Title = "Game-specific pipeline deltas";  Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\game_deltas.py" } }
+        @{ Id = 24; Title = "Expected value analysis";        Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\ev_table.py" } }
+        @{ Id = 28; Title = "Non-obvious AI strategies";      Category = "Runnable";    Dispatch = @{ Type = "Script"; Path = "scripts\analysis\nonobvious.py" } }
         @{ Id = 32; Title = "Review code (pytest)";           Category = "Runnable";    Dispatch = @{ Type = "Shell";  Path = "python -m pytest tests/ -q" } }
         @{ Id = 33; Title = "Review code (mypy)";             Category = "Runnable";    Dispatch = @{ Type = "Shell";  Path = "python -m mypy ." } }
-
-        # ---- NeedsScript: not yet implemented ----
-        @{ Id = 8;  Title = "Frequency / hot-cold";           Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.frequency" } }
-        @{ Id = 9;  Title = "Chi-square uniformity";          Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.chi_square" } }
-        @{ Id = 10; Title = "Autocorrelation / runs test";    Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.runs_test" } }
-        @{ Id = 12; Title = "Compare model architectures";    Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.architectures" } }
-        @{ Id = 13; Title = "Feature engineering pipeline";   Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.features" } }
-        @{ Id = 14; Title = "ML framing (multi-label)";       Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.framing" } }
-        @{ Id = 16; Title = "Overfitting / cross-val";        Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.overfitting" } }
-        @{ Id = 17; Title = "Simulate vs random";             Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.simulate_random" } }
-        @{ Id = 18; Title = "Hyperparameter tuning (Optuna)"; Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.optuna_tune" } }
-        @{ Id = 21; Title = "Top-5 candidate sets";           Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.candidate_sets" } }
-        @{ Id = 22; Title = "Prediction report template";     Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.prediction_report" } }
-        @{ Id = 23; Title = "Game-specific pipeline deltas";  Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.game_deltas" } }
-        @{ Id = 24; Title = "Expected value analysis";        Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.ev_table" } }
-        @{ Id = 28; Title = "Non-obvious AI strategies";      Category = "NeedsScript"; Dispatch = @{ Type = "PythonModule"; Module = "scripts.analysis.nonobvious" } }
 
         # ---- Advisory: emit as text ----
         @{ Id = 2;  Title = "Folder structure";               Category = "Advisory"; Prompt = "Design the folder structure for a lottery prediction project: raw data, cleaned data, notebooks, models, results, and logs. Explain what goes where." }

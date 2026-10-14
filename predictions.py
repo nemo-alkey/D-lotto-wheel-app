@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-predictions.py — 7 prediction methods for NZ Lotto Powerball (6/40 + PB 1-10).
+predictions.py — 7 prediction methods for NZ Lotto Powerball (6/40 + PB 1-10; 2008-2026-09-15, 1-14 after).
 
 Each method accepts a list of draws in the format returned by
 lotto_wheels.load_draws():  [(numbers_list, powerball, draw_date), ...]

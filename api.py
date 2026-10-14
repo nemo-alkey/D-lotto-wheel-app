@@ -8,7 +8,7 @@ Start with:  uvicorn api:app --host 0.0.0.0 --port 8000
 
 from __future__ import annotations
 
-from powerball_rules import POWERBALL_MAX_NEW
+from powerball_rules import POWERBALL_MAX_NEW, validate_powerball
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import asyncio
@@ -1233,6 +1233,13 @@ async def internal_new_draw(
         HTTPException: 403 if the internal token is wrong or the caller is
             not localhost (when no token is configured).
     """
+    # Era-aware Powerball validation: reject PB 11-14 for pre-2026-09-16 draws.
+    # Pydantic's le=14 is only the ceiling; the era bound comes from here.
+    try:
+        validate_powerball(event.powerball, event.draw_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     if INTERNAL_NOTIFY_TOKEN:
         if x_internal_token != INTERNAL_NOTIFY_TOKEN:
             raise HTTPException(status_code=403, detail="Invalid internal token.")

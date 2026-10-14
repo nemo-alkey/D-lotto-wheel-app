@@ -3,7 +3,7 @@
 ## Purpose of File: Perform Monte Carlo Simulations on Lottery Number Probabilities
 ## Description:
 ##   Runs Monte Carlo simulations to generate a frequency distribution
-##   for main (1-40) and Powerball (1-10) numbers.
+##   for main (1-40) and Powerball (1-10; 2008-2026-09-15, 1-14 after) numbers.
 ##   Uses Bayesian fusion and clustering to adjust probabilities,
 ##   then simulates draws and returns a shape-(50,) probability vector.
 

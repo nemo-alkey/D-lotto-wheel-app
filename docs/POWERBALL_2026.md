@@ -31,6 +31,23 @@ Every draw is classified into one of two eras:
 
 The rule_era column on the draws table stores this classification. It is populated automatically by ingestion.
 
+### Historical pool sizes
+
+The full Powerball pool history has three phases:
+
+| Era | Dates | Pool |
+|---|---|---|
+| Launch | 2001-08-01 to 2007-12-31 | 1-8 |
+| Middle | 2008-01-01 to 2026-09-15 | 1-10 |
+| 2026 change | 2026-09-16 onward | 1-14 |
+
+The 2001-2007 pool of 1-8 is a verified historical fact
+(`scripts/analysis/verify_pool_change.py`): a chi-square over the full
+pre-2026 history shows a PB 9/10 deficit (p=0.0001), but restricting to
+2008+ is uniform over 1-10 (p=0.54). It is not tracked as a separate
+`rule_era` value; it is a property of `draw_date` and matters only for
+historical statistics.
+
 ---
 
 ## Source of truth: powerball_rules.py

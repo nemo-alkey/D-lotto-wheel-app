@@ -36,7 +36,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def load_draws_from_db(db_path: str) -> list[tuple[list[int], int, int, str]]:
-    """Load draws from a lotto_working.db SQLite file.
+    """Load draws from a SQLite file.
+
+    Supports both schemas:
+      - wide (legacy ``lotto_working.db``): n1..n6, powerball, bonus, draw_date
+      - canonical (``data/lotto.db``): numbers (comma-joined), powerball, bonus, draw_date
 
     Returns list of (numbers_list, powerball, bonus, draw_date).
     Works with both local paths and uploaded DB files.
@@ -48,19 +52,31 @@ def load_draws_from_db(db_path: str) -> list[tuple[list[int], int, int, str]]:
         sys.exit(1)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    cursor = conn.execute(
-        "SELECT draw_date, n1, n2, n3, n4, n5, n6, powerball, bonus "
-        "FROM draws ORDER BY draw_date"
-    )
-    draws = [
-        (
-            [row["n1"], row["n2"], row["n3"], row["n4"], row["n5"], row["n6"]],
-            row["powerball"],
-            row["bonus"] or 0,
-            row["draw_date"],
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(draws)")}
+    if {"n1", "n6"} <= cols:
+        cursor = conn.execute(
+            "SELECT draw_date, n1, n2, n3, n4, n5, n6, powerball, bonus "
+            "FROM draws ORDER BY draw_date"
         )
-        for row in cursor
-    ]
+        draws = [
+            (
+                [row["n1"], row["n2"], row["n3"], row["n4"], row["n5"], row["n6"]],
+                row["powerball"],
+                row["bonus"] or 0,
+                row["draw_date"],
+            )
+            for row in cursor
+        ]
+    else:
+        cursor = conn.execute(
+            "SELECT draw_date, numbers, powerball, bonus FROM draws ORDER BY draw_date"
+        )
+        draws = []
+        for row in cursor:
+            nums = [int(x) for x in (row["numbers"] or "").split(",") if x.strip()]
+            if len(nums) != 6:
+                continue
+            draws.append((nums, row["powerball"] or 0, row["bonus"] or 0, row["draw_date"]))
     conn.close()
     return draws
 
@@ -74,7 +90,7 @@ MIN_HISTORY = 30
 
 
 def build_features_for_draw(
-    draws: list[tuple[list[int], int, str]],
+    draws: list[tuple[list[int], int, int, str]],
     target_idx: int,
     num_range: range,
 ) -> list[dict[str, Any]]:
@@ -90,7 +106,7 @@ def build_features_for_draw(
         return []
 
     past_draws = draws[:target_idx]
-    current_nums = draws[target_idx][0]
+    current_nums = draws[target_idx][0] if target_idx < len(draws) else []
     # Powerball rows are built over the era-aware pool (1-14 since 2026-09-16).
     from era_features import powerball_pool_size
 
@@ -125,7 +141,7 @@ def build_features_for_draw(
 
     recent_50_start = max(0, target_idx - 50)
 
-    for j, (nums, pb, _) in enumerate(past_draws):
+    for j, (nums, pb, _, _) in enumerate(past_draws):
         drawn_set = set(nums)
 
         # If this is the PB feature builder, the "drawn" number is just the PB
@@ -318,16 +334,15 @@ def train_xgboost(
         colsample_bytree=0.8,
         scale_pos_weight=scale_pos_weight,
         eval_metric="logloss",
-        use_label_encoder=False,
         random_state=42,
         verbosity=0,
+        early_stopping_rounds=30,
     )
 
     model.fit(
         x_train,
         y_train,
         eval_set=[(x_test, y_test)],
-        early_stopping_rounds=30,
         verbose=False,
     )
 
@@ -460,8 +475,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--db",
-        default="lotto_working.db",
-        help="Path to lotto_working.db (default: lotto_working.db)",
+        default="data/lotto.db",
+        help="Path to the draws SQLite DB (default: data/lotto.db)",
     )
     parser.add_argument(
         "--output",
@@ -618,7 +633,7 @@ if __name__ == "__main__":
 #            norm_gap  0.1234
 #            ...
 #
-#   --- Powerball (1-10) ---
+#   --- Powerball (1-10; 2008-2026-09-15, 1-14 after) ---
 #     Total examples: 18430  (1843 draws x 10 numbers)
 #     Train: 14740  |  Test: 3690
 #
