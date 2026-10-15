@@ -14,6 +14,7 @@ Usage:
 
 from __future__ import annotations
 
+import random
 from powerball_rules import POWERBALL_MAX_NEW
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
@@ -216,7 +217,8 @@ def build_candidate_sets(
         for n in line:
             penalty[n] += 1
         confidence = sum(p for n, p in num_probs if n in line)
-        sets.append({"numbers": line, "powerball": powerball, "confidence": confidence})
+        _pb_for_line = (powerball if powerball is not None else random.randint(1, 14))
+        sets.append({"numbers": line, "powerball": _pb_for_line, "confidence": confidence})
     return sets
 
 
@@ -260,9 +262,10 @@ def predict(
             pb = 0
             pb_prob = 0.0
     else:
-        recent_pbs = Counter(pb for _, pb, _, _ in draws[-30:])
-        pb = recent_pbs.most_common(1)[0][0]
-        pb_prob = 0.0
+        # No PB model (insufficient post-change draws).
+        # Signal per-line random dip to build_candidate_sets.
+        pb = None
+        pb_prob = None
 
     return {
         "numbers": [n for n, _ in top],
@@ -285,13 +288,19 @@ def print_prediction(pred: dict[str, Any], top_n: int) -> None:
     print()
     print("  === XGBoost Prediction ===")
     print(f"  Numbers:    {nums_str}")
-    print(f"  Powerball:  {pred['powerball']}")
+    if pred.get("powerball") is None:
+        print("  Powerball:  (no PB model - random dip per line)")
+    else:
+        print(f"  Powerball:  {pred['powerball']}")
     print()
     print(f"  Top {top_n} number probabilities:")
     for n in pred["numbers"]:
         bar = "#" * int(pred["top_probs"].get(n, 0) * 40)
         print(f"    #{n:02d}  {pred['top_probs'].get(n, 0):.2%}  {bar}")
-    print(f"    PB  {pred['pb_prob']:.2%}")
+    if pred.get("pb_prob") is not None:
+        print(f"    PB  {pred['pb_prob']:.2%}")
+    else:
+        print("    PB  (no PB model)")
     print()
 
     sets = pred.get("candidate_sets") or []
