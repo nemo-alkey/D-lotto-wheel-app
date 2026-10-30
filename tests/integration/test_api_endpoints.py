@@ -161,6 +161,19 @@ def test_predict_ensemble(authenticated_client: tuple[TestClient, str]) -> None:
     assert len(body["powerball"]) == 1
 
 
+def test_bonus_bayesian_emits_model_score_without_probability(
+    authenticated_client: tuple[TestClient, str],
+) -> None:
+    client, _ = authenticated_client
+    resp = client.get("/predict/bonus_bayesian", params={"k": 1})
+
+    assert resp.status_code == 200
+    output = resp.json()
+    assert len(output) == 1
+    assert "model_score" in output[0]
+    assert "probability" not in output[0]
+
+
 # ---------------------------------------------------------------------------
 # Anonymous vs authenticated /me
 # ---------------------------------------------------------------------------

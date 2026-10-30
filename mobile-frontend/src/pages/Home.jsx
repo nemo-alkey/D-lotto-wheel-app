@@ -35,7 +35,7 @@ export default function Home() {
         <h2 className="mb-3 text-lg font-semibold">Top {data.main.length} Main Numbers</h2>
         <div className="grid grid-cols-5 gap-y-3 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
           {data.main.map(([num, prob]) => (
-            <NumberBall key={num} number={num} probability={prob} />
+            <NumberBall key={num} number={num} model_score={prob} />
           ))}
         </div>
       </section>
@@ -44,7 +44,7 @@ export default function Home() {
         <h2 className="mb-3 text-lg font-semibold">Top Bonus Numbers</h2>
         <div className="flex flex-wrap gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
           {data.bonus.map(([num, prob]) => (
-            <NumberBall key={num} number={num} size="lg" probability={prob} />
+            <NumberBall key={num} number={num} size="lg" model_score={prob} />
           ))}
         </div>
       </section>
@@ -53,7 +53,7 @@ export default function Home() {
         <h2 className="mb-3 text-lg font-semibold">Top Powerball Picks</h2>
         <div className="flex flex-wrap gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
           {data.powerball.map(([num, prob]) => (
-            <NumberBall key={num} number={num} size="lg" probability={prob} />
+            <NumberBall key={num} number={num} size="lg" model_score={prob} />
           ))}
         </div>
       </section>

@@ -1533,7 +1533,7 @@ def predict_bonus_bayesian(k: int = 5) -> list[dict[str, Any]]:
         k: Number of top predictions to return (default 5, capped at 40).
 
     Returns:
-        list[dict]: Ranked entries with bonus_number and probability.
+        list[dict]: Ranked entries with bonus_number and model_score.
 
     Raises:
         HTTPException: 404 if no bonus ball data exists.
@@ -1553,7 +1553,7 @@ def predict_bonus_bayesian(k: int = 5) -> list[dict[str, Any]]:
     model = BonusBayesian(bonus_balls, alpha=1.0)
     top_k = model.predict_top_k(k=min(k, 40))
     return [
-        {"rank": i + 1, "bonus_number": n, "probability": round(p, 6)}
+        {"rank": i + 1, "bonus_number": n, "model_score": round(p, 6)}
         for i, (n, p) in enumerate(top_k)
     ]
 
