@@ -44,7 +44,7 @@ jobs:
       - name: Install linters + project dependencies
         run: |
           pip install -r requirements.txt
-          pip install ruff==0.5.0 mypy==1.10.0 types-requests
+          pip install ruff==0.5.0 mypy==1.10.0 types-requests types-cachetools
 
       # Config lives in pyproject.toml (ruff) and mypy.ini (mypy, strict).
       # Any error from either tool fails the build.
