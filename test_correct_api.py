@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test the correct API endpoint."""
 
-import requests
 import json
+
+import requests
 
 BASE = "https://pathway.mylotto.co.nz/api/results/v1/results/lotto"
 headers = {

@@ -12,10 +12,10 @@ print(f"Total draws: {count}")
 # Check recent draws with draw_number populated
 print("\nRecent draws with draw_number:")
 rows = conn.execute("""
-    SELECT draw_number, draw_date, numbers, bonus, powerball 
-    FROM draws 
-    WHERE draw_number IS NOT NULL 
-    ORDER BY draw_number DESC 
+    SELECT draw_number, draw_date, numbers, bonus, powerball
+    FROM draws
+    WHERE draw_number IS NOT NULL
+    ORDER BY draw_number DESC
     LIMIT 10
 """).fetchall()
 for row in rows:
@@ -28,10 +28,10 @@ print(f"  Count: {no_num_count}")
 
 if no_num_count > 0:
     rows = conn.execute("""
-        SELECT draw_date, numbers, bonus, powerball 
-        FROM draws 
-        WHERE draw_number IS NULL 
-        ORDER BY draw_date DESC 
+        SELECT draw_date, numbers, bonus, powerball
+        FROM draws
+        WHERE draw_number IS NULL
+        ORDER BY draw_date DESC
         LIMIT 5
     """).fetchall()
     for row in rows:

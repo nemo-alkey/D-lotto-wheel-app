@@ -23,7 +23,7 @@ if r.status_code == 200:
         print(f"   Draw: #{lotto.get('drawNumber')} on {lotto.get('drawDate')}")
         nums = lotto.get("lottoWinningNumbers", {}).get("numbers", [])
         print(f"   Numbers: {nums}")
-    except:
+    except Exception:
         print(f"   Response: {r.text[:200]}")
 
 # Test 2: drawNumber=2614 (previous draw)
@@ -37,7 +37,7 @@ if r.status_code == 200:
         print(f"   Draw: #{lotto.get('drawNumber')} on {lotto.get('drawDate')}")
         nums = lotto.get("lottoWinningNumbers", {}).get("numbers", [])
         print(f"   Numbers: {nums}")
-    except:
+    except Exception:
         print(f"   Response: {r.text[:200]}")
 
 # Test 3: date parameter
@@ -49,7 +49,7 @@ if r.status_code == 200:
         data = r.json()
         lotto = data.get("lotto", {})
         print(f"   Draw: #{lotto.get('drawNumber')} on {lotto.get('drawDate')}")
-    except:
+    except Exception:
         print(f"   Response: {r.text[:200]}")
 
 # Test 4: page parameter

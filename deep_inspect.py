@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Deep inspection: selenium scraper + JS bundles."""
 
-import requests
 import re
+
+import requests
 
 # 1. Show more of selenium_scraper.py
 print("=" * 60)
 print("SELENIUM SCRAPER - Lines 50-200")
 print("=" * 60)
 try:
-    with open("selenium_scraper.py", "r", encoding="utf-8") as f:
+    with open("selenium_scraper.py", encoding="utf-8") as f:
         lines = f.readlines()
     for i, line in enumerate(lines[50:200], 51):
         print(f"{i:3}: {line.rstrip()}")
@@ -22,7 +23,7 @@ print("=" * 60)
 try:
     for i, line in enumerate(lines[200:350], 201):
         print(f"{i:3}: {line.rstrip()}")
-except:
+except (NameError, IndexError):
     pass
 
 # 2. Check external JS bundles in archive page
@@ -49,7 +50,7 @@ if js_urls:
     js_r = requests.get(js_url, timeout=15)
     js_text = js_r.text
     print(f"Length: {len(js_text)} chars")
-    
+
     api_patterns = [
         r'/api/[^\s"\'<>]+',
         r'https?://[^\s"\'<>]*api[^\s"\'<>]*',
@@ -57,7 +58,7 @@ if js_urls:
         r'url:\s*["\']([^"\']+)["\']',
         r'baseURL:\s*["\']([^"\']+)["\']',
     ]
-    
+
     for pattern in api_patterns:
         matches = re.findall(pattern, js_text)
         if matches:

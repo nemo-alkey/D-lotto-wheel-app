@@ -13,6 +13,7 @@ Requires a sqlite3.Connection to a 'draws' table.
 from __future__ import annotations
 
 from powerball_rules import POWERBALL_MAX_NEW
+
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import sqlite3

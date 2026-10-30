@@ -3,6 +3,7 @@
 Prompt #23. Read-only report describing where the analysis pipeline diverges
 per game, and why a one-size-fits-all pipeline is wrong.
 """
+
 from __future__ import annotations
 
 import sys

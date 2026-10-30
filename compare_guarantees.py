@@ -20,7 +20,6 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
-from typing import List, Tuple, Set
 
 DB_PATH = Path.cwd() / "data" / "lotto.db"
 COST_PER_LINE = 0.70
@@ -29,7 +28,7 @@ LOTTO_MIN, LOTTO_MAX = 1, 40
 
 
 # ── Pool helpers ────────────────────────────────────────────────────────
-def get_hot_numbers(top_n: int = 40) -> List[int]:
+def get_hot_numbers(top_n: int = 40) -> list[int]:
     if not DB_PATH.exists():
         return []
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
@@ -41,7 +40,9 @@ def get_hot_numbers(top_n: int = 40) -> List[int]:
     return [n for n, _ in freq.most_common(top_n)]
 
 
-def generate_pool(pool_size: int, strategy: str, include: List[int], exclude: List[int]) -> List[int]:
+def generate_pool(
+    pool_size: int, strategy: str, include: list[int], exclude: list[int]
+) -> list[int]:
     available = [n for n in range(LOTTO_MIN, LOTTO_MAX + 1) if n not in exclude]
     include = [n for n in include if n in available]
     if len(include) > pool_size:
@@ -78,7 +79,7 @@ def generate_pool(pool_size: int, strategy: str, include: List[int], exclude: Li
 
 
 # ── Guarantee parsing ───────────────────────────────────────────────────
-def parse_guarantee(g: str) -> Tuple[int, int]:
+def parse_guarantee(g: str) -> tuple[int, int]:
     g = g.lower().replace("if", " ").replace("-", " ")
     parts = g.split()
     if len(parts) != 2:
@@ -87,7 +88,9 @@ def parse_guarantee(g: str) -> Tuple[int, int]:
 
 
 # ── Greedy set cover (silent version) ───────────────────────────────────
-def compute_coverage(ticket: Tuple[int, ...], triggers: List[Tuple[int, ...]], guarantee: int) -> Set[int]:
+def compute_coverage(
+    ticket: tuple[int, ...], triggers: list[tuple[int, ...]], guarantee: int
+) -> set[int]:
     tset = set(ticket)
     covered = set()
     for i, trig in enumerate(triggers):
@@ -96,24 +99,28 @@ def compute_coverage(ticket: Tuple[int, ...], triggers: List[Tuple[int, ...]], g
     return covered
 
 
-def greedy_set_cover(pool: List[int], guarantee: int, trigger_size: int, verbose: bool = False) -> List[Tuple[int, ...]]:
+def greedy_set_cover(
+    pool: list[int], guarantee: int, trigger_size: int, verbose: bool = False
+) -> list[tuple[int, ...]]:
     triggers = list(itertools.combinations(pool, trigger_size))
     all_tickets = list(itertools.combinations(pool, TICKET_SIZE))
 
     if verbose:
-        print(f"    Pool: {len(pool)} numbers | Triggers: {len(triggers):,} | Candidates: {len(all_tickets):,}")
+        print(
+            f"    Pool: {len(pool)} numbers | Triggers: {len(triggers):,} | Candidates: {len(all_tickets):,}"
+        )
 
     ticket_coverage = [compute_coverage(ticket, triggers, guarantee) for ticket in all_tickets]
 
-    uncovered: Set[int] = set(range(len(triggers)))
-    selected: List[Tuple[int, ...]] = []
+    uncovered: set[int] = set(range(len(triggers)))
+    selected: list[tuple[int, ...]] = []
 
     while uncovered:
         best_ticket = None
         best_cover = set()
         best_count = -1
 
-        for ticket, coverage in zip(all_tickets, ticket_coverage):
+        for ticket, coverage in zip(all_tickets, ticket_coverage, strict=False):
             new_cover = coverage & uncovered
             cnt = len(new_cover)
             if cnt > best_count:
@@ -132,7 +139,13 @@ def greedy_set_cover(pool: List[int], guarantee: int, trigger_size: int, verbose
 
 
 # ── Verification ────────────────────────────────────────────────────────
-def verify_wheel(tickets: List[Tuple[int, ...]], pool: List[int], guarantee: int, trigger_size: int, sims: int = 3000) -> Tuple[bool, float, int]:
+def verify_wheel(
+    tickets: list[tuple[int, ...]],
+    pool: list[int],
+    guarantee: int,
+    trigger_size: int,
+    sims: int = 3000,
+) -> tuple[bool, float, int]:
     hits = 0
     worst = TICKET_SIZE
     for _ in range(sims):
@@ -158,14 +171,22 @@ Examples:
         """,
     )
     parser.add_argument("--pool-size", type=int, default=10, help="Pool size (6–20)")
-    parser.add_argument("--numbers", type=str, help="Comma-separated exact pool (overrides --pool-size)")
-    parser.add_argument("--strategy", type=str, default="random", choices=["random", "hot", "cold", "balanced"])
+    parser.add_argument(
+        "--numbers", type=str, help="Comma-separated exact pool (overrides --pool-size)"
+    )
+    parser.add_argument(
+        "--strategy", type=str, default="random", choices=["random", "hot", "cold", "balanced"]
+    )
     parser.add_argument("--include", type=str, help="Comma-separated must-include numbers")
     parser.add_argument("--exclude", type=str, help="Comma-separated excluded numbers")
     parser.add_argument("--seed", type=int, help="Random seed for reproducible pools")
     parser.add_argument("--powerball", type=int, help="Fixed Powerball number")
-    parser.add_argument("--guarantees", type=str, default="3 if 3,4 if 4,4 if 5,5 if 6",
-                        help="Comma-separated guarantees to compare")
+    parser.add_argument(
+        "--guarantees",
+        type=str,
+        default="3 if 3,4 if 4,4 if 5,5 if 6",
+        help="Comma-separated guarantees to compare",
+    )
     parser.add_argument("--verify", action="store_true", help="Run Monte-Carlo verification")
     parser.add_argument("--output-dir", type=str, default=".", help="Directory to save wheel files")
 
@@ -220,17 +241,19 @@ Examples:
             print("  Verifying (3,000 simulations)...")
             ver_pass, ver_ratio, ver_worst = verify_wheel(tickets, pool, g_match, g_trig)
 
-        results.append({
-            "guarantee": f"{g_match} if {g_trig}",
-            "tickets": len(tickets),
-            "full": full_count,
-            "reduction": reduction,
-            "cost": cost,
-            "time": elapsed,
-            "verified": ver_pass,
-            "coverage": ver_ratio,
-            "worst": ver_worst,
-        })
+        results.append(
+            {
+                "guarantee": f"{g_match} if {g_trig}",
+                "tickets": len(tickets),
+                "full": full_count,
+                "reduction": reduction,
+                "cost": cost,
+                "time": elapsed,
+                "verified": ver_pass,
+                "coverage": ver_ratio,
+                "worst": ver_worst,
+            }
+        )
 
         # Save wheel file
         safe_name = f"wheel_abbrev_{g_match}if{g_trig}_pool{len(pool)}.txt"
@@ -252,11 +275,15 @@ Examples:
 
     # ── Summary table ───────────────────────────────────────────────────
     print(f"{'='*95}")
-    print(f"{'Guarantee':<12} {'Tickets':>8} {'Full':>8} {'Reduction':>10} {'Cost':>8} {'Time':>7} {'Verify':>8}")
+    print(
+        f"{'Guarantee':<12} {'Tickets':>8} {'Full':>8} {'Reduction':>10} {'Cost':>8} {'Time':>7} {'Verify':>8}"
+    )
     print(f"{'-'*95}")
     for r in results:
         v_str = "PASS" if r["verified"] else ("—" if not args.verify else "FAIL")
-        print(f"{r['guarantee']:<12} {r['tickets']:>8} {r['full']:>8} {r['reduction']:>9.1f}% ${r['cost']:>7.2f} {r['time']:>6.1f}s {v_str:>8}")
+        print(
+            f"{r['guarantee']:<12} {r['tickets']:>8} {r['full']:>8} {r['reduction']:>9.1f}% ${r['cost']:>7.2f} {r['time']:>6.1f}s {v_str:>8}"
+        )
     print(f"{'='*95}")
 
     print("\n📊 How to read this:")

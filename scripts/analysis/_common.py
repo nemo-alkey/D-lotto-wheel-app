@@ -3,6 +3,7 @@
 Every analysis script imports from here so era handling, DB path
 resolution, and output formatting stay consistent.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -51,15 +52,17 @@ def load_draws(era: str | None = None) -> list[dict[str, Any]]:
     out = []
     for r in rows:
         nums = [int(n) for n in r["numbers"].split(",")] if r["numbers"] else []
-        out.append({
-            "draw_id": r["draw_id"],
-            "draw_date": r["draw_date"],
-            "draw_number": r["draw_number"],
-            "numbers": nums,
-            "bonus": r["bonus"],
-            "powerball": r["powerball"],
-            "rule_era": r["rule_era"],
-        })
+        out.append(
+            {
+                "draw_id": r["draw_id"],
+                "draw_date": r["draw_date"],
+                "draw_number": r["draw_number"],
+                "numbers": nums,
+                "bonus": r["bonus"],
+                "powerball": r["powerball"],
+                "rule_era": r["rule_era"],
+            }
+        )
     return out
 
 

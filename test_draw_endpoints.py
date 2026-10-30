@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test the promising draw endpoints found in the JS bundle."""
 
-import requests
 import json
+
+import requests
 
 headers = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
 
@@ -27,7 +28,7 @@ for url in endpoints:
         ct = r.headers.get("content-type", "unknown")
         print(f"\n{url}")
         print(f"  Status: {r.status_code} | Content-Type: {ct}")
-        
+
         if r.status_code == 200:
             if "json" in ct:
                 try:

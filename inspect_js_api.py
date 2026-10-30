@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Find API endpoints in page JavaScript."""
 
-import requests
 import re
+
+import requests
 
 url = "https://mylotto.co.nz/results/lotto/archive"
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -40,9 +41,9 @@ for j in set(json_urls):
 
 # Look for window.__INITIAL_STATE__ or similar
 state_patterns = [
-    r'window\.__INITIAL_STATE__\s*=\s*(\{.*?\});',
-    r'window\.__DATA__\s*=\s*(\{.*?\});',
-    r'window\.__APP_DATA__\s*=\s*(\{.*?\});',
+    r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\});",
+    r"window\.__DATA__\s*=\s*(\{.*?\});",
+    r"window\.__APP_DATA__\s*=\s*(\{.*?\});",
 ]
 for pattern in state_patterns:
     matches = re.findall(pattern, text, re.DOTALL)
@@ -54,10 +55,10 @@ for pattern in state_patterns:
 print("\n" + "=" * 60)
 print("Checking existing selenium_scraper.py...")
 try:
-    with open("selenium_scraper.py", "r", encoding="utf-8") as f:
+    with open("selenium_scraper.py", encoding="utf-8") as f:
         content = f.read()
     print(f"File length: {len(content)} chars")
-    
+
     # Show first 50 lines
     lines = content.split("\n")[:50]
     print("\nFirst 50 lines:")

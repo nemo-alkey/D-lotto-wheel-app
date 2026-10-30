@@ -2,7 +2,6 @@
 """Diagnose which endpoint actually returns draw data."""
 
 import requests
-from datetime import date
 
 # Test multiple possible endpoints
 test_date = "2026-08-20"
@@ -28,7 +27,7 @@ for url in endpoints:
         content_type = r.headers.get("content-type", "unknown")
         print(f"\nURL: {url}")
         print(f"Status: {r.status_code} | Content-Type: {content_type}")
-        
+
         if r.status_code == 200:
             text = r.text.strip()
             if text.startswith("{"):
@@ -45,24 +44,29 @@ for url in endpoints:
 print("\n" + "=" * 60)
 print("Checking update_draws.py for its fetch logic...")
 try:
-    with open("update_draws.py", "r", encoding="utf-8") as f:
+    with open("update_draws.py", encoding="utf-8") as f:
         content = f.read()
-    
+
     import re
+
     urls = re.findall(r'https?://[^\s"\'<>]+', content)
     print("URLs found in update_draws.py:")
     for u in urls[:10]:
         print(f"  {u}")
-    
+
     base_match = re.search(r'API_BASE\s*=\s*["\']([^"\']+)["\']', content)
     if base_match:
         print(f"\nAPI_BASE = {base_match.group(1)}")
-    
-    func_match = re.search(r'def\s+\w*fetch\w*\([^)]*\):', content)
+
+    func_match = re.search(r"def\s+\w*fetch\w*\([^)]*\):", content)
     if func_match:
         idx = content.find(func_match.group(0))
         print(f"\nFetch function found around line {content[:idx].count(chr(10)) + 1}")
-        snippet = content[idx:content.find("\ndef ", idx+1) if content.find("\ndef ", idx+1) > 0 else idx+1500]
+        snippet = content[
+            idx : content.find("\ndef ", idx + 1)
+            if content.find("\ndef ", idx + 1) > 0
+            else idx + 1500
+        ]
         print(snippet[:1500])
 except Exception as e:
     print(f"Could not read update_draws.py: {e}")

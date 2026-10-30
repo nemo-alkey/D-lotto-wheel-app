@@ -22,17 +22,17 @@ import argparse
 import sqlite3
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
 
 import requests
 
 # Allow running both as `python scripts/backfill_draws.py` and as an import.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from powerball_rules import validate_powerball
 from era_features import rule_era_for_date
+from powerball_rules import validate_powerball
 
 DB_PATH = Path("data/lotto.db")
 LOG_PATH = Path("data/logs/backfill_draws.log")
@@ -45,7 +45,7 @@ RATE_LIMIT = 0.3  # seconds between network fetches
 
 #: fetcher signature: (draw_number) -> Optional[draw dict]
 #: draw dict keys: draw_number, draw_date, numbers (sorted list[int]), bonus, powerball.
-Fetcher = Callable[[int], Optional[dict]]
+Fetcher = Callable[[int], dict | None]
 
 _HEADERS = {
     "Accept": "application/json",
@@ -53,7 +53,7 @@ _HEADERS = {
 }
 
 
-def _log(log_path: Optional[Path], msg: str) -> None:
+def _log(log_path: Path | None, msg: str) -> None:
     line = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
     print(line)
     if log_path is not None:
@@ -74,7 +74,7 @@ def latest_draw_number() -> int:
     return int(r.json()["lotto"]["drawNumber"])
 
 
-def fetch_by_number(draw_number: int) -> Optional[dict]:
+def fetch_by_number(draw_number: int) -> dict | None:
     """Fetch one draw by number; era-validated. Raises ValueError on bad data."""
     try:
         r = requests.get(f"{API_BASE}/{draw_number}", headers=_HEADERS, timeout=15)
@@ -129,9 +129,9 @@ def fetch_by_number(draw_number: int) -> Optional[dict]:
 
 def backfill(
     db_path: Path = DB_PATH,
-    log_path: Optional[Path] = LOG_PATH,
+    log_path: Path | None = LOG_PATH,
     fetcher: Fetcher = fetch_by_number,
-    end: Optional[int] = None,
+    end: int | None = None,
     rate_limit: float = RATE_LIMIT,
     dry_run: bool = False,
 ) -> dict[str, int]:
@@ -141,9 +141,7 @@ def backfill(
     Idempotent: dates already present are skipped.
     """
     conn = sqlite3.connect(str(db_path), timeout=10)
-    anchor = conn.execute(
-        "SELECT MAX(draw_number) FROM draws WHERE draw_number > 0"
-    ).fetchone()[0]
+    anchor = conn.execute("SELECT MAX(draw_number) FROM draws WHERE draw_number > 0").fetchone()[0]
     start = (anchor or 0) + 1
     if end is None:
         end = latest_draw_number()
@@ -151,8 +149,11 @@ def backfill(
     conn.close()
 
     counts = {"start": start, "end": end, "inserted": 0, "skipped": 0, "not_found": 0}
-    _log(log_path, f"backfill started: draws {start}..{end} "
-                   f"({len(existing_dates)} dates already present, dry_run={dry_run})")
+    _log(
+        log_path,
+        f"backfill started: draws {start}..{end} "
+        f"({len(existing_dates)} dates already present, dry_run={dry_run})",
+    )
 
     for draw_number in range(start, end + 1):
         draw = fetcher(draw_number)
@@ -172,9 +173,7 @@ def backfill(
         if draw["powerball"]:
             validate_powerball(draw["powerball"], draw["draw_date"])
         elif draw["draw_date"] >= POWERBALL_INTRO_DATE:
-            raise ValueError(
-                f"{label} ({draw['draw_date']}): Powerball missing from fetched draw"
-            )
+            raise ValueError(f"{label} ({draw['draw_date']}): Powerball missing from fetched draw")
         if not dry_run:
             conn = sqlite3.connect(str(db_path), timeout=10)
             try:
@@ -194,8 +193,10 @@ def backfill(
             except sqlite3.IntegrityError:
                 # Same date raced in via another path — skip, never duplicate.
                 counts["skipped"] += 1
-                _log(log_path, f"SKIP {label} ({draw['draw_date']}): date conflict, "
-                               "already present")
+                _log(
+                    log_path,
+                    f"SKIP {label} ({draw['draw_date']}): date conflict, " "already present",
+                )
                 conn.close()
                 time.sleep(rate_limit)
                 continue

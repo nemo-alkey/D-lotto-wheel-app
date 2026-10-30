@@ -295,10 +295,7 @@ class TestAllocatePool:
         )
         assert result["div7_fixed_total"] == pytest.approx(10 * pc.DIV7_PB_PRIZE)
         assert result["per_winner"][7] == pc.DIV7_PB_PRIZE
-        assert result["remaining_pool"] == pytest.approx(
-            1_000_000.0 - 10 * pc.DIV7_PB_PRIZE
-        )
-
+        assert result["remaining_pool"] == pytest.approx(1_000_000.0 - 10 * pc.DIV7_PB_PRIZE)
 
     def test_single_winning_division_collects_whole_remaining_pool(self) -> None:
         # Reserve 25%, 100 Div 7 winners, then only Div 3 has winners.
@@ -316,7 +313,6 @@ class TestAllocatePool:
         assert result["remaining_pool"] == pytest.approx(remaining)
         assert result["per_winner"][3] == pytest.approx(remaining / 2)
 
-
     def test_pool_too_small_for_div7_pays_full_fixed_but_clamps_remaining(self) -> None:
         # Real behaviour: fixed Div 7 prizes are paid in full even when the
         # pool can't cover them (no clamp on div7_fixed_total); only the
@@ -330,7 +326,6 @@ class TestAllocatePool:
         )
         assert result["div7_fixed_total"] == pytest.approx(5 * pc.DIV7_PB_PRIZE)  # $75
         assert result["remaining_pool"] == 0.0  # floored at 0, not -$65
-
 
     def test_no_winners_at_all(self) -> None:
         result = pc.allocate_pool(1_000_000.0, game="powerball", reserve_rate=0.25)

@@ -31,7 +31,9 @@ for i, table in enumerate(soup.find_all("table")[:3]):
 print("\n" + "=" * 60)
 print("Looking for draw data in page...")
 
-draw_divs = soup.find_all(class_=lambda x: x and any(w in str(x).lower() for w in ["draw", "result", "number", "win"]))[:10]
+draw_divs = soup.find_all(
+    class_=lambda x: x and any(w in str(x).lower() for w in ["draw", "result", "number", "win"])
+)[:10]
 print(f"Found {len(draw_divs)} elements with draw/result/number/win in class")
 for div in draw_divs[:3]:
     print(f"  class={div.get('class')} | text={div.get_text(strip=True)[:100]}")
@@ -54,7 +56,9 @@ for p in pagination[:5]:
 
 # Look for links to specific draws
 links = soup.find_all("a", href=True)
-draw_links = [a for a in links if any(w in a["href"].lower() for w in ["draw", "result", "lotto"])][:10]
+draw_links = [a for a in links if any(w in a["href"].lower() for w in ["draw", "result", "lotto"])][
+    :10
+]
 print(f"\nDraw-related links: {len(draw_links)}")
 for a in draw_links[:5]:
     print(f"  {a['href']} -> {a.get_text(strip=True)[:50]}")

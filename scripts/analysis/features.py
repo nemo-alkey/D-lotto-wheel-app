@@ -5,12 +5,15 @@ Prompt pack: ML feature engineering. Writes data/features.parquet.
 One row per (draw, number) pair so a per-number classifier can consume it
 directly. The era flag goes through era_features (never hand-derived).
 """
+
 from __future__ import annotations
 
 import sys
 from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
+
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -45,19 +48,21 @@ def build_feature_rows(draws: list[dict]) -> list[dict]:
         for n in range(1, NUM_POOL + 1):
             draws_since = i - last_seen[n] if last_seen[n] >= 0 else i + 1
             cooccur_score = sum(cooc[n][m] for m in prev_nums if m != n) / max(1, i)
-            rows.append({
-                "draw_number": d["draw_number"],
-                "draw_date": d["draw_date"],
-                "number": n,
-                "rolled_freq_10": freq10.get(n, 0),
-                "rolled_freq_50": freq50.get(n, 0),
-                "rolled_freq_200": freq200.get(n, 0),
-                "draws_since": draws_since,
-                "cooccur_score": cooccur_score,
-                "is_wednesday": is_wed,
-                "era_flag": era,
-                "hit": 1 if n in nums else 0,
-            })
+            rows.append(
+                {
+                    "draw_number": d["draw_number"],
+                    "draw_date": d["draw_date"],
+                    "number": n,
+                    "rolled_freq_10": freq10.get(n, 0),
+                    "rolled_freq_50": freq50.get(n, 0),
+                    "rolled_freq_200": freq200.get(n, 0),
+                    "draws_since": draws_since,
+                    "cooccur_score": cooccur_score,
+                    "is_wednesday": is_wed,
+                    "era_flag": era,
+                    "hit": 1 if n in nums else 0,
+                }
+            )
 
         # advance state with this draw
         for n in nums:
@@ -86,14 +91,12 @@ def build_feature_rows(draws: list[dict]) -> list[dict]:
     return rows
 
 
-def next_draw_frame(draws: list[dict]) -> "pd.DataFrame":
+def next_draw_frame(draws: list[dict]) -> pd.DataFrame:
     """Feature rows (one per number, 40) for the hypothetical NEXT draw.
 
     Uses the final rolling state so a trained model can rank numbers for the
-    upcoming draw. Requires pandas at call time.
+    upcoming draw.
     """
-    import pandas as pd
-
     freq10: Counter = Counter()
     freq50: Counter = Counter()
     freq200: Counter = Counter()
@@ -134,16 +137,18 @@ def next_draw_frame(draws: list[dict]) -> "pd.DataFrame":
 
     rows = []
     for n in range(1, NUM_POOL + 1):
-        rows.append({
-            "number": n,
-            "rolled_freq_10": freq10.get(n, 0),
-            "rolled_freq_50": freq50.get(n, 0),
-            "rolled_freq_200": freq200.get(n, 0),
-            "draws_since": (n_draws - 1) - last_seen[n] if last_seen[n] >= 0 else n_draws,
-            "cooccur_score": sum(cooc[n][m] for m in prev_nums if m != n) / max(1, n_draws - 1),
-            "is_wednesday": is_wed,
-            "era_flag": 1,
-        })
+        rows.append(
+            {
+                "number": n,
+                "rolled_freq_10": freq10.get(n, 0),
+                "rolled_freq_50": freq50.get(n, 0),
+                "rolled_freq_200": freq200.get(n, 0),
+                "draws_since": (n_draws - 1) - last_seen[n] if last_seen[n] >= 0 else n_draws,
+                "cooccur_score": sum(cooc[n][m] for m in prev_nums if m != n) / max(1, n_draws - 1),
+                "is_wednesday": is_wed,
+                "era_flag": 1,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -171,10 +176,10 @@ def main() -> int:
     print(frame.head(5).to_string(index=False))
 
     section("Sanity")
-    print(f"Rows per draw (expect {NUM_POOL}): "
-          f"{frame.groupby('draw_number').size().mean():.1f}")
-    print(f"Hit rate (expect ~6/40={6 / NUM_POOL:.3f}): "
-          f"{frame['hit'].mean():.4f}")
+    print(
+        f"Rows per draw (expect {NUM_POOL}): " f"{frame.groupby('draw_number').size().mean():.1f}"
+    )
+    print(f"Hit rate (expect ~6/40={6 / NUM_POOL:.3f}): " f"{frame['hit'].mean():.4f}")
     print(f"Era flags present: {sorted(frame['era_flag'].unique().tolist())}")
     return 0
 

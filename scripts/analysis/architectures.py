@@ -8,6 +8,7 @@ Baselines:
   b. gradient-boosted tree (xgboost) scoring each number's hit probability
   c. small feed-forward NN (2 hidden layers x 64)
 """
+
 from __future__ import annotations
 
 import sys
@@ -18,14 +19,20 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import section, subsection  # noqa: E402
+from _common import section  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FEATURES = REPO_ROOT / "data" / "features.parquet"
 
 FEATURE_COLS = [
-    "number", "rolled_freq_10", "rolled_freq_50", "rolled_freq_200",
-    "draws_since", "cooccur_score", "is_wednesday", "era_flag",
+    "number",
+    "rolled_freq_10",
+    "rolled_freq_50",
+    "rolled_freq_200",
+    "draws_since",
+    "cooccur_score",
+    "is_wednesday",
+    "era_flag",
 ]
 KS = [1, 3, 6, 10, 20]
 
@@ -36,25 +43,34 @@ def load_frame() -> pd.DataFrame:
     return pd.read_parquet(FEATURES)
 
 
-def train_xgb(X: pd.DataFrame, y: pd.Series, seed: int = 0):
+def train_xgb(x: pd.DataFrame, y: pd.Series, seed: int = 0):
     from xgboost import XGBClassifier
 
     model = XGBClassifier(
-        n_estimators=120, max_depth=4, learning_rate=0.1,
-        random_state=seed, n_jobs=1, eval_metric="logloss", verbosity=0,
+        n_estimators=120,
+        max_depth=4,
+        learning_rate=0.1,
+        random_state=seed,
+        n_jobs=1,
+        eval_metric="logloss",
+        verbosity=0,
     )
-    model.fit(np.asarray(X), np.asarray(y))
+    model.fit(np.asarray(x), np.asarray(y))
     return model
 
 
-def train_nn(X: pd.DataFrame, y: pd.Series, seed: int = 0):
+def train_nn(x: pd.DataFrame, y: pd.Series, seed: int = 0):
     from sklearn.neural_network import MLPClassifier
 
     model = MLPClassifier(
-        hidden_layer_sizes=(64, 64), max_iter=200, random_state=seed,
-        early_stopping=True, validation_fraction=0.1, n_iter_no_change=10,
+        hidden_layer_sizes=(64, 64),
+        max_iter=200,
+        random_state=seed,
+        early_stopping=True,
+        validation_fraction=0.1,
+        n_iter_no_change=10,
     )
-    model.fit(np.asarray(X), np.asarray(y))
+    model.fit(np.asarray(x), np.asarray(y))
     return model
 
 
@@ -84,8 +100,8 @@ def main() -> int:
         print("ERROR: no test draws (2023+).")
         return 1
 
-    X_tr, y_tr = train[FEATURE_COLS], train["hit"]
-    X_te = test[FEATURE_COLS]
+    x_tr, y_tr = train[FEATURE_COLS], train["hit"]
+    x_te = test[FEATURE_COLS]
 
     # ---- (a) frequency-only baseline ----
     section("Baseline (a): frequency-only")
@@ -98,16 +114,16 @@ def main() -> int:
 
     # ---- (b) xgboost ----
     section("Baseline (b): gradient-boosted tree (xgboost)")
-    model_xgb = train_xgb(X_tr, y_tr)
-    test = test.assign(score_xgb=model_xgb.predict_proba(X_te)[:, 1])
+    model_xgb = train_xgb(x_tr, y_tr)
+    test = test.assign(score_xgb=model_xgb.predict_proba(x_te)[:, 1])
     acc_xgb = topk_accuracy(test, "score_xgb", KS)
     for k, v in acc_xgb.items():
         print(f"  k={k:>2}: {v:.4f}")
 
     # ---- (c) feed-forward NN ----
     section("Baseline (c): feed-forward NN (64x64)")
-    model_nn = train_nn(X_tr, y_tr)
-    test = test.assign(score_nn=model_nn.predict_proba(X_te)[:, 1])
+    model_nn = train_nn(x_tr, y_tr)
+    test = test.assign(score_nn=model_nn.predict_proba(x_te)[:, 1])
     acc_nn = topk_accuracy(test, "score_nn", KS)
     for k, v in acc_nn.items():
         print(f"  k={k:>2}: {v:.4f}")

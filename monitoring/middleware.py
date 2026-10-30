@@ -18,8 +18,9 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import cast
 
+import jwt
 from fastapi import FastAPI, Request, Response
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from slowapi.util import get_remote_address
 
 from auth import ALGORITHM, SECRET_KEY

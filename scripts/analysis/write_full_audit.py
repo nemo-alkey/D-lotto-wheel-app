@@ -1,4 +1,5 @@
 """Full year-by-year draw audit — no PB filter."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -12,8 +13,7 @@ print("-" * 68)
 
 for year in range(1987, 2027):
     row = conn.execute(
-        "SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws "
-        "WHERE draw_date LIKE ?",
+        "SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws " "WHERE draw_date LIKE ?",
         (f"{year}%",),
     ).fetchone()
     n, earliest, latest = row
@@ -26,7 +26,9 @@ for year in range(1987, 2027):
         expected = 70  # transition
     gap = expected - n
     marker = "  **" if gap > 10 else ""
-    print(f"{year:>5}  {n:>5}  {expected:>9}  {gap:>+6}  {str(earliest):>12}  {str(latest):>12}{marker}")
+    print(
+        f"{year:>5}  {n:>5}  {expected:>9}  {gap:>+6}  {str(earliest):>12}  {str(latest):>12}{marker}"
+    )
 
 print()
 print("Rows starting 2023+ with powerball outside 1-10:")

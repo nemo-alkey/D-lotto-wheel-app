@@ -68,7 +68,10 @@ class TestFilterDrawsByEra:
         assert [d["draw_date"] for d in result] == ["2026-09-12"]
 
     def test_tuple_draws_with_date_index(self):
-        draws = [([1, 2, 3, 4, 5, 6], 7, 21, "2026-09-12"), ([1, 2, 3, 4, 5, 6], 11, 21, "2026-09-16")]
+        draws = [
+            ([1, 2, 3, 4, 5, 6], 7, 21, "2026-09-12"),
+            ([1, 2, 3, 4, 5, 6], 11, 21, "2026-09-16"),
+        ]
         result = filter_draws_by_era(draws, RULE_ERA_POST, date_index=3)
         assert len(result) == 1 and result[0][1] == 11
 
@@ -112,7 +115,10 @@ class TestMixedEraGuard:
         assert len(result) == 3
 
     def test_training_draws_with_tuples(self):
-        draws = [([1, 2, 3, 4, 5, 6], 7, 21, "2026-09-12"), ([1, 2, 3, 4, 5, 6], 11, 21, "2026-09-16")]
+        draws = [
+            ([1, 2, 3, 4, 5, 6], 7, 21, "2026-09-12"),
+            ([1, 2, 3, 4, 5, 6], 11, 21, "2026-09-16"),
+        ]
         result = powerball_training_draws(draws, date_index=3)
         assert len(result) == 1 and result[0][1] == 11
 
@@ -165,13 +171,13 @@ class TestRuleEraMigration:
     def test_idempotent_second_call(self, db_conn):
         assert ensure_rule_era_column(db_conn) is True
         assert ensure_rule_era_column(db_conn) is False
-        assert db_conn.execute("SELECT COUNT(*) FROM draws WHERE rule_era IS NULL").fetchone()[0] == 0
+        assert (
+            db_conn.execute("SELECT COUNT(*) FROM draws WHERE rule_era IS NULL").fetchone()[0] == 0
+        )
 
     def test_existing_values_not_overwritten(self, db_conn):
         ensure_rule_era_column(db_conn)
-        db_conn.execute(
-            "UPDATE draws SET rule_era = 'custom' WHERE draw_date = '2026-09-12'"
-        )
+        db_conn.execute("UPDATE draws SET rule_era = 'custom' WHERE draw_date = '2026-09-12'")
         db_conn.commit()
         ensure_rule_era_column(db_conn)
         val = db_conn.execute(

@@ -3,6 +3,7 @@
 Prompt pack: candidate generation. Requires models/nn_tuned.pkl
 (produced by optuna_tune.py); exits 1 if it is missing.
 """
+
 from __future__ import annotations
 
 import sys
@@ -10,7 +11,6 @@ from collections import Counter
 from pathlib import Path
 
 import joblib
-import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -28,9 +28,7 @@ def build_candidate_sets() -> list[dict]:
     numbers (list[int]), pb (int), reasoning (str), confidence (float).
     """
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(
-            f"models/nn_tuned.pkl missing. Run optuna_tune.py first."
-        )
+        raise FileNotFoundError("models/nn_tuned.pkl missing. Run optuna_tune.py first.")
 
     model = joblib.load(MODEL_PATH)
     draws = load_draws()
@@ -49,8 +47,7 @@ def build_candidate_sets() -> list[dict]:
 
     # ---- Powerball: era-aware frequency over post-change draws ----
     pb_freq = Counter(
-        d["powerball"] for d in draws
-        if d["rule_era"] == "post_2026_09_16" and d["powerball"] > 0
+        d["powerball"] for d in draws if d["rule_era"] == "post_2026_09_16" and d["powerball"] > 0
     )
     pb_rank = [p for p, _ in pb_freq.most_common()] or [1]
     while len(pb_rank) < 5:
@@ -68,13 +65,15 @@ def build_candidate_sets() -> list[dict]:
     for i, (name, col, why) in enumerate(strategies):
         nums = frame.nlargest(6, col)["number"].astype(int).tolist()
         confidence = float(frame.set_index("number").loc[nums, "prob"].sum())
-        sets.append({
-            "name": name,
-            "numbers": sorted(nums),
-            "pb": pb_rank[i % len(pb_rank)],
-            "reasoning": why,
-            "confidence": confidence,
-        })
+        sets.append(
+            {
+                "name": name,
+                "numbers": sorted(nums),
+                "pb": pb_rank[i % len(pb_rank)],
+                "reasoning": why,
+                "confidence": confidence,
+            }
+        )
     sets.sort(key=lambda s: -s["confidence"])
     return sets
 

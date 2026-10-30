@@ -2,6 +2,7 @@
 
 Prompts #8 and #13. Read-only.
 """
+
 from __future__ import annotations
 
 import statistics
@@ -35,8 +36,7 @@ def main() -> int:
     print("-" * 36)
     for rank, n in enumerate(ranked, 1):
         c = counts.get(n, 0)
-        print(f"{rank:>4}  {n:>4}  {c:>6}  {c - expected:>+8.1f}  "
-              f"{100 * c / total:>5.2f}%")
+        print(f"{rank:>4}  {n:>4}  {c:>6}  {c - expected:>+8.1f}  " f"{100 * c / total:>5.2f}%")
 
     print()
     print(f"Hot 5:   {ranked[:5]}")
@@ -86,8 +86,7 @@ def main() -> int:
     print(f"Median:  {statistics.median(sums):.1f}")
     print(f"Stdev:   {statistics.stdev(sums):.1f}")
     print()
-    buckets = [(0, 60), (60, 90), (90, 120), (120, 150),
-               (150, 180), (180, 210), (210, 250)]
+    buckets = [(0, 60), (60, 90), (90, 120), (120, 150), (150, 180), (180, 210), (210, 250)]
     print(f"{'Range':>11}  {'Draws':>6}  {'%':>7}")
     print("-" * 28)
     for lo, hi in buckets:
@@ -99,8 +98,7 @@ def main() -> int:
     consec: Counter = Counter()
     for d in draws:
         pairs = sum(
-            1 for i in range(len(d["numbers"]) - 1)
-            if d["numbers"][i + 1] - d["numbers"][i] == 1
+            1 for i in range(len(d["numbers"]) - 1) if d["numbers"][i + 1] - d["numbers"][i] == 1
         )
         consec[pairs] += 1
     print(f"{'Pairs':>5}  {'Draws':>6}  {'%':>7}")

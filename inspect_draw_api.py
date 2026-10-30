@@ -2,6 +2,7 @@
 """Print the full JSON for a few draws to see if prize payout details are included."""
 
 import json
+
 import requests
 
 API_BASE = "https://pathway.mylotto.co.nz/api/results/v1/results/lotto"
@@ -23,7 +24,7 @@ for draw_num in draws_to_test:
             print("\nlotto keys:", list(data["lotto"].keys()))
             # Pretty print the whole lotto section, but maybe truncate if huge
             lotto_str = json.dumps(data["lotto"], indent=2)
-            print(lotto_str[:3000])   # print first 3000 chars
+            print(lotto_str[:3000])  # print first 3000 chars
         # Check if there is a separate 'prizes' or 'divisions' section
         for key in data:
             if "prize" in key.lower() or "division" in key.lower() or "winner" in key.lower():

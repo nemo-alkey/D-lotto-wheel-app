@@ -11,13 +11,13 @@ DB_PATH = Path.cwd() / "data" / "lotto.db"
 
 # Rough average payouts for each division (NZ Lotteries official average)
 PAYOUTS = {
-    '6': 400000,      # average jackpot (varies, use a placeholder)
-    '5+bonus': 20000,
-    '5': 600,
-    '4+bonus': 100,
-    '4': 60,
-    '3+bonus': 25,
-    '3': 20,
+    "6": 400000,  # average jackpot (varies, use a placeholder)
+    "5+bonus": 20000,
+    "5": 600,
+    "4+bonus": 100,
+    "4": 60,
+    "3+bonus": 25,
+    "3": 20,
 }
 
 
@@ -46,7 +46,7 @@ def parse_ticket_line(line: str):
 
 def load_wheel(filepath: Path):
     tickets = []
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding="utf-8") as f:
         for line in f:
             nums, pb = parse_ticket_line(line)
             if nums is not None:
@@ -65,8 +65,8 @@ def backtest(tickets):
     draws_with_win = 0
     total_draws = len(rows)
 
-    for _, _, nums_str, bonus, powerball in rows:
-        drawn_set = set(int(x) for x in nums_str.split(','))
+    for _, _, nums_str, bonus, _powerball in rows:
+        drawn_set = {int(x) for x in nums_str.split(",")}
         max_main = 0
         best_bonus = False
 
@@ -82,19 +82,19 @@ def backtest(tickets):
 
             # Count each prize category occurrence (not just best)
             if main_matches == 6:
-                prize_counts['6'] += 1
+                prize_counts["6"] += 1
             elif main_matches == 5 and bonus_matched:
-                prize_counts['5+bonus'] += 1
+                prize_counts["5+bonus"] += 1
             elif main_matches == 5:
-                prize_counts['5'] += 1
+                prize_counts["5"] += 1
             elif main_matches == 4 and bonus_matched:
-                prize_counts['4+bonus'] += 1
+                prize_counts["4+bonus"] += 1
             elif main_matches == 4:
-                prize_counts['4'] += 1
+                prize_counts["4"] += 1
             elif main_matches == 3 and bonus_matched:
-                prize_counts['3+bonus'] += 1
+                prize_counts["3+bonus"] += 1
             elif main_matches == 3:
-                prize_counts['3'] += 1
+                prize_counts["3"] += 1
 
         if max_main >= 3:
             draws_with_win += 1
@@ -104,22 +104,26 @@ def backtest(tickets):
     est_winnings = sum(count * PAYOUTS[cat] for cat, count in prize_counts.items())
 
     return {
-        'tickets': len(tickets),
-        'draws': total_draws,
-        'winning_draws': draws_with_win,
-        'hit_rate': draws_with_win / total_draws,
-        'total_wins': total_wins,
-        'prize_counts': dict(prize_counts),
-        'total_spend': total_spend,
-        'est_winnings': est_winnings,
-        'roi': (est_winnings - total_spend) / total_spend,
+        "tickets": len(tickets),
+        "draws": total_draws,
+        "winning_draws": draws_with_win,
+        "hit_rate": draws_with_win / total_draws,
+        "total_wins": total_wins,
+        "prize_counts": dict(prize_counts),
+        "total_spend": total_spend,
+        "est_winnings": est_winnings,
+        "roi": (est_winnings - total_spend) / total_spend,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Compare wheel backtests")
-    parser.add_argument("--files", nargs="*", default=None,
-                        help="List of wheel files to compare (default: all wheel_*.txt and key_wheel_*.txt)")
+    parser.add_argument(
+        "--files",
+        nargs="*",
+        default=None,
+        help="List of wheel files to compare (default: all wheel_*.txt and key_wheel_*.txt)",
+    )
     args = parser.parse_args()
 
     if args.files:
@@ -132,7 +136,9 @@ def main() -> int:
         return 1
 
     print("=" * 80)
-    print(f"{'Wheel File':<20} {'Tickets':>7} {'Hit Rate':>9} {'Total Wins':>10} {'Spend':>10} {'Est Winnings':>12} {'ROI':>8}")
+    print(
+        f"{'Wheel File':<20} {'Tickets':>7} {'Hit Rate':>9} {'Total Wins':>10} {'Spend':>10} {'Est Winnings':>12} {'ROI':>8}"
+    )
     print("-" * 80)
 
     results = []
@@ -142,15 +148,17 @@ def main() -> int:
             continue
         res = backtest(tickets)
         results.append((f.name, res))
-        print(f"{f.name:<20} {res['tickets']:>7} {res['hit_rate']*100:>8.2f}% {res['total_wins']:>10} "
-              f"${res['total_spend']:>10,.0f} ${res['est_winnings']:>12,.0f} {res['roi']*100:>7.1f}%")
+        print(
+            f"{f.name:<20} {res['tickets']:>7} {res['hit_rate']*100:>8.2f}% {res['total_wins']:>10} "
+            f"${res['total_spend']:>10,.0f} ${res['est_winnings']:>12,.0f} {res['roi']*100:>7.1f}%"
+        )
 
     print("=" * 80)
     print("\nDetailed prize counts (across all draws):")
     for name, res in results:
         print(f"\n{name}:")
-        for cat in ['6', '5+bonus', '5', '4+bonus', '4', '3+bonus', '3']:
-            count = res['prize_counts'].get(cat, 0)
+        for cat in ["6", "5+bonus", "5", "4+bonus", "4", "3+bonus", "3"]:
+            count = res["prize_counts"].get(cat, 0)
             print(f"  {cat:8s}: {count}")
 
     return 0

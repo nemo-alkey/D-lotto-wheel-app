@@ -194,9 +194,7 @@ def powerball_rotation(periods: int, start: int = START_PB) -> list[int]:
     return [(start - 1 + i) % POWERBALL_MAX_NEW + 1 for i in range(periods)]
 
 
-def _resolve_powerballs(
-    schedule: list[list[int]], powerballs: list[int] | None
-) -> list[int]:
+def _resolve_powerballs(schedule: list[list[int]], powerballs: list[int] | None) -> list[int]:
     """Use the automatic rotation unless explicit per-period values are supplied."""
     values = powerball_rotation(len(schedule)) if powerballs is None else powerballs
     if len(values) != len(schedule):
@@ -554,9 +552,7 @@ def main() -> None:
     # --- Email ---
     if args.send_email:
         subject = f"NZ Lotto Rotation Plan — {datetime.now().strftime('%Y-%m-%d')}"
-        body = build_email_body(
-            schedule, bonus_picks=bonus_picks, powerballs=powerballs
-        )
+        body = build_email_body(schedule, bonus_picks=bonus_picks, powerballs=powerballs)
 
         if bonus_picks:
             bonus_tag = " (#" + ", #".join(str(pk[0]) for pk in bonus_picks[:3]) + ")"

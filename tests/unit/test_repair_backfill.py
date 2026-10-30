@@ -75,7 +75,8 @@ class TestRepair:
         _seed(db_path, [(2613, "2026-08-19", "13,16,19,20,25,37", 12, 0)])
         log = tmp_path / "repair.log"
         counts = repair(
-            db_path=db_path, log_path=log,
+            db_path=db_path,
+            log_path=log,
             fetcher=lambda n, d, nums, b: (10, "fake"),
         )
         assert _get(db_path, 2613) == 10
@@ -106,15 +107,19 @@ class TestRepair:
         _seed(db_path, [(2625, "2026-09-30", "1,8,19,23,25,30", 7, 0)])
         with pytest.raises(ValueError, match="out of range"):
             repair(
-                db_path=db_path, log_path=tmp_path / "repair.log",
+                db_path=db_path,
+                log_path=tmp_path / "repair.log",
                 fetcher=lambda n, d, nums, b: (15, "fake"),
             )
         assert _get(db_path, 2625) == 0  # nothing written
 
     def test_null_powerball_is_repaired(self, db_path, tmp_path):
         _seed(db_path, [(2613, "2026-08-19", "13,16,19,20,25,37", 12, None)])
-        repair(db_path=db_path, log_path=tmp_path / "repair.log",
-               fetcher=lambda n, d, nums, b: (9, "fake"))
+        repair(
+            db_path=db_path,
+            log_path=tmp_path / "repair.log",
+            fetcher=lambda n, d, nums, b: (9, "fake"),
+        )
         assert _get(db_path, 2613) == 9
 
     def test_idempotent_second_run_makes_no_writes(self, db_path, tmp_path):
@@ -132,14 +137,18 @@ class TestRepair:
 
     def test_valid_rows_never_selected(self, db_path, tmp_path):
         _seed(db_path, [(2621, "2026-09-16", "1,10,20,25,29,30", 35, 11)])
-        repair(db_path=db_path, log_path=tmp_path / "repair.log",
-               fetcher=lambda *a: (_ for _ in ()).throw(AssertionError("called")))
+        repair(
+            db_path=db_path,
+            log_path=tmp_path / "repair.log",
+            fetcher=lambda *a: (_ for _ in ()).throw(AssertionError("called")),
+        )
         assert _get(db_path, 2621) == 11
 
 
 # ---------------------------------------------------------------------------
 # backfill_draws
 # ---------------------------------------------------------------------------
+
 
 def _draw(n: int, date: str, pb: int) -> dict:
     return {
@@ -153,11 +162,11 @@ def _draw(n: int, date: str, pb: int) -> dict:
 
 # Candidates after anchor 2616, aligned: fetcher(n) returns draw number n.
 BACKFILL_MAP = {
-    2617: _draw(2617, "2026-09-02", 9),    # pre-change, PB 1-10
-    2618: _draw(2618, "2026-09-05", 6),    # pre-change
-    2619: _draw(2619, "2026-09-09", 8),    # pre-change
-    2620: _draw(2620, "2026-09-12", 7),    # last draw under old rules
-    2621: _draw(2621, "2026-09-16", 11),   # FIRST new-rules draw: PB 11 valid 1-14
+    2617: _draw(2617, "2026-09-02", 9),  # pre-change, PB 1-10
+    2618: _draw(2618, "2026-09-05", 6),  # pre-change
+    2619: _draw(2619, "2026-09-09", 8),  # pre-change
+    2620: _draw(2620, "2026-09-12", 7),  # last draw under old rules
+    2621: _draw(2621, "2026-09-16", 11),  # FIRST new-rules draw: PB 11 valid 1-14
 }
 
 
@@ -168,8 +177,9 @@ class TestBackfill:
     def test_inserts_missing_draws_with_post_change_pb_range(self, db_path, tmp_path):
         _seed(db_path, [(2616, "2026-08-29", "2,5,20,24,25,31", 18, 5)])
         log = tmp_path / "backfill.log"
-        counts = backfill(db_path=db_path, log_path=log, end=2621,
-                          fetcher=self._fetcher(BACKFILL_MAP))
+        counts = backfill(
+            db_path=db_path, log_path=log, end=2621, fetcher=self._fetcher(BACKFILL_MAP)
+        )
         assert counts["inserted"] == 5
         conn = sqlite3.connect(db_path)
         rows = conn.execute(
@@ -181,15 +191,23 @@ class TestBackfill:
         assert "INSERTED" in log.read_text()
 
     def test_skips_existing_and_is_idempotent(self, db_path, tmp_path):
-        _seed(db_path, [
-            (2616, "2026-08-29", "2,5,20,24,25,31", 18, 5),
-            (2617, "2026-09-02", "11,13,14,21,27,39", 32, 9),
-        ])
+        _seed(
+            db_path,
+            [
+                (2616, "2026-08-29", "2,5,20,24,25,31", 18, 5),
+                (2617, "2026-09-02", "11,13,14,21,27,39", 32, 9),
+            ],
+        )
         log1 = tmp_path / "b1.log"
-        counts1 = backfill(db_path=db_path, log_path=log1, end=2621,
-                           fetcher=self._fetcher(BACKFILL_MAP))
-        counts2 = backfill(db_path=db_path, log_path=tmp_path / "b2.log", end=2621,
-                           fetcher=self._fetcher(BACKFILL_MAP))
+        counts1 = backfill(
+            db_path=db_path, log_path=log1, end=2621, fetcher=self._fetcher(BACKFILL_MAP)
+        )
+        counts2 = backfill(
+            db_path=db_path,
+            log_path=tmp_path / "b2.log",
+            end=2621,
+            fetcher=self._fetcher(BACKFILL_MAP),
+        )
         assert counts1["inserted"] == 4
         assert counts2["inserted"] == 0
         assert _duplicates(db_path) == []
@@ -198,8 +216,9 @@ class TestBackfill:
         _seed(db_path, [(2616, "2026-08-29", "2,5,20,24,25,31", 18, 5)])
         bad = {2617: _draw(2617, "2026-09-05", 13)}  # pre-change: PB must be 1-10
         with pytest.raises(ValueError, match="out of range"):
-            backfill(db_path=db_path, log_path=tmp_path / "b.log", end=2617,
-                     fetcher=self._fetcher(bad))
+            backfill(
+                db_path=db_path, log_path=tmp_path / "b.log", end=2617, fetcher=self._fetcher(bad)
+            )
         conn = sqlite3.connect(db_path)
         n = conn.execute("SELECT COUNT(*) FROM draws").fetchone()[0]
         conn.close()
@@ -209,18 +228,24 @@ class TestBackfill:
         _seed(db_path, [(2616, "2026-08-29", "2,5,20,24,25,31", 18, 5)])
         mapping = {2617: BACKFILL_MAP[2617], 2618: None}
         log = tmp_path / "b.log"
-        counts = backfill(db_path=db_path, log_path=log, end=2618,
-                          fetcher=self._fetcher(mapping))
+        counts = backfill(db_path=db_path, log_path=log, end=2618, fetcher=self._fetcher(mapping))
         assert counts["not_found"] == 1
         assert counts["inserted"] == 1
         assert "NOT-FOUND" in log.read_text()
         assert _duplicates(db_path) == []
 
     def test_no_duplicate_draw_dates(self, db_path, tmp_path):
-        _seed(db_path, [
-            (2616, "2026-08-29", "2,5,20,24,25,31", 18, 5),
-            (2617, "2026-09-02", "11,13,14,21,27,39", 32, 9),
-        ])
-        backfill(db_path=db_path, log_path=tmp_path / "b.log", end=2621,
-                 fetcher=self._fetcher(BACKFILL_MAP))
+        _seed(
+            db_path,
+            [
+                (2616, "2026-08-29", "2,5,20,24,25,31", 18, 5),
+                (2617, "2026-09-02", "11,13,14,21,27,39", 32, 9),
+            ],
+        )
+        backfill(
+            db_path=db_path,
+            log_path=tmp_path / "b.log",
+            end=2621,
+            fetcher=self._fetcher(BACKFILL_MAP),
+        )
         assert _duplicates(db_path) == []

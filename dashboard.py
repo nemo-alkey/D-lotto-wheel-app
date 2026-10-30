@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from powerball_rules import POWERBALL_MAX_NEW
+
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import io
@@ -4033,7 +4034,13 @@ with tabs[3]:
                 np.where(np.isin(np.arange(10), top5_pb), "#f39c12", "#27ae60"),
             )
 
-            ax2.bar(np.arange(1, POWERBALL_MAX + 1), pb_freq, color=colours2, edgecolor="white", linewidth=0.5)
+            ax2.bar(
+                np.arange(1, POWERBALL_MAX + 1),
+                pb_freq,
+                color=colours2,
+                edgecolor="white",
+                linewidth=0.5,
+            )
             ax2.set_xlabel("Powerball Number")
             ax2.set_ylabel("Frequency (number of draws)")
             ax2.set_title("Occurrence Frequency of Powerball Numbers Across All Draws")

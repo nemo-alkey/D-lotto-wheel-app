@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Refined backtest using actual recent payout averages from Lotto NZ API."""
 
-import json
 import sqlite3
 import sys
 import time
@@ -16,7 +15,7 @@ HEADERS = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
 
 # Range of draws with full payout data in the API (based on earlier investigation)
 FIRST_DRAW_WITH_DATA = 2512
-LAST_DRAW_WITH_DATA = 2616   # will adjust dynamically if needed
+LAST_DRAW_WITH_DATA = 2616  # will adjust dynamically if needed
 
 
 def fetch_payout_averages():
@@ -88,7 +87,7 @@ def parse_ticket_line(line: str):
 
 def load_wheel(filepath):
     tickets = []
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding="utf-8") as f:
         for line in f:
             nums, pb = parse_ticket_line(line)
             if nums is not None:
@@ -107,8 +106,8 @@ def backtest(tickets, averages):
     draws_with_win = 0
     total_draws = len(rows)
 
-    for _, _, nums_str, bonus, powerball in rows:
-        drawn_set = set(int(x) for x in nums_str.split(','))
+    for _, _, nums_str, bonus, _powerball in rows:
+        drawn_set = {int(x) for x in nums_str.split(",")}
         max_main = 0
         best_bonus = False
 
@@ -152,15 +151,15 @@ def backtest(tickets, averages):
     roi = (est_winnings - total_spend) / total_spend if total_spend > 0 else 0.0
 
     return {
-        'tickets': len(tickets),
-        'draws': total_draws,
-        'winning_draws': draws_with_win,
-        'hit_rate': draws_with_win / total_draws if total_draws else 0,
-        'total_wins': total_wins,
-        'prize_counts': dict(prize_counts),
-        'total_spend': total_spend,
-        'est_winnings': est_winnings,
-        'roi': roi,
+        "tickets": len(tickets),
+        "draws": total_draws,
+        "winning_draws": draws_with_win,
+        "hit_rate": draws_with_win / total_draws if total_draws else 0,
+        "total_wins": total_wins,
+        "prize_counts": dict(prize_counts),
+        "total_spend": total_spend,
+        "est_winnings": est_winnings,
+        "roi": roi,
     }
 
 
@@ -174,8 +173,10 @@ def main():
         return 1
 
     print("\n" + "=" * 90)
-    print(f"{'Wheel File':<20} {'Tickets':>7} {'Hit Rate':>9} {'Total Wins':>10} "
-          f"{'Spend':>10} {'Est Winnings':>12} {'ROI':>8}")
+    print(
+        f"{'Wheel File':<20} {'Tickets':>7} {'Hit Rate':>9} {'Total Wins':>10} "
+        f"{'Spend':>10} {'Est Winnings':>12} {'ROI':>8}"
+    )
     print("-" * 90)
 
     results = []
@@ -185,8 +186,10 @@ def main():
             continue
         res = backtest(tickets, averages)
         results.append((f.name, res))
-        print(f"{f.name:<20} {res['tickets']:>7} {res['hit_rate']*100:>8.2f}% {res['total_wins']:>10} "
-              f"${res['total_spend']:>10,.0f} ${res['est_winnings']:>12,.0f} {res['roi']*100:>7.1f}%")
+        print(
+            f"{f.name:<20} {res['tickets']:>7} {res['hit_rate']*100:>8.2f}% {res['total_wins']:>10} "
+            f"${res['total_spend']:>10,.0f} ${res['est_winnings']:>12,.0f} {res['roi']*100:>7.1f}%"
+        )
 
     print("=" * 90)
 
@@ -195,7 +198,7 @@ def main():
     for name, res in results:
         print(f"\n{name}:")
         for div in range(1, 8):
-            count = res['prize_counts'].get(div, 0)
+            count = res["prize_counts"].get(div, 0)
             print(f"  Division {div}: {count}")
 
     return 0

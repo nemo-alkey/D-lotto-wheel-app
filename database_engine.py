@@ -32,7 +32,7 @@ def _absolute_sqlite_url(url: str) -> str:
     prefix = "sqlite:///"
     if not url.startswith(prefix):
         return url
-    raw_path = url[len(prefix):]
+    raw_path = url[len(prefix) :]
     if raw_path == ":memory:" or Path(raw_path).is_absolute():
         return url
     return f"sqlite:///{(PROJECT_ROOT / raw_path).resolve()}"

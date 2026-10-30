@@ -4,6 +4,7 @@ Prompt #28. Read-only. The genuinely non-obvious finding is that the best
 "AI strategy" on a fair draw is mostly about what NOT to do, and about
 exploiting the only two real, non-random edges: split-risk and bankroll.
 """
+
 from __future__ import annotations
 
 import sys

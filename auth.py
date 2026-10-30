@@ -22,9 +22,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, field_validator
 
 from config.settings import DB_PATH as CANONICAL_DB_PATH

@@ -22,9 +22,9 @@ import argparse
 import sqlite3
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
 
 import requests
 
@@ -45,7 +45,7 @@ RATE_LIMIT = 0.3  # seconds between network fetches
 
 #: fetcher signature: (draw_number, draw_date, db_numbers, db_bonus)
 #:   -> Optional[tuple[int, str]]  i.e. (powerball, source) or None if unfetchable.
-Fetcher = Callable[[int, str, list[int], int], Optional[tuple[int, str]]]
+Fetcher = Callable[[int, str, list[int], int], tuple[int, str] | None]
 
 _HEADERS = {
     "Accept": "application/json",
@@ -53,7 +53,7 @@ _HEADERS = {
 }
 
 
-def _log(log_path: Optional[Path], msg: str) -> None:
+def _log(log_path: Path | None, msg: str) -> None:
     line = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
     print(line)
     if log_path is not None:
@@ -67,7 +67,7 @@ def _log(log_path: Optional[Path], msg: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _official_powerball(draw_number: int) -> Optional[int]:
+def _official_powerball(draw_number: int) -> int | None:
     """Return the Powerball from the official API, or None if unavailable."""
     try:
         r = requests.get(f"{API_BASE}/{draw_number}", headers=_HEADERS, timeout=15)
@@ -79,7 +79,7 @@ def _official_powerball(draw_number: int) -> Optional[int]:
     return int(pb_raw) if str(pb_raw).strip().isdigit() else None
 
 
-def _pbnz_draw(draw_date: str) -> Optional[dict]:
+def _pbnz_draw(draw_date: str) -> dict | None:
     """Fetch a draw from powerball.net; caller must cross-check numbers/bonus."""
     try:
         r = requests.get(f"{PBNZ_BASE}/{draw_date}", headers=_HEADERS, timeout=20)
@@ -102,7 +102,7 @@ def _pbnz_draw(draw_date: str) -> Optional[dict]:
 
 def default_fetcher(
     draw_number: int, draw_date: str, db_numbers: list[int], db_bonus: int
-) -> Optional[tuple[int, str]]:
+) -> tuple[int, str] | None:
     """Official API first; powerball.net only when its numbers/bonus match ours."""
     pb = _official_powerball(draw_number)
     if pb is not None:
@@ -120,7 +120,7 @@ def default_fetcher(
 
 def repair(
     db_path: Path = DB_PATH,
-    log_path: Optional[Path] = LOG_PATH,
+    log_path: Path | None = LOG_PATH,
     fetcher: Fetcher = default_fetcher,
     rate_limit: float = RATE_LIMIT,
     dry_run: bool = False,
@@ -133,24 +133,31 @@ def repair(
     ).fetchall()
 
     counts = {"total": len(rows), "pre_powerball": 0, "repaired": 0, "missing": 0}
-    _log(log_path, f"repair started: {len(rows)} row(s) with powerball=0/NULL "
-                   f"(dry_run={dry_run})")
+    _log(
+        log_path,
+        f"repair started: {len(rows)} row(s) with powerball=0/NULL " f"(dry_run={dry_run})",
+    )
 
     for draw_number, draw_date, numbers, bonus in rows:
         label = f"#{draw_number} ({draw_date})"
 
         if draw_date < POWERBALL_INTRO_DATE:
             counts["pre_powerball"] += 1
-            _log(log_path, f"PRE-POWERBALL {label}: predates Powerball launch, "
-                           "legitimate zero — untouched")
+            _log(
+                log_path,
+                f"PRE-POWERBALL {label}: predates Powerball launch, " "legitimate zero — untouched",
+            )
             continue
 
         db_numbers = [int(x) for x in str(numbers).split(",") if str(x).strip()]
         result = fetcher(draw_number, draw_date, db_numbers, bonus)
         if result is None:
             counts["missing"] += 1
-            _log(log_path, f"MISSING {label}: could not re-fetch from any source — "
-                           "left as-is (not invented)")
+            _log(
+                log_path,
+                f"MISSING {label}: could not re-fetch from any source — "
+                "left as-is (not invented)",
+            )
         else:
             powerball, source = result
             # Era-aware; raises ValueError loudly on invalid values — never clamp.
@@ -162,8 +169,11 @@ def repair(
                 )
                 conn.commit()
             counts["repaired"] += 1
-            _log(log_path, f"REPAIRED {label}: powerball 0 -> {powerball} "
-                           f"(source: {source}){' [dry-run]' if dry_run else ''}")
+            _log(
+                log_path,
+                f"REPAIRED {label}: powerball 0 -> {powerball} "
+                f"(source: {source}){' [dry-run]' if dry_run else ''}",
+            )
         time.sleep(rate_limit)
 
     conn.close()

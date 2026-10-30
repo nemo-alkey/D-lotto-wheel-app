@@ -33,9 +33,9 @@ def test_cd_mounts_persistent_volume_at_app_data() -> None:
 
 
 def test_check_numbers_ui_uses_current_powerball_pool() -> None:
-    page = (
-        PROJECT_ROOT / "mobile-frontend" / "src" / "pages" / "CheckNumbers.jsx"
-    ).read_text(encoding="utf-8")
+    page = (PROJECT_ROOT / "mobile-frontend" / "src" / "pages" / "CheckNumbers.jsx").read_text(
+        encoding="utf-8"
+    )
 
     assert "pb > 14" in page
     assert "Powerball (1-14)" in page

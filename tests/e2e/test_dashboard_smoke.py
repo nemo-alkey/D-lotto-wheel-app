@@ -51,8 +51,9 @@ def app() -> "AppTest":
     def fake_request(url, *args, **kwargs):
         return _make_response(str(url))
 
-    with patch("requests.get", side_effect=fake_request), patch(
-        "requests.post", side_effect=fake_request
+    with (
+        patch("requests.get", side_effect=fake_request),
+        patch("requests.post", side_effect=fake_request),
     ):
         at = AppTest.from_file(DASHBOARD_PATH, default_timeout=120)
         at.run(timeout=120)

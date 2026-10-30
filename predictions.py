@@ -14,6 +14,7 @@ The ensemble() function combines all methods with configurable weights.
 from __future__ import annotations
 
 from powerball_rules import POWERBALL_MAX_NEW
+
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import math
@@ -81,7 +82,8 @@ def bayesian(draws: list[Draw], alpha: float = 1.0) -> Prediction:
         n: (main_counts.get(n, 0) + alpha) / (total_main + 40 * alpha) for n in range(1, 41)
     }
     pb_posterior = {
-        p: (pb_counts.get(p, 0) + alpha) / (total_pb + POWERBALL_MAX * alpha) for p in range(1, POWERBALL_MAX + 1)
+        p: (pb_counts.get(p, 0) + alpha) / (total_pb + POWERBALL_MAX * alpha)
+        for p in range(1, POWERBALL_MAX + 1)
     }
 
     top_nums = sorted(main_posterior, key=lambda n: main_posterior[n], reverse=True)[:6]

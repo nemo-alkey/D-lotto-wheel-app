@@ -43,7 +43,7 @@ def parse_ticket_line(line: str):
 
 def load_wheel(filepath: Path):
     tickets = []
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding="utf-8") as f:
         for line in f:
             nums, pb = parse_ticket_line(line)
             if nums is not None:
@@ -64,12 +64,11 @@ def backtest(tickets):
     draws_with_win = 0
     total_draws = len(rows)
 
-    for draw_num, draw_date, nums_str, bonus, powerball in rows:
-        drawn_set = set(int(x) for x in nums_str.split(','))
-        drawn_pb = powerball
+    for _draw_num, _draw_date, nums_str, bonus, _powerball in rows:
+        drawn_set = {int(x) for x in nums_str.split(",")}
         max_main = 0
         best_bonus_matched = False
-        for ticket_nums, ticket_pb in tickets:
+        for ticket_nums, _ticket_pb in tickets:
             main_matches = len(set(ticket_nums) & drawn_set)
             bonus_matched = bonus in ticket_nums
             # Track best result for this draw across all tickets
@@ -88,26 +87,26 @@ def backtest(tickets):
             # 3+bonus = Div6
             # 3 = Div7
             if main_matches == 6:
-                prize_counts['6'] += 1
+                prize_counts["6"] += 1
             elif main_matches == 5 and bonus_matched:
-                prize_counts['5+bonus'] += 1
+                prize_counts["5+bonus"] += 1
             elif main_matches == 5:
-                prize_counts['5'] += 1
+                prize_counts["5"] += 1
             elif main_matches == 4 and bonus_matched:
-                prize_counts['4+bonus'] += 1
+                prize_counts["4+bonus"] += 1
             elif main_matches == 4:
-                prize_counts['4'] += 1
+                prize_counts["4"] += 1
             elif main_matches == 3 and bonus_matched:
-                prize_counts['3+bonus'] += 1
+                prize_counts["3+bonus"] += 1
             elif main_matches == 3:
-                prize_counts['3'] += 1
+                prize_counts["3"] += 1
         if max_main >= 3:
             draws_with_win += 1
 
     print(f"Backtested {len(tickets)} tickets against {total_draws} draws")
     print(f"Draws with at least one winning ticket (match ≥3): {draws_with_win}")
     print("\nPrize category counts (assuming you played all tickets every draw):")
-    for cat in ['6', '5+bonus', '5', '4+bonus', '4', '3+bonus', '3']:
+    for cat in ["6", "5+bonus", "5", "4+bonus", "4", "3+bonus", "3"]:
         count = prize_counts.get(cat, 0)
         print(f"  {cat:8s}: {count}")
 

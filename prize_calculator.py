@@ -84,16 +84,17 @@ except ImportError:
     }
 
 
-def _fallback_pb_prizes(draw_date: "str | None") -> dict[int, float]:
+def _fallback_pb_prizes(draw_date: str | None) -> dict[int, float]:
     """Static Powerball fallback prizes (API unavailable), era-aware.
 
     Parimutuel divisions (1-6) are unknown in fallback mode and stay 0.0;
     the fixed divisions (7 and, post-change, 8) are known exactly from the
     rules. ``draw_date=None`` means the rules currently in force.
     """
-    from powerball_rules import POWERBALL_CHANGE_DATE, pb_fixed_prizes
+    from typing import Any as _Any
+    from typing import cast as _cast
 
-    from typing import Any as _Any, cast as _cast
+    from powerball_rules import POWERBALL_CHANGE_DATE, pb_fixed_prizes
 
     prizes = dict(FALLBACK_PB)
     effective = draw_date if draw_date is not None else POWERBALL_CHANGE_DATE
@@ -110,7 +111,7 @@ def resolve_divisions(
     main_matches: int,
     bonus_match: bool,
     pb_hit: bool,
-    draw_date: "str | None" = None,
+    draw_date: str | None = None,
 ) -> tuple[int | None, int | None]:
     """Map match counts to API division numbers.
 
@@ -243,7 +244,7 @@ def _money_to_float(value: Any) -> float:
     """
     if value is None:
         return 0.0
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return float(value)
     text = str(value).strip()
     if not text or text in ("Bonus Ticket", "POWERBALL ROLLOVER", "ROLLOVER"):
@@ -436,8 +437,7 @@ def get_prize_for_draw(
     max_pb = powerball_max_for_date(draw_date) if draw_date else 14
     if not 1 <= pb <= max_pb:
         raise ValueError(
-            f"pb {pb} out of range for draw {draw_date or 'current rules'} "
-            f"(valid 1-{max_pb})."
+            f"pb {pb} out of range for draw {draw_date or 'current rules'} " f"(valid 1-{max_pb})."
         )
 
     payouts = fetch_payouts(draw_date)
@@ -545,9 +545,7 @@ def get_prize_for_matches(
     # Resolve divisions using official rules (era-aware via draw_date; the
     # fetched draw's date when the caller did not specify one)
     era_date = draw_date or (draw_date_str if draw_date_str != "unknown" else None)
-    lotto_div, pb_div = resolve_divisions(
-        main_matches, bonus_match, pb_hit, draw_date=era_date
-    )
+    lotto_div, pb_div = resolve_divisions(main_matches, bonus_match, pb_hit, draw_date=era_date)
 
     main_prize = lotto_payouts.get(lotto_div, 0.0) if lotto_div else 0.0
 
@@ -731,14 +729,15 @@ DIV7_PB_PRIZE_POST = pb_fixed_prizes(POWERBALL_CHANGE_DATE)[7]  # $20
 DIV8_PB_PRIZE_POST = pb_fixed_prizes(POWERBALL_CHANGE_DATE)[8]  # $12
 
 
-def _pb_fixed_prizes_for(draw_date: "str | None") -> dict[int, float]:
+def _pb_fixed_prizes_for(draw_date: str | None) -> dict[int, float]:
     """Fixed Powerball prizes for ``allocate_pool``.
 
     ``draw_date=None`` means the rules currently in force (post-change) —
     ``allocate_pool`` models a game played under a known rule set, so the
     current rules are the correct default for forward simulations.
     """
-    from typing import Any as _Any, cast as _cast
+    from typing import Any as _Any
+    from typing import cast as _cast
 
     effective = draw_date if draw_date is not None else POWERBALL_CHANGE_DATE
     return pb_fixed_prizes(_cast(_Any, effective))
@@ -750,7 +749,7 @@ def allocate_pool(
     game: str = "powerball",
     reserve_rate: float | None = None,
     div1_cap: float | None = None,
-    draw_date: "str | None" = None,
+    draw_date: str | None = None,
 ) -> dict[str, Any]:
     """Allocate prize pool across divisions with realistic NZ Lotto rules.
 
@@ -817,7 +816,6 @@ def allocate_pool(
         pool_pcts = LOTTO_ALLOC_PERCENTAGES
         fixed_prizes = {7: DIV7_LOTTO_PRIZE}
         pool_pcts = LOTTO_ALLOC_PERCENTAGES
-        div7_fixed = DIV7_LOTTO_PRIZE
 
     # --- Step 1: Deduct reserve ---
     reserve_deduction = round(total_turnover * reserve_rate, 2)
@@ -1257,7 +1255,9 @@ def main() -> None:
         help="6 comma-separated draw numbers",
     )
     parser.add_argument(
-        "--pb", type=int, required=True,
+        "--pb",
+        type=int,
+        required=True,
         help="Powerball (1-10 before 2026-09-16, 1-14 on/after)",
     )
     parser.add_argument("--date", help="Draw date (YYYY-MM-DD) — defaults to latest")

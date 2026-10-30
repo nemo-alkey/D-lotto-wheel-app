@@ -12,7 +12,7 @@ import os
 import sqlite3
 import unittest
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import pytest
 

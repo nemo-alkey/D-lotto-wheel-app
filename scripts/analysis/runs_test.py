@@ -1,4 +1,5 @@
 """Wald-Wolfowitz runs test and autocorrelation on draw sequences."""
+
 from __future__ import annotations
 
 import sys
@@ -31,7 +32,7 @@ def runs_test(binary):
     var = (2 * n1 * n0 * (2 * n1 * n0 - n)) / (n * n * (n - 1))
     if var <= 0:
         return runs, 0.0, 1.0
-    z = (runs - mu) / var ** 0.5
+    z = (runs - mu) / var**0.5
     p = 2 * (1 - stats.norm.cdf(abs(z)))
     return runs, float(z), float(p)
 
@@ -102,7 +103,7 @@ def main():
     section("Autocorrelation: draw sums, lags 1-10")
     acf = autocorr([float(s) for s in sums], max_lag=10)
     n = len(sums)
-    threshold = 1.96 / (n ** 0.5)
+    threshold = 1.96 / (n**0.5)
     print(f"{'Lag':>4}  {'Correlation':>12}  {'Significant?':>14}")
     print("-" * 36)
     for lag, corr in acf:

@@ -7,7 +7,6 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import requests
 
@@ -20,7 +19,7 @@ RATE_LIMIT = 0.3
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     print(f"Database: {DB_PATH.resolve()}")
-    
+
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS draws (
@@ -33,18 +32,18 @@ def init_db() -> None:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     cols = {row[1] for row in conn.execute("PRAGMA table_info(draws)")}
     if "draw_number" not in cols:
         conn.execute("ALTER TABLE draws ADD COLUMN draw_number INTEGER")
-    
+
     conn.commit()
     count = conn.execute("SELECT COUNT(*) FROM draws").fetchone()[0]
     print(f"Starting count: {count}")
     conn.close()
 
 
-def fetch_draw(draw_number: int) -> Optional[dict]:
+def fetch_draw(draw_number: int) -> dict | None:
     url = f"{API_BASE}/{draw_number}"
     headers = {
         "Accept": "application/json",
@@ -95,19 +94,28 @@ def save_draw(draw: dict) -> bool:
     try:
         conn.execute(
             "INSERT INTO draws (draw_number, draw_date, numbers, bonus, powerball) VALUES (?, ?, ?, ?, ?)",
-            (draw["draw_number"], draw["draw_date"], ",".join(map(str, draw["numbers"])), 
-             draw["bonus"], draw["powerball"]),
+            (
+                draw["draw_number"],
+                draw["draw_date"],
+                ",".join(map(str, draw["numbers"])),
+                draw["bonus"],
+                draw["powerball"],
+            ),
         )
         conn.commit()
-        
+
         # Verify immediately
-        verify = conn.execute("SELECT 1 FROM draws WHERE draw_number = ?", (draw["draw_number"],)).fetchone()
+        verify = conn.execute(
+            "SELECT 1 FROM draws WHERE draw_number = ?", (draw["draw_number"],)
+        ).fetchone()
         conn.close()
         return verify is not None
     except sqlite3.IntegrityError:
         try:
-            conn.execute("UPDATE draws SET draw_number = ? WHERE draw_date = ?", 
-                        (draw["draw_number"], draw["draw_date"]))
+            conn.execute(
+                "UPDATE draws SET draw_number = ? WHERE draw_date = ?",
+                (draw["draw_number"], draw["draw_date"]),
+            )
             conn.commit()
             conn.close()
             return True
@@ -122,11 +130,11 @@ def save_draw(draw: dict) -> bool:
 
 def backfill(start: int, end: int) -> None:
     init_db()
-    
+
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
     existing = {r[0] for r in conn.execute("SELECT draw_number FROM draws WHERE draw_number > 0")}
     conn.close()
-    
+
     print(f"Existing: {len(existing)} | Fetching #{start} to #{end}")
     print("=" * 60)
 

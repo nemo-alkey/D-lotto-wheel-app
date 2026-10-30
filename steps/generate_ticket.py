@@ -35,7 +35,6 @@ from block_analysis import validate_positional_ranges
 # =========================
 # Ticket configuration
 # =========================
-
 from era_features import powerball_pool_size
 
 NUM_MAIN_NUMBERS = 40  # Total count of possible main numbers (1..40)

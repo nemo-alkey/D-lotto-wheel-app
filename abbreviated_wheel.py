@@ -1,11 +1,11 @@
-import streamlit as st
 import itertools
 import random
 import sqlite3
 import time
 from collections import Counter
 from pathlib import Path
-from typing import List, Tuple, Set
+
+import streamlit as st
 
 # ── Page config ─────────────────────────────────────────────────────────
 st.set_page_config(
@@ -24,7 +24,7 @@ DB_PATH = Path.cwd() / "data" / "lotto.db"
 
 # ── Database helpers ────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def get_hot_numbers(top_n: int = 40) -> List[int]:
+def get_hot_numbers(top_n: int = 40) -> list[int]:
     if not DB_PATH.exists():
         return []
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
@@ -48,7 +48,9 @@ def get_hot_powerball() -> int:
 
 
 # ── Pool generation ─────────────────────────────────────────────────────
-def generate_pool(pool_size: int, strategy: str, include: List[int], exclude: List[int]) -> List[int]:
+def generate_pool(
+    pool_size: int, strategy: str, include: list[int], exclude: list[int]
+) -> list[int]:
     available = [n for n in range(LOTTO_MIN, LOTTO_MAX + 1) if n not in exclude]
     include = [n for n in include if n in available]
     if len(include) > pool_size:
@@ -84,7 +86,9 @@ def generate_pool(pool_size: int, strategy: str, include: List[int], exclude: Li
 
 
 # ── Core greedy set-cover algorithm ─────────────────────────────────────
-def compute_coverage(ticket: Tuple[int, ...], triggers: List[Tuple[int, ...]], guarantee: int) -> Set[int]:
+def compute_coverage(
+    ticket: tuple[int, ...], triggers: list[tuple[int, ...]], guarantee: int
+) -> set[int]:
     tset = set(ticket)
     covered = set()
     for i, trig in enumerate(triggers):
@@ -93,21 +97,23 @@ def compute_coverage(ticket: Tuple[int, ...], triggers: List[Tuple[int, ...]], g
     return covered
 
 
-def greedy_set_cover(pool: List[int], guarantee: int, trigger_size: int, progress_bar=None) -> List[Tuple[int, ...]]:
+def greedy_set_cover(
+    pool: list[int], guarantee: int, trigger_size: int, progress_bar=None
+) -> list[tuple[int, ...]]:
     triggers = list(itertools.combinations(pool, trigger_size))
     all_tickets = list(itertools.combinations(pool, TICKET_SIZE))
 
     ticket_coverage = [compute_coverage(ticket, triggers, guarantee) for ticket in all_tickets]
 
-    uncovered: Set[int] = set(range(len(triggers)))
-    selected: List[Tuple[int, ...]] = []
+    uncovered: set[int] = set(range(len(triggers)))
+    selected: list[tuple[int, ...]] = []
 
     while uncovered:
         best_ticket = None
         best_cover = set()
         best_count = -1
 
-        for ticket, coverage in zip(all_tickets, ticket_coverage):
+        for ticket, coverage in zip(all_tickets, ticket_coverage, strict=False):
             new_cover = coverage & uncovered
             cnt = len(new_cover)
             if cnt > best_count:
@@ -116,7 +122,9 @@ def greedy_set_cover(pool: List[int], guarantee: int, trigger_size: int, progres
                 best_ticket = ticket
 
         if best_ticket is None or best_count == 0:
-            st.warning(f"Could not cover {len(uncovered)} remaining triggers. Guarantee may be impossible.")
+            st.warning(
+                f"Could not cover {len(uncovered)} remaining triggers. Guarantee may be impossible."
+            )
             break
 
         selected.append(best_ticket)
@@ -132,7 +140,13 @@ def greedy_set_cover(pool: List[int], guarantee: int, trigger_size: int, progres
 
 
 # ── Verification ────────────────────────────────────────────────────────
-def verify_wheel(tickets: List[Tuple[int, ...]], pool: List[int], guarantee: int, trigger_size: int, sims: int = 2000) -> Tuple[bool, float, int]:
+def verify_wheel(
+    tickets: list[tuple[int, ...]],
+    pool: list[int],
+    guarantee: int,
+    trigger_size: int,
+    sims: int = 2000,
+) -> tuple[bool, float, int]:
     hits = 0
     worst = TICKET_SIZE
     for _ in range(sims):
@@ -155,14 +169,14 @@ Choose your pool, guarantee level, and let the greedy set-cover algorithm do the
 with st.expander("ℹ️ What is an abbreviated wheel?", expanded=False):
     st.markdown("""
     An abbreviated wheel is a carefully chosen subset of all possible tickets from your number pool.
-    
+
     | Guarantee | Meaning | Typical Cost |
     |-----------|---------|-------------|
     | **3 if 3** | Any 3 pool numbers drawn → at least 1 ticket matches 3 | ~$2–$7 |
     | **4 if 4** | Any 4 pool numbers drawn → at least 1 ticket matches 4 | ~$10–$40 |
     | **4 if 5** | Any 5 pool numbers drawn → at least 1 ticket matches 4 | ~$5–$15 |
     | **5 if 6** | All 6 drawn in pool → at least 1 ticket matches 5 | ~$30–$80 |
-    
+
     **Important:** A guarantee is about the *worst case*, not profit. All wheels lose money long-term.
     """)
 
@@ -171,8 +185,14 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("Pool Settings")
-    pool_size = st.slider("Pool size", min_value=6, max_value=20, value=10, step=1,
-                          help="How many numbers to wheel (6–20). Larger = more tickets.")
+    pool_size = st.slider(
+        "Pool size",
+        min_value=6,
+        max_value=20,
+        value=10,
+        step=1,
+        help="How many numbers to wheel (6–20). Larger = more tickets.",
+    )
 
     strategy = st.selectbox(
         "Pool strategy",
@@ -185,10 +205,16 @@ with col1:
         }[x],
     )
 
-    include_str = st.text_input("Force-include numbers (comma-separated)", placeholder="e.g. 7, 14, 21",
-                                help="These numbers will always be in your pool.")
-    exclude_str = st.text_input("Exclude numbers (comma-separated)", placeholder="e.g. 1, 2, 3",
-                                help="These numbers will never be in your pool.")
+    include_str = st.text_input(
+        "Force-include numbers (comma-separated)",
+        placeholder="e.g. 7, 14, 21",
+        help="These numbers will always be in your pool.",
+    )
+    exclude_str = st.text_input(
+        "Exclude numbers (comma-separated)",
+        placeholder="e.g. 1, 2, 3",
+        help="These numbers will never be in your pool.",
+    )
 
 with col2:
     st.subheader("Guarantee & Powerball")
@@ -214,8 +240,11 @@ with col2:
         powerball = random.randint(PB_MIN, PB_MAX)
         st.caption(f"Random Powerball: **{powerball}**")
 
-    verify = st.toggle("Run Monte-Carlo verification", value=True,
-                       help="Simulates 2,000 random draws to confirm the guarantee holds.")
+    verify = st.toggle(
+        "Run Monte-Carlo verification",
+        value=True,
+        help="Simulates 2,000 random draws to confirm the guarantee holds.",
+    )
 
 # ── Parse inputs ────────────────────────────────────────────────────────
 include = []
@@ -276,9 +305,11 @@ if st.button("🚀 Generate Wheel", type="primary", use_container_width=True):
             with st.spinner("Running Monte-Carlo verification (2,000 sims)..."):
                 passed, ratio, worst = verify_wheel(tickets, pool, g_match, g_trig)
             if passed:
-                st.success(f"✅ Verification passed — guarantee holds in all 2,000 simulations.")
+                st.success("✅ Verification passed — guarantee holds in all 2,000 simulations.")
             else:
-                st.warning(f"⚠️ Verification: guarantee held in {ratio*100:.1f}% of simulations. Worst match: {worst}.")
+                st.warning(
+                    f"⚠️ Verification: guarantee held in {ratio*100:.1f}% of simulations. Worst match: {worst}."
+                )
             st.caption(f"Coverage ratio: {ratio*100:.2f}% | Worst-case best-match: {worst}")
 
         # ── Ticket display ──────────────────────────────────────────────
@@ -333,7 +364,9 @@ if st.button("🚀 Generate Wheel", type="primary", use_container_width=True):
         for n in pool:
             heat_data.append({"Number": n, "Appearances": coverage.get(n, 0)})
 
-        st.bar_chart({row["Number"]: row["Appearances"] for row in heat_data}, use_container_width=True)
+        st.bar_chart(
+            {row["Number"]: row["Appearances"] for row in heat_data}, use_container_width=True
+        )
 
     except Exception as e:
         st.error(f"Error generating wheel: {e}")

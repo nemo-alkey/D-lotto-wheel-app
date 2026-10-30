@@ -2,12 +2,12 @@
 """Backfill NZ Lotto draws by draw number via API."""
 
 import argparse
+import contextlib
 import re
 import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import requests
 
@@ -22,7 +22,7 @@ POWERBALL_INTRO_DATE = "2001-08-01"
 def ensure_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
-    
+
     # Create table if not exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS draws (
@@ -35,22 +35,20 @@ def ensure_db() -> None:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     # Check if draw_number column exists — add it if missing
     cursor = conn.execute("PRAGMA table_info(draws)")
     columns = {row[1] for row in cursor.fetchall()}
-    
+
     if "draw_number" not in columns:
         print("Adding draw_number column to existing draws table...")
         conn.execute("ALTER TABLE draws ADD COLUMN draw_number INTEGER")
-    
+
     conn.execute("CREATE INDEX IF NOT EXISTS idx_draws_date ON draws(draw_date)")
-    
-    try:
+
+    with contextlib.suppress(sqlite3.OperationalError):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_draws_number ON draws(draw_number)")
-    except sqlite3.OperationalError:
-        pass
-    
+
     conn.commit()
     conn.close()
 
@@ -73,7 +71,7 @@ def insert_draw(
     draw_date: str,
     numbers: list[int],
     bonus: int,
-    powerball: Optional[int],
+    powerball: int | None,
 ) -> bool:
     ensure_db()
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
@@ -103,7 +101,7 @@ def insert_draw(
         return False
 
 
-def fetch_draw(draw_number: int) -> Optional[dict]:
+def fetch_draw(draw_number: int) -> dict | None:
     url = f"{API_BASE}/{draw_number}"
     headers = {
         "Accept": "application/json",
@@ -147,9 +145,7 @@ def fetch_draw(draw_number: int) -> Optional[dict]:
 
         validate_powerball(powerball, draw_date)
     elif draw_date >= POWERBALL_INTRO_DATE:
-        raise ValueError(
-            f"Draw #{draw_number} ({draw_date}): Powerball missing from API payload"
-        )
+        raise ValueError(f"Draw #{draw_number} ({draw_date}): Powerball missing from API payload")
 
     return {
         "draw_number": draw_num,
@@ -163,7 +159,7 @@ def fetch_draw(draw_number: int) -> Optional[dict]:
 PBNZ_BASE = "https://www.powerball.net/newzealand/results"
 
 
-def fetch_draw_from_powerball_net(draw_date: str) -> Optional[dict]:
+def fetch_draw_from_powerball_net(draw_date: str) -> dict | None:
     """Fetch a draw from powerball.net (secondary corroborating source).
 
     Used only for draws outside the official API's retention window. The
@@ -211,7 +207,7 @@ def latest_draw_number() -> int:
     return int(r.json()["lotto"]["drawNumber"])
 
 
-def backfill(start: int = 1, end: Optional[int] = None) -> None:
+def backfill(start: int = 1, end: int | None = None) -> None:
     ensure_db()
     if end is None:
         end = latest_draw_number()

@@ -4,6 +4,7 @@ Investigates two suspected data gaps:
   2001-2007: PB 9 and 10 both absent from every year
   2013:      PB 6 and 9 both absent from every year
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -54,7 +55,9 @@ for year in [2006, 2007, 2013]:
     ).fetchall()
     print(f"\n  {year}: {len(zeros)} row(s) with PB=0")
     for r in zeros[:5]:
-        print(f"    {r['draw_date']}  numbers={r['numbers']}  bonus={r['bonus']}  pb={r['powerball']}")
+        print(
+            f"    {r['draw_date']}  numbers={r['numbers']}  bonus={r['bonus']}  pb={r['powerball']}"
+        )
     if len(zeros) > 5:
         print(f"    ... {len(zeros) - 5} more")
 
@@ -64,8 +67,7 @@ print("=" * 70)
 print("Part 4: every distinct PB value in 2013")
 print("=" * 70)
 vals = conn.execute(
-    "SELECT DISTINCT powerball FROM draws "
-    "WHERE draw_date LIKE '2013%' ORDER BY powerball"
+    "SELECT DISTINCT powerball FROM draws " "WHERE draw_date LIKE '2013%' ORDER BY powerball"
 ).fetchall()
 print(f"  Distinct PB values: {[r['powerball'] for r in vals]}")
 
@@ -79,7 +81,9 @@ rows = conn.execute(
     "WHERE draw_date LIKE '2013%' ORDER BY draw_date LIMIT 15"
 ).fetchall()
 for r in rows:
-    print(f"  {r['draw_date']}  numbers={r['numbers']:>26}  bonus={r['bonus']:>3}  pb={r['powerball']}")
+    print(
+        f"  {r['draw_date']}  numbers={r['numbers']:>26}  bonus={r['bonus']:>3}  pb={r['powerball']}"
+    )
 
 # ---- Part 6: what does a normal year look like, for contrast ----
 print()

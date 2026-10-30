@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Exact per-draw backtest using real prize values from API for draws 2512-2616."""
 
-import json
 import sqlite3
 import sys
 import time
@@ -65,7 +64,7 @@ def parse_ticket_line(line: str):
 
 def load_wheel(filepath: Path):
     tickets = []
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding="utf-8") as f:
         for line in f:
             nums, pb = parse_ticket_line(line)
             if nums is not None:
@@ -97,11 +96,11 @@ def backtest_exact(tickets, draw_payouts):
     """draw_payouts: dict of {draw_number: {div: prize}}"""
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
     # Only backtest draws where we have payout data
-    placeholders = ','.join('?' * len(draw_payouts))
+    placeholders = ",".join("?" * len(draw_payouts))
     rows = conn.execute(
         f"SELECT draw_number, draw_date, numbers, bonus, powerball FROM draws "
         f"WHERE draw_number IN ({placeholders})",
-        tuple(draw_payouts.keys())
+        tuple(draw_payouts.keys()),
     ).fetchall()
     conn.close()
 
@@ -112,7 +111,7 @@ def backtest_exact(tickets, draw_payouts):
     prize_counts = defaultdict(int)
 
     for draw_num, _, nums_str, bonus, _ in rows:
-        drawn_set = set(int(x) for x in nums_str.split(','))
+        drawn_set = {int(x) for x in nums_str.split(",")}
         payouts = draw_payouts[draw_num]
         draw_won = False
 
@@ -128,15 +127,15 @@ def backtest_exact(tickets, draw_payouts):
 
     roi = (total_winnings - total_spend) / total_spend if total_spend > 0 else 0.0
     return {
-        'draws': total_draws,
-        'tickets': len(tickets),
-        'winning_draws': draws_with_win,
-        'hit_rate': draws_with_win / total_draws if total_draws else 0,
-        'total_wins': sum(prize_counts.values()),
-        'prize_counts': dict(prize_counts),
-        'total_spend': total_spend,
-        'total_winnings': total_winnings,
-        'roi': roi,
+        "draws": total_draws,
+        "tickets": len(tickets),
+        "winning_draws": draws_with_win,
+        "hit_rate": draws_with_win / total_draws if total_draws else 0,
+        "total_wins": sum(prize_counts.values()),
+        "prize_counts": dict(prize_counts),
+        "total_spend": total_spend,
+        "total_winnings": total_winnings,
+        "roi": roi,
     }
 
 
@@ -161,8 +160,10 @@ def main():
         return 1
 
     print("=" * 95)
-    print(f"{'Wheel File':<22} {'Draws':>6} {'Tickets':>8} {'Hit Rate':>9} {'Wins':>6} "
-          f"{'Spend':>10} {'Winnings':>10} {'ROI':>8}")
+    print(
+        f"{'Wheel File':<22} {'Draws':>6} {'Tickets':>8} {'Hit Rate':>9} {'Wins':>6} "
+        f"{'Spend':>10} {'Winnings':>10} {'ROI':>8}"
+    )
     print("-" * 95)
 
     results = []
@@ -172,9 +173,11 @@ def main():
             continue
         res = backtest_exact(tickets, draw_payouts)
         results.append((f.name, res))
-        print(f"{f.name:<22} {res['draws']:>6} {res['tickets']:>8} {res['hit_rate']*100:>8.2f}% "
-              f"{res['total_wins']:>6} ${res['total_spend']:>10,.0f} ${res['total_winnings']:>10,.0f} "
-              f"{res['roi']*100:>7.1f}%")
+        print(
+            f"{f.name:<22} {res['draws']:>6} {res['tickets']:>8} {res['hit_rate']*100:>8.2f}% "
+            f"{res['total_wins']:>6} ${res['total_spend']:>10,.0f} ${res['total_winnings']:>10,.0f} "
+            f"{res['roi']*100:>7.1f}%"
+        )
 
     print("=" * 95)
 
@@ -182,7 +185,7 @@ def main():
     for name, res in results:
         print(f"\n{name}:")
         for div in range(1, 8):
-            count = res['prize_counts'].get(div, 0)
+            count = res["prize_counts"].get(div, 0)
             print(f"  Division {div}: {count}")
 
     return 0

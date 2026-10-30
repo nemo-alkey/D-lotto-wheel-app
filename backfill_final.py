@@ -7,7 +7,6 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import requests
 
@@ -19,7 +18,7 @@ RATE_LIMIT = 0.3
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     print(f"Database: {DB_PATH.resolve()}")
-    
+
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS draws (
@@ -32,18 +31,18 @@ def init_db() -> None:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     cols = {row[1] for row in conn.execute("PRAGMA table_info(draws)")}
     if "draw_number" not in cols:
         conn.execute("ALTER TABLE draws ADD COLUMN draw_number INTEGER")
-    
+
     conn.commit()
     count = conn.execute("SELECT COUNT(*) FROM draws").fetchone()[0]
     print(f"Starting count: {count}")
     conn.close()
 
 
-def fetch_draw(draw_number: int) -> Optional[dict]:
+def fetch_draw(draw_number: int) -> dict | None:
     url = f"{API_BASE}/{draw_number}"
     headers = {
         "Accept": "application/json",
@@ -93,7 +92,7 @@ def fetch_draw(draw_number: int) -> Optional[dict]:
 def save_draws_batch(draws: list[dict]) -> int:
     if not draws:
         return 0
-    
+
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
     saved = 0
     try:
@@ -101,8 +100,13 @@ def save_draws_batch(draws: list[dict]) -> int:
             try:
                 conn.execute(
                     "INSERT INTO draws (draw_number, draw_date, numbers, bonus, powerball) VALUES (?, ?, ?, ?, ?)",
-                    (draw["draw_number"], draw["draw_date"], ",".join(map(str, draw["numbers"])), 
-                     draw["bonus"], draw["powerball"]),
+                    (
+                        draw["draw_number"],
+                        draw["draw_date"],
+                        ",".join(map(str, draw["numbers"])),
+                        draw["bonus"],
+                        draw["powerball"],
+                    ),
                 )
                 saved += 1
             except sqlite3.IntegrityError:
@@ -114,7 +118,7 @@ def save_draws_batch(draws: list[dict]) -> int:
                     saved += 1
                 except Exception:
                     pass
-        
+
         conn.commit()
         conn.close()
         return saved
@@ -126,11 +130,11 @@ def save_draws_batch(draws: list[dict]) -> int:
 
 def backfill(start: int, end: int) -> None:
     init_db()
-    
+
     conn = sqlite3.connect(str(DB_PATH.resolve()), timeout=10)
     existing = {r[0] for r in conn.execute("SELECT draw_number FROM draws WHERE draw_number > 0")}
     conn.close()
-    
+
     print(f"Existing: {len(existing)} | Fetching #{start} to #{end}")
     print("=" * 60)
 
@@ -149,7 +153,7 @@ def backfill(start: int, end: int) -> None:
                 print(f"  - #{num}: not found")
         else:
             batch.append(draw)
-            
+
             if len(batch) >= 10:
                 saved = save_draws_batch(batch)
                 inserted += saved

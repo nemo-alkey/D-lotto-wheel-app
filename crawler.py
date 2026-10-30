@@ -35,6 +35,7 @@ USER_AGENT = (
 
 NUMBER_RE = re.compile(r"\b([1-9]|[12]\d|3[0-9]|40)\b")
 from config.settings import DB_PATH
+
 PROGRESS_FILE = "crawl_progress.txt"
 
 

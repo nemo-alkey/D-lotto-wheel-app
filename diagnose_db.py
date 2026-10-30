@@ -21,7 +21,9 @@ for p in possible_paths:
         print(f"  Size: {p.stat().st_size} bytes")
         try:
             conn = sqlite3.connect(str(p), timeout=5)
-            tables = [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+            tables = [
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            ]
             print(f"  Tables: {tables}")
             if "draws" in tables:
                 count = conn.execute("SELECT COUNT(*) FROM draws").fetchone()[0]
@@ -35,7 +37,7 @@ for p in possible_paths:
     print()
 
 print("All .db files in project:")
-for root, dirs, files in os.walk("."):
+for root, _dirs, files in os.walk("."):
     for f in files:
         if f.endswith(".db"):
             fp = Path(root) / f

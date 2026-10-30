@@ -6,6 +6,7 @@ mapping and a prize reference derived from allocate_pool.
 Model line = the architectures.py frequency baseline (top-6 hot numbers,
 most common post-change Powerball). Random line = uniform 6-of-40 + PB 1-14.
 """
+
 from __future__ import annotations
 
 import random
@@ -17,7 +18,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import load_draws, section, subsection  # noqa: E402
+from _common import load_draws, section  # noqa: E402
+
 from prize_calculator import resolve_divisions  # noqa: E402
 
 NUM_POOL = 40
@@ -70,8 +72,7 @@ def main() -> int:
     model_main = [n for n, _ in main_freq.most_common(6)]
 
     pb_freq = Counter(
-        d["powerball"] for d in draws
-        if d["rule_era"] == "post_2026_09_16" and d["powerball"] > 0
+        d["powerball"] for d in draws if d["rule_era"] == "post_2026_09_16" and d["powerball"] > 0
     )
     model_pb = pb_freq.most_common(1)[0][0] if pb_freq else 7
 
@@ -111,9 +112,9 @@ def main() -> int:
 
     section("Simulation setup")
     print(f"Simulated draws:   {N_SIMS}")
-    print(f"Random line:       uniform 6-of-40 + PB 1-14")
+    print("Random line:       uniform 6-of-40 + PB 1-14")
     print(f"Model line:        {model_main} + PB {model_pb}")
-    print(f"Line cost (NZ$):   $0.80")
+    print("Line cost (NZ$):   $0.80")
 
     section("Average EV per line")
     rand_ev = float(np.mean(rand_prizes))

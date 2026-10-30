@@ -7,6 +7,7 @@ The three framings make different bets about what is learnable:
   b. per-number binary classifier (40 independent)
   c. sequence prediction (LSTM-style next draw)
 """
+
 from __future__ import annotations
 
 import sys

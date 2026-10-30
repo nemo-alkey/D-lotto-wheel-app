@@ -6,18 +6,17 @@ Prompt pack: overfitting. Uses the NN definition from architectures.py.
 fold it records the training loss curve and the held-out fold's log-loss,
 plots train-vs-val per fold, and reports the fold with the largest gap.
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import section, subsection  # noqa: E402
-
+from _common import section  # noqa: E402
 from architectures import FEATURE_COLS, load_frame, train_nn  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -26,6 +25,7 @@ PLOT_OUT = REPO_ROOT / "data" / "plots" / "overfitting_cv.png"
 
 def main() -> int:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from sklearn.metrics import log_loss
@@ -38,12 +38,12 @@ def main() -> int:
 
     train = frame[(frame["draw_date"] >= "2008-01-01") & (frame["draw_date"] < "2023-01-01")]
     train = train.sort_values(["draw_date", "draw_number"])
-    X = train[FEATURE_COLS].to_numpy()
+    x = train[FEATURE_COLS].to_numpy()
     y = train["hit"].to_numpy()
     print(f"Train rows: {len(train)} ({train['draw_number'].nunique()} draws)")
 
     tscv = TimeSeriesSplit(n_splits=5)
-    folds = list(tscv.split(X))
+    folds = list(tscv.split(x))
 
     section("5-fold time-series cross-validation (expanding window)")
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -51,18 +51,20 @@ def main() -> int:
 
     for fold, (tr_idx, va_idx) in enumerate(folds, 1):
         model = train_nn(
-            pd.DataFrame(X[tr_idx], columns=FEATURE_COLS),
+            pd.DataFrame(x[tr_idx], columns=FEATURE_COLS),
             pd.Series(y[tr_idx]),
         )
         train_loss = float(model.loss_curve_[-1])
-        val_loss = float(log_loss(y[va_idx], model.predict_proba(X[va_idx])))
+        val_loss = float(log_loss(y[va_idx], model.predict_proba(x[va_idx])))
         gap = val_loss - train_loss
         gaps.append((fold, train_loss, val_loss, gap))
 
         ax.plot(model.loss_curve_, label=f"fold {fold} train", alpha=0.7)
         ax.axhline(val_loss, linestyle="--", alpha=0.5)
-        print(f"  Fold {fold}: train rows={len(tr_idx)} val rows={len(va_idx)}  "
-              f"train_loss={train_loss:.4f}  val_loss={val_loss:.4f}  gap={gap:+.4f}")
+        print(
+            f"  Fold {fold}: train rows={len(tr_idx)} val rows={len(va_idx)}  "
+            f"train_loss={train_loss:.4f}  val_loss={val_loss:.4f}  gap={gap:+.4f}"
+        )
 
     worst = max(gaps, key=lambda g: g[3])
     ax.set_xlabel("epoch")
@@ -75,8 +77,10 @@ def main() -> int:
 
     section("Summary")
     print(f"Plot: {PLOT_OUT}")
-    print(f"Largest train-val gap: fold {worst[0]} "
-          f"(train={worst[1]:.4f}, val={worst[2]:.4f}, gap={worst[3]:+.4f})")
+    print(
+        f"Largest train-val gap: fold {worst[0]} "
+        f"(train={worst[1]:.4f}, val={worst[2]:.4f}, gap={worst[3]:+.4f})"
+    )
     print()
     print("A persistent, large gap indicates the NN memorises training noise")
     print("(overfitting). For a fair lottery the val loss should hover near")

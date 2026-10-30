@@ -47,7 +47,6 @@ import os
 import smtplib
 import sys
 from email.message import EmailMessage
-from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lotto_wheels import DIVISIONS, WHEELS, load_draws

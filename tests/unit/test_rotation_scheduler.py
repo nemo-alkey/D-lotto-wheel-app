@@ -20,10 +20,7 @@ def test_save_plan_db_uses_per_period_powerballs(tmp_path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         actual = [
-            row[0]
-            for row in conn.execute(
-                "SELECT powerball FROM rotation_history ORDER BY period"
-            )
+            row[0] for row in conn.execute("SELECT powerball FROM rotation_history ORDER BY period")
         ]
     finally:
         conn.close()

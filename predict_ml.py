@@ -15,7 +15,9 @@ Usage:
 from __future__ import annotations
 
 import random
+
 from powerball_rules import POWERBALL_MAX_NEW
+
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import argparse
@@ -217,7 +219,7 @@ def build_candidate_sets(
         for n in line:
             penalty[n] += 1
         confidence = sum(p for n, p in num_probs if n in line)
-        _pb_for_line = (powerball if powerball is not None else random.randint(1, 14))
+        _pb_for_line = powerball if powerball is not None else random.randint(1, 14)
         sets.append({"numbers": line, "powerball": _pb_for_line, "confidence": confidence})
     return sets
 
@@ -236,8 +238,13 @@ def predict(
     # Main numbers
     main_rows = build_features_for_draw(draws, next_idx, range(1, 41))
     if not main_rows:
-        return {"numbers": [], "powerball": 0, "main_probs": {}, "pb_prob": 0.0,
-                "candidate_sets": []}
+        return {
+            "numbers": [],
+            "powerball": 0,
+            "main_probs": {},
+            "pb_prob": 0.0,
+            "candidate_sets": [],
+        }
 
     x_main = np.array([r["features"] for r in main_rows], dtype=np.float32)
     probs_main = main_model.predict_proba(x_main)[:, 1]
@@ -308,8 +315,10 @@ def print_prediction(pred: dict[str, Any], top_n: int) -> None:
         print(f"  Candidate sets ({len(sets)} lines):")
         for i, s in enumerate(sets, 1):
             nums = ", ".join(f"{n:02d}" for n in s["numbers"])
-            print(f"    {i}. {nums}  + PB {s['powerball']:02d}   "
-                  f"(confidence {s['confidence']:.4f})")
+            print(
+                f"    {i}. {nums}  + PB {s['powerball']:02d}   "
+                f"(confidence {s['confidence']:.4f})"
+            )
         print("    Note: under a fair draw every line is equally (un)likely;")
         print("          the ordering reflects model confidence only.")
         print()

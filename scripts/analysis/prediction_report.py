@@ -3,6 +3,7 @@
 Prompt pack: reporting. Uses candidate_sets.build_candidate_sets() (which
 needs models/nn_tuned.pkl from optuna_tune.py).
 """
+
 from __future__ import annotations
 
 import sys

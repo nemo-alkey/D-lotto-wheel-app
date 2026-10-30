@@ -9,6 +9,7 @@ Start with:  uvicorn api:app --host 0.0.0.0 --port 8000
 from __future__ import annotations
 
 from powerball_rules import POWERBALL_MAX_NEW, validate_powerball
+
 POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import asyncio
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     import redis
     from cachetools import TTLCache
 
+import jwt
 from fastapi import (
     Depends,
     FastAPI,
@@ -41,7 +43,7 @@ from fastapi import (
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -909,7 +911,7 @@ def require_admin_http(
         )
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        username = cast(str | None, payload.get("sub"))
         if username is None:
             raise JWTError("missing sub")
         if payload.get("type") != "access":

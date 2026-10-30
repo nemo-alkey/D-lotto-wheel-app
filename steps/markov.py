@@ -19,9 +19,8 @@ from typing import Any  # Type hints for generic NumPy arrays
 import numpy as np  # Numerical library for arrays and matrix math
 import numpy.typing as npt  # NumPy type aliases for annotations
 
-from pipeline import DataPipeline  # Pipeline type for step signatures
-
 from era_features import powerball_pool_size
+from pipeline import DataPipeline  # Pipeline type for step signatures
 
 NUM_MAIN = 40  # Number of main lottery numbers
 NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after

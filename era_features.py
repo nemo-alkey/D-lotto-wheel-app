@@ -19,8 +19,9 @@ Rules enforced here:
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from datetime import date, datetime
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from powerball_rules import POWERBALL_CHANGE_DATE, parse_draw_date
 
@@ -48,7 +49,7 @@ def current_rule_era(today: date | None = None) -> str:
     return rule_era_for_date(d)
 
 
-def powerball_pool_size(era: Optional[str] = None) -> int:
+def powerball_pool_size(era: str | None = None) -> int:
     """Powerball pool size for an era (default: the current era)."""
     era = era or current_rule_era()
     if era not in POWERBALL_POOL_SIZES:
@@ -56,14 +57,14 @@ def powerball_pool_size(era: Optional[str] = None) -> int:
     return POWERBALL_POOL_SIZES[era]
 
 
-def _draw_date(draw: Any, date_key: str = "draw_date", date_index: Optional[int] = None) -> date:
+def _draw_date(draw: Any, date_key: str = "draw_date", date_index: int | None = None) -> date:
     """Extract a draw date from a dict or a sequence (e.g. Colab tuples)."""
     if isinstance(draw, dict):
         value = draw.get(date_key) or draw.get("date")
         if value is None:
             raise ValueError(f"Draw dict has no {date_key!r} key: {draw!r}")
         return parse_draw_date(value)
-    if date_index is not None and isinstance(draw, (tuple, list)):
+    if date_index is not None and isinstance(draw, tuple | list):
         return parse_draw_date(draw[date_index])
     raise ValueError(f"Cannot extract draw date from {type(draw).__name__}: {draw!r}")
 
@@ -72,7 +73,7 @@ def filter_draws_by_era(
     draws: Sequence[Any],
     era: str,
     date_key: str = "draw_date",
-    date_index: Optional[int] = None,
+    date_index: int | None = None,
 ) -> list[Any]:
     """Return only draws belonging to ``era``. Never mixes distributions."""
     return [d for d in draws if rule_era_for_date(_draw_date(d, date_key, date_index)) == era]
@@ -83,8 +84,8 @@ def check_single_era(
     context: str = "",
     era_aware: bool = False,
     date_key: str = "draw_date",
-    date_index: Optional[int] = None,
-) -> Optional[str]:
+    date_index: int | None = None,
+) -> str | None:
     """Guard: ensure ``draws`` spans at most one rule era.
 
     Returns the era label, or None for an empty sequence. Raises
@@ -109,7 +110,7 @@ def powerball_training_draws(
     context: str = "",
     era_aware: bool = False,
     date_key: str = "draw_date",
-    date_index: Optional[int] = None,
+    date_index: int | None = None,
 ) -> list[Any]:
     """Draws that may be used for Powerball *training*.
 
@@ -118,7 +119,9 @@ def powerball_training_draws(
     span eras (check_single_era opt-in).
     """
     if era_aware:
-        check_single_era(draws, context=context, era_aware=True, date_key=date_key, date_index=date_index)
+        check_single_era(
+            draws, context=context, era_aware=True, date_key=date_key, date_index=date_index
+        )
         return list(draws)
     era = current_rule_era()
     return filter_draws_by_era(draws, era, date_key=date_key, date_index=date_index)
@@ -127,7 +130,7 @@ def powerball_training_draws(
 def era_flags(
     draws: Sequence[Any],
     date_key: str = "draw_date",
-    date_index: Optional[int] = None,
+    date_index: int | None = None,
 ) -> list[int]:
     """Explicit era feature (0 = pre, 1 = post) for era-aware models."""
     return [

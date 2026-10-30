@@ -5,6 +5,7 @@ Prompts #24 and #17. Uses prize_calculator's division table.
 Note: uses published average prizes. Actual amounts vary with sales
 and winner counts.
 """
+
 from __future__ import annotations
 
 import sys
@@ -18,14 +19,14 @@ from _common import section  # noqa: E402
 # Odds per single $0.80 Powerball line (base Lotto line assumed).
 DIVISIONS = [
     # (div, label, odds_per_line, avg_prize_nzd)
-    (1, "6 mains + PB",       1 / 53_737_320, 17_200_000),
-    (2, "5 + bonus + PB",     1 /  8_956_220,     45_056),
-    (3, "5 + PB",             1 /    271_401,      1_406),
-    (4, "4 + bonus + PB",     1 /    108_560,        131),
-    (5, "4 + PB",             1 /      6_785,         70),
-    (6, "3 + bonus + PB",     1 /      5_089,         50),
-    (7, "3 + PB",             1 /        493,         20),
-    (8, "2 + bonus + PB",     1 /        657,         12),
+    (1, "6 mains + PB", 1 / 53_737_320, 17_200_000),
+    (2, "5 + bonus + PB", 1 / 8_956_220, 45_056),
+    (3, "5 + PB", 1 / 271_401, 1_406),
+    (4, "4 + bonus + PB", 1 / 108_560, 131),
+    (5, "4 + PB", 1 / 6_785, 70),
+    (6, "3 + bonus + PB", 1 / 5_089, 50),
+    (7, "3 + PB", 1 / 493, 20),
+    (8, "2 + bonus + PB", 1 / 657, 12),
 ]
 LINE_COST = 0.80  # NZD
 
@@ -54,24 +55,20 @@ def main() -> int:
     print("-" * 68)
     total, rows = ev_per_line(jackpot=5_000_000)
     for div, label, odds, prize, ev in rows:
-        print(f"{div:>4}  {label:>16}  1 in {1 / odds:>10,.0f}  "
-              f"${prize:>13,.0f}  ${ev:>9.4f}")
+        print(f"{div:>4}  {label:>16}  1 in {1 / odds:>10,.0f}  " f"${prize:>13,.0f}  ${ev:>9.4f}")
     print("-" * 68)
     print(f"{'':>4}  {'':>16}  {'':>16}  {'Total EV':>14}  ${total:>9.4f}")
     print(f"{'':>4}  {'':>16}  {'':>16}  {'Cost':>14}  ${LINE_COST:>9.2f}")
-    print(f"{'':>4}  {'':>16}  {'':>16}  {'Net EV':>14}  "
-          f"${total - LINE_COST:>+9.4f}")
+    print(f"{'':>4}  {'':>16}  {'':>16}  {'Net EV':>14}  " f"${total - LINE_COST:>+9.4f}")
 
     section("EV at different jackpot levels")
     print(f"{'Jackpot':>14}  {'Div1 EV':>12}  {'Total EV':>12}  {'Net EV':>12}")
     print("-" * 56)
-    for jp in [5_000_000, 10_000_000, 20_000_000,
-               40_000_000, 60_000_000]:
+    for jp in [5_000_000, 10_000_000, 20_000_000, 40_000_000, 60_000_000]:
         total, _ = ev_per_line(jackpot=jp)
         div1_ev = jp / 53_737_320
         net = total - LINE_COST
-        print(f"${jp:>13,}  ${div1_ev:>11.4f}  ${total:>11.4f}  "
-              f"${net:>+11.4f}")
+        print(f"${jp:>13,}  ${div1_ev:>11.4f}  ${total:>11.4f}  " f"${net:>+11.4f}")
 
     section("Break-even jackpot")
     other_ev, _ = ev_per_line(jackpot=0)  # Div 1 contributes 0
@@ -82,9 +79,9 @@ def main() -> int:
     print(f"Break-even jackpot:     ${breakeven:,.0f}")
     print()
     if breakeven > 60_000_000:
-        print(f"Result: no jackpot within the $5M-$60M cap produces")
-        print(f"        positive EV per line. The game has negative")
-        print(f"        expected value at every legal jackpot level.")
+        print("Result: no jackpot within the $5M-$60M cap produces")
+        print("        positive EV per line. The game has negative")
+        print("        expected value at every legal jackpot level.")
 
     section("Caveats")
     print("""

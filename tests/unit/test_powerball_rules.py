@@ -20,7 +20,6 @@ from powerball_rules import (
     validate_powerball,
 )
 
-
 # ---------------------------------------------------------------------------
 # Era boundaries
 # ---------------------------------------------------------------------------
@@ -28,7 +27,7 @@ from powerball_rules import (
 
 class TestEraBoundaries:
     def test_change_date_constant(self):
-        assert POWERBALL_CHANGE_DATE == date(2026, 9, 16)
+        assert date(2026, 9, 16) == POWERBALL_CHANGE_DATE
 
     def test_max_old_era(self):
         assert powerball_max_for_date("2026-09-12") == 10

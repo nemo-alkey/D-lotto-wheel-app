@@ -4,6 +4,7 @@ Hypothesis: the PB 9/10 deficit in the full-history chi-square is due
 to the 2001-2007 era when the pool was 1-8. Restricting to 2008+ should
 return p >= 0.05 if that's the explanation.
 """
+
 from __future__ import annotations
 
 import sys
@@ -27,10 +28,7 @@ def chi2(counts: Counter, pool_size: int) -> tuple[float, float]:
 
 
 # Full pre-change era (2001 to 2026-09-15)
-full = [
-    d for d in load_draws()
-    if d["draw_date"] < "2026-09-16" and 1 <= d["powerball"] <= 10
-]
+full = [d for d in load_draws() if d["draw_date"] < "2026-09-16" and 1 <= d["powerball"] <= 10]
 counts_full = Counter(d["powerball"] for d in full)
 stat, p = chi2(counts_full, 10)
 print(f"Full pre-change era ({len(full)} draws):")
@@ -40,9 +38,9 @@ print()
 
 # 2008+ only
 modern = [
-    d for d in load_draws()
-    if "2008-01-01" <= d["draw_date"] < "2026-09-16"
-    and 1 <= d["powerball"] <= 10
+    d
+    for d in load_draws()
+    if "2008-01-01" <= d["draw_date"] < "2026-09-16" and 1 <= d["powerball"] <= 10
 ]
 counts_mod = Counter(d["powerball"] for d in modern)
 stat, p = chi2(counts_mod, 10)

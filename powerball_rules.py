@@ -76,6 +76,7 @@ def pb_fixed_prizes(draw_date: date | datetime | str) -> dict[int, float]:
         return {7: PB_DIV7_FIXED_POST, 8: PB_DIV8_FIXED_POST}
     return {7: PB_DIV7_FIXED_PRE}
 
+
 #: Accepted draw-date string formats (ISO plus MyLotto page formats).
 _DATE_FORMATS = ("%Y-%m-%d", "%A, %d %B %Y", "%d %B %Y")
 

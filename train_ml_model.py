@@ -528,7 +528,9 @@ def main() -> None:
             x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(
                 pb_draws, range(1, pb_pool + 1)
             )
-            pb_model = train_xgboost(x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball")
+            pb_model = train_xgboost(
+                x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball"
+            )
 
     # 4. Predict next draw
     print("\n--- Prediction for Next Draw ---")

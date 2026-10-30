@@ -14,21 +14,32 @@ import sys
 from itertools import combinations
 from pathlib import Path
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate key-number lottery wheels")
-    parser.add_argument("--pool", type=str, required=True,
-                        help="Comma-separated list of numbers to wheel from (e.g., 1,2,3,4,5,6,7,8)")
-    parser.add_argument("--key", type=str, required=True,
-                        help="Comma-separated list of numbers that must appear in every ticket")
-    parser.add_argument("--powerball", type=int, default=1,
-                        help="Powerball number to use (1-10, default 1)")
-    parser.add_argument("--ticket-size", type=int, default=6,
-                        help="Number of main numbers per ticket (default 6)")
+    parser.add_argument(
+        "--pool",
+        type=str,
+        required=True,
+        help="Comma-separated list of numbers to wheel from (e.g., 1,2,3,4,5,6,7,8)",
+    )
+    parser.add_argument(
+        "--key",
+        type=str,
+        required=True,
+        help="Comma-separated list of numbers that must appear in every ticket",
+    )
+    parser.add_argument(
+        "--powerball", type=int, default=1, help="Powerball number to use (1-10, default 1)"
+    )
+    parser.add_argument(
+        "--ticket-size", type=int, default=6, help="Number of main numbers per ticket (default 6)"
+    )
     args = parser.parse_args()
 
     # Parse pool and key numbers
-    pool = sorted(set(int(x) for x in args.pool.split(",") if x.strip()))
-    keys = sorted(set(int(x) for x in args.key.split(",") if x.strip()))
+    pool = sorted({int(x) for x in args.pool.split(",") if x.strip()})
+    keys = sorted({int(x) for x in args.key.split(",") if x.strip()})
 
     # Validate
     if len(pool) < args.ticket_size:
@@ -75,7 +86,7 @@ def main() -> int:
 
     # Save to file
     output_file = Path.cwd() / f"key_wheel_pb{args.powerball}.txt"
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(f"Key-number wheel (Powerball {args.powerball})\n")
         f.write(f"Pool: {pool}\n")
         f.write(f"Keys: {keys}\n")
@@ -85,6 +96,7 @@ def main() -> int:
     print(f"\nSaved to: {output_file}")
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

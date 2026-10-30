@@ -2,6 +2,7 @@
 
 Prompt #9 from the Covella prompt pack. Read-only.
 """
+
 from __future__ import annotations
 
 import sys
@@ -60,7 +61,8 @@ def main() -> int:
         ("Post-2026-09-16 (pool 1-14)", "post_2026_09_16", 14, None, None),
     ]:
         subset = [
-            d for d in draws
+            d
+            for d in draws
             if d["rule_era"] == era_key
             and d["powerball"] is not None
             and 1 <= d["powerball"] <= pool_size

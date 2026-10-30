@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -22,9 +22,7 @@ def test_canonical_db_rotation_history_check_is_1_to_14() -> None:
         conn.close()
 
     assert row is not None, "rotation_history table is missing"
-    assert "BETWEEN 1 AND 14" in row[0], (
-        f"rotation_history still rejects PB 11-14: {row[0]}"
-    )
+    assert "BETWEEN 1 AND 14" in row[0], f"rotation_history still rejects PB 11-14: {row[0]}"
 
 
 def _assert_powerball_insert(db_path: Path, powerball: int) -> None:
@@ -45,9 +43,7 @@ def _assert_powerball_insert(db_path: Path, powerball: int) -> None:
 
 
 @pytest.mark.parametrize("powerball", [11, 12, 13, 14])
-def test_rotation_history_accepts_new_powerballs(
-    powerball: int, tmp_path: Path
-) -> None:
+def test_rotation_history_accepts_new_powerballs(powerball: int, tmp_path: Path) -> None:
     """Both migrated and freshly initialized schemas accept the full new range."""
     copied_db = tmp_path / "rot.db"
     shutil.copy2(DB_PATH, copied_db)

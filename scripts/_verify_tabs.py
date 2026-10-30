@@ -2,7 +2,6 @@
 """Verify dashboard.py tab refactor with Streamlit AppTest."""
 
 import os
-import sys
 
 from streamlit.testing.v1 import AppTest
 

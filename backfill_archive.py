@@ -8,7 +8,6 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import requests
 
@@ -49,7 +48,7 @@ def insert_draw(
     draw_date: str,
     numbers: list[int],
     bonus: int,
-    powerball: Optional[int],
+    powerball: int | None,
     draw_number: int = 0,
 ) -> bool:
     ensure_db()
@@ -67,7 +66,7 @@ def insert_draw(
         return False
 
 
-def discover_api_from_bundle() -> Optional[str]:
+def discover_api_from_bundle() -> str | None:
     """Search the JS bundle for draw/history API endpoints."""
     print("Searching JS bundle for hidden API endpoints...")
     try:
@@ -87,7 +86,7 @@ def discover_api_from_bundle() -> Optional[str]:
             if any(k in m.lower() for k in ["draw", "result", "history", "lotto", "api"]):
                 candidates.add(m)
 
-        candidates = {c for c in candidates if c.endswith(('.json', '')) or '/api/' in c}
+        candidates = {c for c in candidates if c.endswith((".json", "")) or "/api/" in c}
 
         print(f"  Found {len(candidates)} candidate endpoints")
         for url in sorted(candidates)[:20]:
@@ -153,7 +152,9 @@ def backfill_from_api(api_url: str) -> None:
                     skipped += 1
                     continue
 
-                if insert_draw(draw_date, sorted(nums), bonus, powerball, int(draw_num) if draw_num else 0):
+                if insert_draw(
+                    draw_date, sorted(nums), bonus, powerball, int(draw_num) if draw_num else 0
+                ):
                     inserted += 1
                     if inserted % 100 == 0:
                         print(f"  ... {inserted} inserted")
@@ -186,6 +187,7 @@ def backfill_selenium() -> None:
 
     try:
         from webdriver_manager.chrome import ChromeDriverManager
+
         service = Service(ChromeDriverManager().install())
     except ImportError:
         service = Service()
@@ -216,6 +218,7 @@ def backfill_selenium() -> None:
             time.sleep(2)
 
             from bs4 import BeautifulSoup
+
             soup = BeautifulSoup(driver.page_source, "html.parser")
 
             cards = (
@@ -228,7 +231,11 @@ def backfill_selenium() -> None:
 
             for card in cards:
                 try:
-                    date_el = card.find("time") or card.find("h3") or card.find(class_=re.compile(r"date", re.I))
+                    date_el = (
+                        card.find("time")
+                        or card.find("h3")
+                        or card.find(class_=re.compile(r"date", re.I))
+                    )
                     if not date_el:
                         continue
                     date_str = date_el.get_text(strip=True)
@@ -248,17 +255,17 @@ def backfill_selenium() -> None:
                         continue
 
                     text = card.get_text(separator=" ", strip=True)
-                    nums = [int(n) for n in re.findall(r'\b([1-9]|[12]\d|3[0-9]|40)\b', text)]
+                    nums = [int(n) for n in re.findall(r"\b([1-9]|[12]\d|3[0-9]|40)\b", text)]
                     if len(nums) < 6:
                         continue
 
                     main = sorted(nums[:6])
                     bonus = nums[6] if len(nums) > 6 else 0
 
-                    pb_match = re.search(r'Powerball[:\s]*(\d+)', text, re.I)
+                    pb_match = re.search(r"Powerball[:\s]*(\d+)", text, re.I)
                     powerball = int(pb_match.group(1)) if pb_match else None
 
-                    dn_match = re.search(r'#?(\d{1,4})', text)
+                    dn_match = re.search(r"#?(\d{1,4})", text)
                     draw_num = int(dn_match.group(1)) if dn_match else 0
 
                     if insert_draw(date_str, main, bonus, powerball, draw_num):
@@ -276,7 +283,9 @@ def backfill_selenium() -> None:
                 last_count = len(cards)
 
             try:
-                load_more = driver.find_element(By.XPATH, "//button[contains(text(), 'Load') or contains(text(), 'More')]")
+                load_more = driver.find_element(
+                    By.XPATH, "//button[contains(text(), 'Load') or contains(text(), 'More')]"
+                )
                 if load_more.is_displayed():
                     load_more.click()
                     time.sleep(3)

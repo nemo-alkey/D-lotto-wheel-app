@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check how update_draws.py extracts draw numbers."""
 
-with open("update_draws.py", "r", encoding="utf-8") as f:
+with open("update_draws.py", encoding="utf-8") as f:
     content = f.read()
 
 lines = content.split("\n")

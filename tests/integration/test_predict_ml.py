@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from predict_ml import MIN_HISTORY, build_features_for_draw
 from powerball_rules import POWERBALL_MAX_NEW
+from predict_ml import MIN_HISTORY, build_features_for_draw
 
 
 def test_powerball_feature_block_supports_fourteen_numbers() -> None:
