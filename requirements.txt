@@ -12,7 +12,7 @@ plotly==5.24.1
 python-dotenv==1.2.2
 gunicorn==22.0.0
 openpyxl==3.1.5
-Werkzeug==3.1.8
+Werkzeug==3.1.9
 pydantic-settings==2.14.2
 sqlalchemy==2.0.50
 psycopg2-binary==2.9.12
@@ -32,6 +32,7 @@ fastapi==0.136.3
 
 # Plotting (dashboard)
 matplotlib==3.10.9
+Pillow==12.3.0
 
 # Scheduling
 APScheduler==3.11.2
