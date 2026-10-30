@@ -38,8 +38,8 @@ export default function CheckNumbers() {
       return 'All 6 numbers must be unique.';
     }
     const pb = parseInt(powerball, 10);
-    if (Number.isNaN(pb) || pb < 1 || pb > 10) {
-      return 'Powerball must be between 1 and 10.';
+    if (Number.isNaN(pb) || pb < 1 || pb > 14) {
+      return 'Powerball must be between 1 and 14.';
     }
     return null;
   };
@@ -112,11 +112,11 @@ export default function CheckNumbers() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-neutral-400">Powerball (1-10)</label>
+          <label className="mb-1 block text-sm text-neutral-400">Powerball (1-14)</label>
           <input
             type="number"
             min="1"
-            max="10"
+            max="14"
             required
             value={powerball}
             onChange={(e) => setPowerball(e.target.value)}

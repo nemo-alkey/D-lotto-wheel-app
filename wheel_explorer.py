@@ -52,7 +52,7 @@ from bluskov_wheel_library import (
 logger = logging.getLogger(__name__)
 
 USER_WHEELS_PATH = Path(__file__).parent / "data" / "user_wheels.json"
-DEFAULT_DB_PATH = str(Path(__file__).parent / "lotto.db")
+from config.settings import DB_PATH as DEFAULT_DB_PATH
 
 #: UI guarantee labels -> WHEEL_EXPLORER keys
 GUARANTEE_TYPES: dict[str, str] = {

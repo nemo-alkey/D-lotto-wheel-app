@@ -34,7 +34,7 @@ USER_AGENT = (
 )
 
 NUMBER_RE = re.compile(r"\b([1-9]|[12]\d|3[0-9]|40)\b")
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
+from config.settings import DB_PATH
 PROGRESS_FILE = "crawl_progress.txt"
 
 

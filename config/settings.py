@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import AliasChoices, Field, ValidationError, field_validator
@@ -46,6 +47,9 @@ INSECURE_SECRET_VALUES = frozenset(
 _SENSITIVE_NAME_PARTS = ("SECRET", "PASSWORD", "PASS", "TOKEN", "_KEY")
 
 _URL_PASSWORD_RE = re.compile(r"(://[^:/\s]*:)([^@\s]+)(@)")
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = str(PROJECT_ROOT / "data" / "lotto.db")
 
 Environment = Literal["development", "staging", "production"]
 
@@ -71,8 +75,8 @@ class Settings(BaseSettings):
 
     # ---- Database ----
     # PostgreSQL in production (pooled); SQLite fallback for local dev.
-    DATABASE_URL: str = "sqlite:///data/lotto.db"
-    DB_PATH: str = "lotto.db"
+    DATABASE_URL: str = f"sqlite:///{DB_PATH}"
+    DB_PATH: str = DB_PATH
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_TIMEOUT: int = 30  # seconds to wait for a pooled connection

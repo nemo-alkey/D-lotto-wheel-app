@@ -132,7 +132,7 @@ def markov(draws: list[Draw]) -> Prediction:
     top_nums = sorted(ranked[:6])
 
     # Powerball Markov
-    pb_trans = [[0.0] * 10 for _ in range(10)]
+    pb_trans = [[0.0] * POWERBALL_MAX for _ in range(POWERBALL_MAX)]
     for i in range(1, len(draws)):
         prev_pb = draws[i - 1][1]
         curr_pb = draws[i][1]
@@ -141,7 +141,7 @@ def markov(draws: list[Draw]) -> Prediction:
     for row in pb_trans:
         s = sum(row)
         if s > 0:
-            for j in range(10):
+            for j in range(POWERBALL_MAX):
                 row[j] /= s
 
     last_pb = draws[-1][1]

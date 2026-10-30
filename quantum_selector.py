@@ -61,6 +61,8 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+from config.settings import DB_PATH
+
 logger = logging.getLogger(__name__)
 
 BENCHMARK_PATH = Path(__file__).parent / "data" / "benchmarks" / "quantum_vs_ga.json"
@@ -300,7 +302,7 @@ def benchmark_quantum_vs_ga(
     num_tickets: int = 10,
     ga_population: int = 10,
     ga_generations: int = 5,
-    db_path: str = "lotto.db",
+    db_path: str = DB_PATH,
     out_path: Path | str = BENCHMARK_PATH,
     seed: int | None = None,
 ) -> dict[str, Any]:

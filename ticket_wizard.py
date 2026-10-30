@@ -25,6 +25,8 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 
+from config.settings import DB_PATH
+
 # ---------------------------------------------------------------------------
 # Step renderers — each returns True when the user clicks Next
 # ---------------------------------------------------------------------------
@@ -51,7 +53,7 @@ def _step_numbers() -> bool:
     numbers = st.session_state["wizard"].get("pool", [])
 
     if method == "Albert recommended pool":
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(DB_PATH)
         try:
             from albert_analysis import get_recommended_pool
 
@@ -66,7 +68,7 @@ def _step_numbers() -> bool:
         )
         st.caption(f"Default: {', '.join(str(n) for n in auto)}")
     elif method == "Ensemble predicted numbers":
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(DB_PATH)
         try:
             from ensemble import EnsemblePredictor
 
@@ -222,7 +224,7 @@ def _step_review() -> bool:
     try:
         from compliance_scorer import score_wheel
 
-        conn_c = sqlite3.connect("lotto.db")
+        conn_c = sqlite3.connect(DB_PATH)
         import os
         import sys
 

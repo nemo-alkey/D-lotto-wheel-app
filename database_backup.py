@@ -69,7 +69,7 @@ try:
 
     DEFAULT_DB = Path(settings.db_path)
 except ImportError:
-    DEFAULT_DB = Path(os.environ.get("DB_PATH", _ROOT / "lotto.db"))
+    DEFAULT_DB = Path(os.environ.get("DB_PATH", _app_cfg.DB_PATH))
 
 # ---------------------------------------------------------------------------
 # Logging — data/logs/backup.log (rotating)

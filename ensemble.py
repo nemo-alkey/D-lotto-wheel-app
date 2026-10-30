@@ -224,7 +224,7 @@ class EnsemblePredictor:
         # Powerball: frequency-based
         pb_counts: Counter[int] = Counter()
         for _, pb, _, _ in self.draws:
-            if 1 <= pb <= 10:
+            if 1 <= pb <= POWERBALL_MAX_NEW:
                 pb_counts[pb] += 1
         total_pb = sum(pb_counts.values()) or 1
         pb_probs = {p: pb_counts.get(p, 0) / total_pb for p in range(1, POWERBALL_MAX + 1)}

@@ -14,6 +14,8 @@ import matplotlib
 import pandas as pd
 import streamlit as st
 
+from config.settings import DB_PATH
+
 matplotlib.use("Agg")  # non-interactive backend for Streamlit
 import matplotlib.pyplot as plt
 import numpy as np
@@ -168,7 +170,7 @@ def _ensemble_prediction_csv() -> str | None:
     None when there is no draw data or the predictor cannot be built.
     """
     try:
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(DB_PATH)
         try:
             from ensemble import EnsemblePredictor
 
@@ -529,7 +531,7 @@ with tabs[0]:
                         }
 
                 elif predict_mode == "Gap Method":
-                    conn = sqlite3.connect("lotto.db")
+                    conn = sqlite3.connect(DB_PATH)
                     try:
                         top_k_gap = bonus_gap_prediction(conn, k=5)
                     finally:
@@ -560,7 +562,7 @@ with tabs[0]:
                         }
 
                 elif predict_mode == "Ensemble":
-                    conn = sqlite3.connect("lotto.db")
+                    conn = sqlite3.connect(DB_PATH)
                     try:
                         from ensemble import EnsemblePredictor
 
@@ -1143,7 +1145,7 @@ with tabs[0]:
 
                     # Save to DB
                     if st.button("Save to Database"):
-                        conn = sqlite3.connect("lotto.db")
+                        conn = sqlite3.connect(DB_PATH)
                         conn.execute("""
                             CREATE TABLE IF NOT EXISTS intl_draws (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1181,7 +1183,7 @@ with tabs[0]:
         st.divider()
         st.markdown("### Saved International Draws")
         try:
-            conn2 = sqlite3.connect("lotto.db")
+            conn2 = sqlite3.connect(DB_PATH)
             rows = conn2.execute(
                 "SELECT draw_date, lottery_name, numbers, bonus, powerball, fetched_at "
                 "FROM intl_draws ORDER BY fetched_at DESC LIMIT 10"
@@ -1245,7 +1247,7 @@ with tabs[1]:
         # Compute compliance scores for all pre-built wheels
         wheel_scores = {}
         try:
-            conn_ws = sqlite3.connect("lotto.db")
+            conn_ws = sqlite3.connect(DB_PATH)
             from albert_analysis import classify_numbers
             from block_analysis import compute_block_ranges
             from compliance_scorer import score_wheel
@@ -1428,7 +1430,7 @@ with tabs[1]:
         if use_albert:
             from albert_analysis import get_recommended_pool
 
-            conn_albert = sqlite3.connect("lotto.db")
+            conn_albert = sqlite3.connect(DB_PATH)
             try:
                 rec_pool: list[int] | None = get_recommended_pool(
                     conn_albert,
@@ -1501,7 +1503,7 @@ with tabs[1]:
 
         if optimize_clicked:
             with st.spinner("Running genetic algorithm..."):
-                conn_ga = sqlite3.connect("lotto.db")
+                conn_ga = sqlite3.connect(DB_PATH)
                 try:
                     from ga_optimizer import WheelOptimizerGA
 
@@ -1539,7 +1541,7 @@ with tabs[1]:
             # Auto-fill the pool with Albert-recommended numbers at the optimised pool size
             from albert_analysis import get_recommended_pool
 
-            conn_pool = sqlite3.connect("lotto.db")
+            conn_pool = sqlite3.connect(DB_PATH)
             try:
                 opt_pool = get_recommended_pool(
                     conn_pool, window_draws=20, target_pool_size=best["pool_size"]
@@ -1627,7 +1629,7 @@ with tabs[1]:
             try:
                 from wheel_generator import bonus_hotzone_coverage
 
-                conn_hz = sqlite3.connect("lotto.db")
+                conn_hz = sqlite3.connect(DB_PATH)
                 try:
                     hz_pct, hz_hot, hz_hits = bonus_hotzone_coverage(tickets, conn_hz)
                 finally:
@@ -1662,7 +1664,7 @@ with tabs[1]:
 
             # --- Lotto Code Compliance Score ---
             try:
-                conn_score = sqlite3.connect("lotto.db")
+                conn_score = sqlite3.connect(DB_PATH)
                 from albert_analysis import classify_numbers
                 from block_analysis import compute_block_ranges
                 from compliance_scorer import get_score_breakdown
@@ -3526,7 +3528,7 @@ with tabs[3]:
         @st.cache_data(ttl=_CACHE_TTL)
         def _load_cooccurrence(_start: Any, _end: Any) -> Any:
             """Load co-occurrence data from lotto.db with optional date filter."""
-            conn = sqlite3.connect("lotto.db")
+            conn = sqlite3.connect(DB_PATH)
             try:
                 # Build a filtered connection view — we filter at query level
                 # by passing dates through to the functions
@@ -3592,7 +3594,7 @@ with tabs[3]:
                 )
 
                 if st.button("Show Top Pairs", key="cooccur_pairs_btn"):
-                    conn = sqlite3.connect("lotto.db")
+                    conn = sqlite3.connect(DB_PATH)
                     try:
                         pairs = get_top_pairs_for_bonus(conn, selected_bonus, top_k=3)
                     finally:
@@ -3937,7 +3939,7 @@ with tabs[3]:
 
             # --- Last alert persisted by the scheduler ---
             try:
-                conn_pn = sqlite3.connect("lotto.db")
+                conn_pn = sqlite3.connect(DB_PATH)
                 try:
                     last_alert = conn_pn.execute(
                         "SELECT alert_message, timestamp FROM pos_neg_history "
@@ -4139,7 +4141,7 @@ with tabs[4]:
         start_filter = st.session_state.get("bonus_date_start", "").strip() or None
         end_filter = st.session_state.get("bonus_date_end", "").strip() or None
 
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(DB_PATH)
         try:
             df = get_bonus_freq(conn, start_date=start_filter, end_date=end_filter)
         finally:
@@ -4349,7 +4351,7 @@ with tabs[4]:
                 "bonus_stats_cache" not in st.session_state
                 or st.session_state.get("bonus_stats_key") != cache_key
             ):
-                conn2 = sqlite3.connect("lotto.db")
+                conn2 = sqlite3.connect(DB_PATH)
                 try:
                     stats_list = get_bonus_stats(
                         conn2, start_date=start_filter, end_date=end_filter
@@ -4832,7 +4834,7 @@ if _ADMIN_ENABLED:
         # ---- User management (read-only) ----
         st.markdown("#### Users")
         try:
-            _conn = sqlite3.connect("data/lotto.db")
+            _conn = sqlite3.connect(DB_PATH)
             try:
                 _ucols = [r[1] for r in _conn.execute("PRAGMA table_info(users)")]
                 if not _ucols:
@@ -4855,7 +4857,7 @@ if _ADMIN_ENABLED:
         # ---- Subscription stats ----
         st.markdown("#### Subscriptions")
         try:
-            _conn = sqlite3.connect("data/lotto.db")
+            _conn = sqlite3.connect(DB_PATH)
             try:
                 _tables = {
                     r[0] for r in _conn.execute("SELECT name FROM sqlite_master WHERE type='table'")

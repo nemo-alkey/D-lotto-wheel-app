@@ -16,12 +16,13 @@ from typing import Any, cast
 
 import pytest
 
+from config.settings import DB_PATH
 from database import fetch_all_draws, fetch_recent_draws
 
 pytestmark = pytest.mark.integration
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LOTTO_DB = os.path.join(PROJECT_ROOT, "lotto.db")
+LOTTO_DB = DB_PATH
 
 DRAW = {
     "draw_date": "2024-01-01",
@@ -72,7 +73,15 @@ class TestInsertDraw:
 
 
 class TestRealSchema:
-    EXPECTED_COLUMNS = ["draw_id", "draw_date", "numbers", "bonus", "powerball"]
+    EXPECTED_COLUMNS = [
+        "draw_id",
+        "draw_date",
+        "numbers",
+        "bonus",
+        "powerball",
+        "draw_number",
+        "rule_era",
+    ]
 
     def test_draws_table_and_columns(self) -> None:
         assert os.path.exists(LOTTO_DB), "lotto.db must exist for this test"

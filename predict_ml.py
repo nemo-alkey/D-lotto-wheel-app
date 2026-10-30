@@ -96,7 +96,7 @@ def build_features_for_draw(
 
     past_draws = draws[:target_idx]
     current_nums = draws[target_idx][0] if target_idx < len(draws) else []
-    is_pb = num_range[0] == 1 and num_range[-1] == 10
+    is_pb = num_range[0] == 1 and num_range[-1] in (10, 14)
     if is_pb:
         current_nums = [draws[target_idx][1]] if target_idx < len(draws) else []
 

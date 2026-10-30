@@ -21,7 +21,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
+from config.settings import DB_PATH
 
 # Common column name patterns for auto-detection
 DATE_PATTERNS = ["draw_date", "date", "drawdate", "draw date"]

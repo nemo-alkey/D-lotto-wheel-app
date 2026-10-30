@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 # Configuration validation
+from config.settings import DB_PATH
 from config_manager import get_settings, validate_startup
 
 # Data I/O
@@ -286,7 +287,7 @@ if __name__ == "__main__":
 
             from ga_optimizer import WheelOptimizerGA
 
-            conn = sqlite3.connect("lotto.db")
+            conn = sqlite3.connect(DB_PATH)
             try:
                 ga = WheelOptimizerGA(
                     conn, population_size=args.population, generations=args.generations

@@ -54,7 +54,9 @@ def _resolve_db_url() -> str:
     env_url = os.environ.get("DATABASE_URL")
     if env_url:
         return env_url
-    return f"sqlite:///{_ROOT / 'lotto.db'}"
+    from config.settings import DB_PATH
+
+    return f"sqlite:///{DB_PATH}"
 
 
 def check_schema_version() -> tuple[str | None, str | None]:

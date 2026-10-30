@@ -41,8 +41,9 @@ A ticket qualifies for exactly one division -- the highest it satisfies.
 'pb_must_match=True' means the powerball must hit; 'False' means it must NOT hit."""
 
 # ---------- 1. Database connection and data loading ----------
-DB_PATH = os.path.expanduser("~/LottoPipeline/lotto.db")
-WORKING_DB = "lotto.db"  # unified: all components use lotto.db
+from config.settings import DB_PATH
+
+WORKING_DB = DB_PATH
 
 
 def init_working_db() -> None:

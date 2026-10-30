@@ -1518,7 +1518,7 @@ def get_bonus_stats_endpoint() -> list[dict[str, Any]]:
     Raises:
         Nothing — an empty list is returned when no data exists.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         return get_bonus_stats(conn)
     finally:
@@ -1540,7 +1540,7 @@ def predict_bonus_bayesian(k: int = 5) -> list[dict[str, Any]]:
     """
     from predictions import BonusBayesian
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute("SELECT bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
@@ -1573,7 +1573,7 @@ def predict_bonus_gap(k: int = 5) -> list[dict[str, Any]]:
     """
     from predictions import bonus_gap_prediction
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         top_k = bonus_gap_prediction(conn, k=min(k, 40))
         return [{"rank": i + 1, "bonus_number": n, "score": s} for i, (n, s) in enumerate(top_k)]
@@ -1598,7 +1598,7 @@ def predict_bonus_hierarchical(k: int = 5, halflife: int = 90) -> list[dict[str,
     """
     from predictions import HierarchicalBonusPredictor
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
@@ -1638,7 +1638,7 @@ def predict_bonus_probability(num: int, halflife: int = 90) -> dict[str, Any]:
 
     from predictions import HierarchicalBonusPredictor
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
@@ -1689,7 +1689,7 @@ def predict_ensemble(main: int = 15, bonus: int = 5, pb: int = 3) -> dict[str, A
         }
         return cast(dict[str, Any], cached)
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from ensemble import EnsemblePredictor
 
@@ -1781,7 +1781,7 @@ def cooccurrence_matrix_endpoint(min_support: int = 5) -> dict[str, Any]:
     Raises:
         Nothing — empty structures are returned when no pairs qualify.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from analysis_bonus_pairs import compute_cooccurrence_matrix
 
@@ -1812,7 +1812,7 @@ def cooccurrence_pairs_endpoint(bonus_num: int, top_k: int = 3) -> list[dict[str
     if not (1 <= bonus_num <= 40):
         raise HTTPException(status_code=400, detail="bonus_num must be 1-40.")
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from analysis_bonus_pairs import get_top_pairs_for_bonus
 
@@ -1886,7 +1886,7 @@ def cooccurrence_triplets_endpoint(top_n: int = 10) -> list[dict[str, Any]]:
     Raises:
         Nothing — an empty list is returned when no triplets qualify.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from analysis_bonus_pairs import get_top_triplets
 
@@ -1919,7 +1919,7 @@ def leaderboard() -> dict[str, Any]:
         Nothing — an empty leaderboard is returned when the scorecards
         table does not exist yet.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute(
             "SELECT predictor_name, window_size, draws_evaluated, brier_score, "
@@ -1968,7 +1968,7 @@ def _frequency_probs(last_n: int = 30) -> dict[int, float]:
         dict mapping number (1-40) to its appearance frequency as a
         fraction of draws; empty dict when no draw data exists.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         with metrics.Timer("frequency_probs"):
             rows = conn.execute(
@@ -2033,7 +2033,7 @@ def create_draw(draw: DrawCreate, admin: User = Depends(require_admin_http)) -> 
             the user is not an admin; 409 if a draw already exists for the
             given date (or the draw_id primary key is taken).
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from update_draws import draw_exists, init_db
 
@@ -2127,7 +2127,7 @@ def create_prediction(req: PredictionRequest) -> PredictionResponse:
         )
 
     if req.method == "ensemble":
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(_cfg.DB_PATH)
         try:
             from ensemble import EnsemblePredictor
 
@@ -2165,7 +2165,7 @@ def create_prediction(req: PredictionRequest) -> PredictionResponse:
     from predict_ml import load_draws as ml_load_draws
     from predict_ml import predict as ml_predict
 
-    draws = ml_load_draws("lotto.db")
+    draws = ml_load_draws(_cfg.DB_PATH)
     if not draws:
         raise HTTPException(status_code=404, detail="No draw data found.")
     pred = ml_predict(draws, model_data, top_n=req.top_k)

@@ -96,7 +96,7 @@ jobs:
             docker rm lotto-app || true
             docker run -d --name lotto-app \
               -p 8000:8000 -p 8501:8501 \
-              -v lotto-data:/data \
+              -v lotto-data:/app/data \
               ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
 
       # Smoke test: poll the API health endpoint until it answers or the
@@ -133,7 +133,7 @@ jobs:
             docker rm lotto-app || true
             docker run -d --name lotto-app \
               -p 8000:8000 -p 8501:8501 \
-              -v lotto-data:/data \
+              -v lotto-data:/app/data \
               ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
 
       - name: Smoke test production
