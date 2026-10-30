@@ -41,3 +41,6 @@ models/
 model.pkl
 reports/optuna/
 reports/predictions/
+
+data/*.pre_pb14_*.db
+data/lotto.db
