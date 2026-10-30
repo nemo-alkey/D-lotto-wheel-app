@@ -58,7 +58,10 @@ from datetime import datetime
 from email.message import EmailMessage
 from typing import Any, cast
 
-WORKING_DB = "lotto.db"  # unified schema: numbers TEXT, bonus, powerball
+from config.settings import DB_PATH
+from powerball_rules import POWERBALL_MAX_NEW
+
+WORKING_DB = DB_PATH  # unified schema: numbers TEXT, bonus, powerball
 ROTATION_DB = "rotation_scheduler.db"
 PERIODS = 6  # each period = 2 draws (one calendar week → 12 draws total)
 POOL_SIZE = 11
@@ -332,13 +335,13 @@ def save_plan_json(
 def init_rotation_db(db_path: str = ROTATION_DB) -> sqlite3.Connection:
     """Create rotation_history table if it doesn't exist and return connection."""
     conn = sqlite3.connect(db_path)
-    conn.execute("""
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS rotation_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             created_at TEXT NOT NULL,
             period INTEGER NOT NULL CHECK (period >= 1),
             numbers TEXT NOT NULL,
-            powerball INTEGER NOT NULL CHECK (powerball BETWEEN 1 AND 10)
+            powerball INTEGER NOT NULL CHECK (powerball BETWEEN 1 AND {POWERBALL_MAX_NEW})
         )
     """)
     conn.commit()
