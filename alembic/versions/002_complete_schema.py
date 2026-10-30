@@ -153,7 +153,7 @@ def upgrade() -> None:
             sa.Column("numbers", sa.Text, nullable=False),
             sa.Column("powerball", sa.Integer, nullable=False),
             sa.CheckConstraint("period >= 1"),
-            sa.CheckConstraint("powerball BETWEEN 1 AND 10"),
+            sa.CheckConstraint("powerball BETWEEN 1 AND 14"),
         )
 
 
