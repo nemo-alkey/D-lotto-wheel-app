@@ -8,6 +8,10 @@ Start with:  uvicorn api:app --host 0.0.0.0 --port 8000
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW, validate_powerball
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import asyncio
 import itertools
 import json
@@ -15,7 +19,6 @@ import math
 import os
 import sqlite3
 import time
-import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -25,6 +28,7 @@ if TYPE_CHECKING:
     import redis
     from cachetools import TTLCache
 
+import jwt
 from fastapi import (
     Depends,
     FastAPI,
@@ -39,7 +43,7 @@ from fastapi import (
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -68,7 +72,7 @@ from config.settings import Settings as AppSettings
 from config_manager import get_settings, validate_startup
 from monitoring import health as health_checks
 from monitoring import metrics
-from monitoring.logging_setup import app_logger, bind_request_context
+from monitoring.middleware import setup_middleware
 from security_log import security_logger
 
 # Canonical application configuration (config/settings.py singleton).
@@ -406,44 +410,12 @@ async def security_headers(
     return response
 
 
-@app.middleware("http")
-async def metrics_and_access_log(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
-    """Prometheus counters/histograms + structured JSON access log.
+# Health/metrics routers (see monitoring/health.py and monitoring/metrics.py).
+app.include_router(health_checks.get_health_router(_cfg.DB_PATH, REDIS_URL, app.version))
+app.include_router(metrics.get_metrics_router())
 
-    Auto-increments http_requests_total, observes
-    http_request_duration_seconds, tracks active users, and appends one
-    JSON line per request to data/logs/app.log with a request id.
-    """
-    start = time.perf_counter()
-    request_id = uuid.uuid4().hex[:12]
-
-    user_id = "-"
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        user_id = _decode_token(auth_header[7:]) or "-"
-    bind_request_context(request_id, user_id)
-
-    response = await call_next(request)
-
-    duration = time.perf_counter() - start
-    endpoint = metrics.route_template(request)
-    metrics.HTTP_REQUESTS_TOTAL.labels(
-        method=request.method, endpoint=endpoint, status=str(response.status_code)
-    ).inc()
-    metrics.HTTP_REQUEST_DURATION.labels(method=request.method, endpoint=endpoint).observe(duration)
-    metrics.record_active(user_id if user_id != "-" else f"ip:{get_remote_address(request)}")
-
-    app_logger.info(
-        "%s %s -> %s",
-        request.method,
-        request.url.path,
-        response.status_code,
-        extra={"duration_ms": round(duration * 1000, 1)},
-    )
-    response.headers["X-Request-ID"] = request_id
-    return response
+# Prometheus counters/histograms + structured JSON access log (monitoring/middleware.py).
+setup_middleware(app)
 
 
 # Scrape-time health gauges for Prometheus (see monitoring/alerts.yml).
@@ -644,7 +616,7 @@ class CheckRequest(BaseModel):
 
     wheel: str = Field(description="Wheel name (e.g. double, single1, jackpot7)")
     draw: list[int] = Field(min_length=6, max_length=6, description="6 main draw numbers")
-    powerball: int = Field(ge=1, le=10, description="Powerball (1-10)")
+    powerball: int = Field(ge=1, le=14, description="Powerball (1-14 post-2026-09-16)")
 
     _clean_wheel = field_validator("wheel")(_sanitize_string)
 
@@ -939,7 +911,7 @@ def require_admin_http(
         )
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        username = cast(str | None, payload.get("sub"))
         if username is None:
             raise JWTError("missing sub")
         if payload.get("type") != "access":
@@ -979,32 +951,6 @@ def root() -> dict[str, Any]:
     return {"status": "ok", "message": "NZ Lotto Powerball API"}
 
 
-@app.get("/health", tags=["System"])
-def health() -> Response:
-    """Full system health check.
-
-    Runs the checks from monitoring.health: database connectivity
-    (critical), Redis (non-critical — in-memory fallback exists), disk
-    space (warn < 10% free), memory (warn > 90% used), and the age of the
-    latest draw in hours (warn > 72h).
-
-    Args:
-        None.
-
-    Returns:
-        JSONResponse: {"status", "timestamp", "version", "checks",
-        "draws"}. Status is "healthy" (all ok), "degraded" (warnings), or
-        "unhealthy" (critical failure).
-
-    Raises:
-        Nothing — check failures are reported in the payload: HTTP 200
-        for healthy/degraded, HTTP 503 when a critical check fails.
-    """
-    result = health_checks.run_all_checks(_cfg.DB_PATH, REDIS_URL, app.version)
-    http_status = result.pop("http_status")
-    return JSONResponse(content=result, status_code=http_status)
-
-
 @app.get("/config", tags=["System"])
 def read_config(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
     """Public, non-secret runtime configuration.
@@ -1026,22 +972,48 @@ def read_config(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
     }
 
 
-@app.get("/metrics", include_in_schema=False, tags=["System"])
-def prometheus_metrics() -> Response:
-    """Prometheus metrics exposition (text format).
+@app.get("/config/health", tags=["System"])
+def config_health(cfg: AppSettings = Depends(get_settings)) -> dict[str, Any]:
+    """Non-sensitive configuration health snapshot.
 
     Args:
-        None.
+        cfg: Injected application Settings singleton.
 
     Returns:
-        Response: text/plain; version=0.0.4 payload with request
-        counters/histograms, business counters, active users, DB query
-        durations, and scrape-time health gauges.
+        dict: app name, version, environment, debug flag, feature flags,
+        database backend/pooling, and whether Redis/SMTP/Stripe are
+        configured. Never includes secret values — only booleans.
 
     Raises:
         Nothing.
     """
-    return Response(content=metrics.render_metrics(), media_type=metrics.CONTENT_TYPE_LATEST)
+    return cfg.public_summary()
+
+
+@app.get("/admin/config", tags=["Admin"])
+def admin_config(
+    admin: User = Depends(require_admin_http),
+    cfg: AppSettings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Full runtime configuration with secrets masked (admin only).
+
+    Args:
+        admin: Authenticated admin user (HTTP Bearer JWT).
+        cfg: Injected application Settings singleton.
+
+    Returns:
+        dict: every Settings field; values whose name contains
+        SECRET/PASS/TOKEN/_KEY are replaced by "********", and passwords
+        inside URLs are masked.
+
+    Raises:
+        HTTPException: 401 if the token is missing/invalid, 403 if the
+            user is not an admin.
+    """
+    return {
+        "requested_by": admin.username,
+        "config": cfg.masked_dump(),
+    }
 
 
 @app.post("/register", status_code=201, tags=["Auth"])
@@ -1230,7 +1202,7 @@ class DrawEvent(BaseModel):
     draw_date: str
     numbers: list[int] = Field(min_length=6, max_length=6)
     bonus: int = Field(ge=1, le=40)
-    powerball: int = Field(ge=1, le=10)
+    powerball: int = Field(ge=1, le=14)
     winners: list[dict[str, Any]] = Field(default_factory=list)
     source: str = "internal"
 
@@ -1263,6 +1235,13 @@ async def internal_new_draw(
         HTTPException: 403 if the internal token is wrong or the caller is
             not localhost (when no token is configured).
     """
+    # Era-aware Powerball validation: reject PB 11-14 for pre-2026-09-16 draws.
+    # Pydantic's le=14 is only the ceiling; the era bound comes from here.
+    try:
+        validate_powerball(event.powerball, event.draw_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     if INTERNAL_NOTIFY_TOKEN:
         if x_internal_token != INTERNAL_NOTIFY_TOKEN:
             raise HTTPException(status_code=403, detail="Invalid internal token.")
@@ -1541,7 +1520,7 @@ def get_bonus_stats_endpoint() -> list[dict[str, Any]]:
     Raises:
         Nothing — an empty list is returned when no data exists.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         return get_bonus_stats(conn)
     finally:
@@ -1556,14 +1535,14 @@ def predict_bonus_bayesian(k: int = 5) -> list[dict[str, Any]]:
         k: Number of top predictions to return (default 5, capped at 40).
 
     Returns:
-        list[dict]: Ranked entries with bonus_number and probability.
+        list[dict]: Ranked entries with bonus_number and model_score.
 
     Raises:
         HTTPException: 404 if no bonus ball data exists.
     """
     from predictions import BonusBayesian
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute("SELECT bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
@@ -1576,7 +1555,7 @@ def predict_bonus_bayesian(k: int = 5) -> list[dict[str, Any]]:
     model = BonusBayesian(bonus_balls, alpha=1.0)
     top_k = model.predict_top_k(k=min(k, 40))
     return [
-        {"rank": i + 1, "bonus_number": n, "probability": round(p, 6)}
+        {"rank": i + 1, "bonus_number": n, "model_score": round(p, 6)}
         for i, (n, p) in enumerate(top_k)
     ]
 
@@ -1596,7 +1575,7 @@ def predict_bonus_gap(k: int = 5) -> list[dict[str, Any]]:
     """
     from predictions import bonus_gap_prediction
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         top_k = bonus_gap_prediction(conn, k=min(k, 40))
         return [{"rank": i + 1, "bonus_number": n, "score": s} for i, (n, s) in enumerate(top_k)]
@@ -1621,7 +1600,7 @@ def predict_bonus_hierarchical(k: int = 5, halflife: int = 90) -> list[dict[str,
     """
     from predictions import HierarchicalBonusPredictor
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
@@ -1661,7 +1640,7 @@ def predict_bonus_probability(num: int, halflife: int = 90) -> dict[str, Any]:
 
     from predictions import HierarchicalBonusPredictor
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute("SELECT draw_date, bonus FROM draws ORDER BY draw_date ASC").fetchall()
     finally:
@@ -1712,7 +1691,7 @@ def predict_ensemble(main: int = 15, bonus: int = 5, pb: int = 3) -> dict[str, A
         }
         return cast(dict[str, Any], cached)
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from ensemble import EnsemblePredictor
 
@@ -1804,7 +1783,7 @@ def cooccurrence_matrix_endpoint(min_support: int = 5) -> dict[str, Any]:
     Raises:
         Nothing — empty structures are returned when no pairs qualify.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from analysis_bonus_pairs import compute_cooccurrence_matrix
 
@@ -1835,7 +1814,7 @@ def cooccurrence_pairs_endpoint(bonus_num: int, top_k: int = 3) -> list[dict[str
     if not (1 <= bonus_num <= 40):
         raise HTTPException(status_code=400, detail="bonus_num must be 1-40.")
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from analysis_bonus_pairs import get_top_pairs_for_bonus
 
@@ -1909,7 +1888,7 @@ def cooccurrence_triplets_endpoint(top_n: int = 10) -> list[dict[str, Any]]:
     Raises:
         Nothing — an empty list is returned when no triplets qualify.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from analysis_bonus_pairs import get_top_triplets
 
@@ -1942,7 +1921,7 @@ def leaderboard() -> dict[str, Any]:
         Nothing — an empty leaderboard is returned when the scorecards
         table does not exist yet.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         rows = conn.execute(
             "SELECT predictor_name, window_size, draws_evaluated, brier_score, "
@@ -1991,7 +1970,7 @@ def _frequency_probs(last_n: int = 30) -> dict[int, float]:
         dict mapping number (1-40) to its appearance frequency as a
         fraction of draws; empty dict when no draw data exists.
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         with metrics.Timer("frequency_probs"):
             rows = conn.execute(
@@ -2056,7 +2035,7 @@ def create_draw(draw: DrawCreate, admin: User = Depends(require_admin_http)) -> 
             the user is not an admin; 409 if a draw already exists for the
             given date (or the draw_id primary key is taken).
     """
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(_cfg.DB_PATH)
     try:
         from update_draws import draw_exists, init_db
 
@@ -2150,7 +2129,7 @@ def create_prediction(req: PredictionRequest) -> PredictionResponse:
         )
 
     if req.method == "ensemble":
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(_cfg.DB_PATH)
         try:
             from ensemble import EnsemblePredictor
 
@@ -2188,7 +2167,7 @@ def create_prediction(req: PredictionRequest) -> PredictionResponse:
     from predict_ml import load_draws as ml_load_draws
     from predict_ml import predict as ml_predict
 
-    draws = ml_load_draws("lotto.db")
+    draws = ml_load_draws(_cfg.DB_PATH)
     if not draws:
         raise HTTPException(status_code=404, detail="No draw data found.")
     pred = ml_predict(draws, model_data, top_n=req.top_k)

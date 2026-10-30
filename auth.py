@@ -22,11 +22,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, field_validator
 
+from config.settings import DB_PATH as CANONICAL_DB_PATH
 from config.settings import settings as _app_settings
 
 SECRET_KEY = _app_settings.SECRET_KEY
@@ -43,7 +45,7 @@ except ImportError:
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "15"))
     REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_REFRESH_EXPIRE_DAYS", "7"))
-    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
+    DB_PATH = CANONICAL_DB_PATH
 
 # bcrypt's 72-byte input limit; longer passwords are truncated explicitly
 # (passlib 1.7.4 is incompatible with bcrypt>=5, so hash/verify are done

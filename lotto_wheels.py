@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-Lotto Powerball Wheel Manager – NZ Lotto 6/40 + PB 1-10
+Lotto Powerball Wheel Manager – NZ Lotto 6/40 + PB 1-10; 2008-2026-09-15, 1-14 after
 Integrates:
 - Albert's Lotto Code (pos/neg, blocks, sum range, numerical attraction)
 - Bluskov's wheels (System #11, #20, #88, full jackpot)
 - 25+ statistical methods (Bayesian, bandit, copula, etc.)
 Uses the existing lotto.db from Callam7/LottoPipeline.
 """
+
+from powerball_rules import POWERBALL_MAX_NEW
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import csv
 import itertools
@@ -38,8 +42,9 @@ A ticket qualifies for exactly one division -- the highest it satisfies.
 'pb_must_match=True' means the powerball must hit; 'False' means it must NOT hit."""
 
 # ---------- 1. Database connection and data loading ----------
-DB_PATH = os.path.expanduser("~/LottoPipeline/lotto.db")
-WORKING_DB = "lotto.db"  # unified: all components use lotto.db
+from config.settings import DB_PATH
+
+WORKING_DB = DB_PATH
 
 
 def init_working_db() -> None:
@@ -816,7 +821,7 @@ def lucky_dip(draws: list[tuple[list[int], int, int, str]]) -> None:
     pb_counts = Counter(pb for _, pb, _, _ in recent)
     top3_pbs = [pb for pb, _ in pb_counts.most_common(3)]
     if not top3_pbs:
-        top3_pbs = list(range(1, 11))
+        top3_pbs = list(range(1, POWERBALL_MAX + 1))
 
     best = None
 

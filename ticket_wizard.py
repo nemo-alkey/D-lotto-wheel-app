@@ -17,10 +17,16 @@ Uses st.session_state["wizard"] to persist all data across reruns.
 
 from __future__ import annotations
 
+from powerball_rules import POWERBALL_MAX_NEW
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+
 import sqlite3
 
 import pandas as pd
 import streamlit as st
+
+from config.settings import DB_PATH
 
 # ---------------------------------------------------------------------------
 # Step renderers — each returns True when the user clicks Next
@@ -48,7 +54,7 @@ def _step_numbers() -> bool:
     numbers = st.session_state["wizard"].get("pool", [])
 
     if method == "Albert recommended pool":
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(DB_PATH)
         try:
             from albert_analysis import get_recommended_pool
 
@@ -63,7 +69,7 @@ def _step_numbers() -> bool:
         )
         st.caption(f"Default: {', '.join(str(n) for n in auto)}")
     elif method == "Ensemble predicted numbers":
-        conn = sqlite3.connect("lotto.db")
+        conn = sqlite3.connect(DB_PATH)
         try:
             from ensemble import EnsemblePredictor
 
@@ -148,7 +154,7 @@ def _step_powerball() -> bool:
         key="wiz_pb_mode",
     )
     if pb_mode == "Manual":
-        pb = st.selectbox("Powerball", list(range(1, 11)), key="wiz_pb_manual")
+        pb = st.selectbox("Powerball", list(range(1, POWERBALL_MAX + 1)), key="wiz_pb_manual")
         st.session_state["wizard"]["powerball"] = pb
     elif pb_mode == "Auto (frequency)":
         st.session_state["wizard"]["powerball"] = "auto"
@@ -219,7 +225,7 @@ def _step_review() -> bool:
     try:
         from compliance_scorer import score_wheel
 
-        conn_c = sqlite3.connect("lotto.db")
+        conn_c = sqlite3.connect(DB_PATH)
         import os
         import sys
 

@@ -3,7 +3,9 @@
 prize_calculator.py — Fetch real NZ Lotto Powerball division payouts from the
 official MyLotto API and calculate exact prizes for a given ticket.
 
-Supports the official NZ Lotto Powerball division rules including the bonus ball:
+Supports the official NZ Lotto Powerball division rules including the bonus ball.
+
+Pre-2026-09-16 divisions (Powerball pool 1-10):
 
   Div 1: 6 main + PB                    (bonus irrelevant)
   Div 2: 5 main + bonus + PB
@@ -12,6 +14,16 @@ Supports the official NZ Lotto Powerball division rules including the bonus ball
   Div 5: 4 main + PB                    (bonus irrelevant)
   Div 6: 3 main + bonus + PB
   Div 7: 3 main + PB                    (bonus irrelevant)
+
+From the first new-rules draw on 2026-09-16 (Powerball pool 1-14) an eighth
+division was added (Lotto Amendment Rules 2026, SL 2026/51, rule 30(1)(h)):
+
+  Div 8: 2 main + bonus + PB            fixed prize $12
+  Div 7 fixed prize increased $15 -> $20 (plus a Lotto bonus ticket).
+
+Division resolution is era-aware: pass ``draw_date`` so that Division 8 is
+only awarded for draws on/after 2026-09-16. A ``draw_date`` of None means
+"the rules currently in force" (post-change).
 
 API: https://pathway.mylotto.co.nz/api/results/v1/results/lotto
 
@@ -72,13 +84,34 @@ except ImportError:
     }
 
 
+def _fallback_pb_prizes(draw_date: str | None) -> dict[int, float]:
+    """Static Powerball fallback prizes (API unavailable), era-aware.
+
+    Parimutuel divisions (1-6) are unknown in fallback mode and stay 0.0;
+    the fixed divisions (7 and, post-change, 8) are known exactly from the
+    rules. ``draw_date=None`` means the rules currently in force.
+    """
+    from typing import Any as _Any
+    from typing import cast as _cast
+
+    from powerball_rules import POWERBALL_CHANGE_DATE, pb_fixed_prizes
+
+    prizes = dict(FALLBACK_PB)
+    effective = draw_date if draw_date is not None else POWERBALL_CHANGE_DATE
+    prizes.update(pb_fixed_prizes(_cast(_Any, effective)))
+    return prizes
+
+
 # ---------------------------------------------------------------------------
 # Division resolver — official NZ Lotto Powerball rules
 # ---------------------------------------------------------------------------
 
 
 def resolve_divisions(
-    main_matches: int, bonus_match: bool, pb_hit: bool
+    main_matches: int,
+    bonus_match: bool,
+    pb_hit: bool,
+    draw_date: str | None = None,
 ) -> tuple[int | None, int | None]:
     """Map match counts to API division numbers.
 
@@ -100,9 +133,34 @@ def resolve_divisions(
          3     yes   no        6         --     Div 6 (3+bonus)
          3     any   no        7         --     Div 7 (3)
 
+    Era rule (Lotto Amendment Rules 2026, SL 2026/51, rule 30(1)(h)): for
+    draws on/after 2026-09-16, a ticket with 2 main numbers + the bonus
+    number + the Powerball wins Powerball Division 8 (Lotto division: none):
+
+         2     yes   yes      --          8     Div 8 (2+bonus+PB), $12 fixed
+
+    ``draw_date`` (YYYY-MM-DD) selects the era. ``None`` means the rules
+    currently in force (post-change). Division 8 never applies to
+    pre-change draws, and a 2-main ticket without the bonus never wins
+    Division 8 in any era.
+
     Returns (lotto_division, pb_division) where None means no win for that
     component.
     """
+    from powerball_rules import POWERBALL_CHANGE_DATE, parse_draw_date
+
+    post_change = (
+        parse_draw_date(draw_date) >= POWERBALL_CHANGE_DATE
+        if draw_date is not None
+        else True  # None = rules currently in force
+    )
+
+    # --- Division 8 (new rules only): 2 main + bonus + PB ---
+    # Must be checked before the < 3 main early return — a 2-main ticket is
+    # no longer automatically a loss when it matches the Div 8 pattern.
+    if main_matches == 2 and pb_hit and bonus_match and post_change:
+        return (None, 8)
+
     if main_matches < 3:
         return (None, None)
 
@@ -174,12 +232,37 @@ def _fetch_raw_by_draw_number(draw_number: int) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
+def _money_to_float(value: Any) -> float:
+    """Parse a prize value that may combine cash and a bonus ticket.
+
+    The MyLotto API returns combined prize strings such as ``"12.00"``,
+    ``"Bonus Ticket"``, ``"Bonus Ticket + 20.00"`` (post-change Powerball
+    Div 7), or ``"POWERBALL ROLLOVER"``. Returns the cash component as a
+    float, or 0.0 when there is no cash amount. Never guesses: unparseable
+    non-empty strings return 0.0 and are indistinguishable from a genuine
+    zero, so callers treat API data as authoritative.
+    """
+    if value is None:
+        return 0.0
+    if isinstance(value, int | float):
+        return float(value)
+    text = str(value).strip()
+    if not text or text in ("Bonus Ticket", "POWERBALL ROLLOVER", "ROLLOVER"):
+        return 0.0
+    # Take the last numeric token: "Bonus Ticket + 20.00" -> 20.00
+    token = text.split("+")[-1].strip().replace(",", "")
+    try:
+        return float(token)
+    except ValueError:
+        return 0.0
+
+
 def _parse_payouts(raw: dict[str, Any]) -> dict[str, Any]:
     """Extract lotto and powerball division payouts from an API response.
 
     Returns dict with keys:
       - lotto: dict mapping division (1-7) -> prize_value (float)
-      - powerball: dict mapping division (1-7) -> combined_prize_value (float)
+      - powerball: dict mapping division (1-8) -> combined_prize_value (float)
       - draw_date: str
       - draw_number: int
     """
@@ -192,14 +275,7 @@ def _parse_payouts(raw: dict[str, Any]) -> dict[str, Any]:
     lotto_payouts: dict[int, float] = {}
     for div in lotto_winners:
         d = div["division"]
-        val = div.get("prizeValue", "0")
-        if val in ("Bonus Ticket", None, ""):
-            lotto_payouts[d] = 0.0
-        else:
-            try:
-                lotto_payouts[d] = float(val)
-            except (ValueError, TypeError):
-                lotto_payouts[d] = 0.0
+        lotto_payouts[d] = _money_to_float(div.get("prizeValue", "0"))
 
     pb_payouts: dict[int, float] = {}
     for div in pb_winners:
@@ -208,10 +284,7 @@ def _parse_payouts(raw: dict[str, Any]) -> dict[str, Any]:
         if combined in ("POWERBALL ROLLOVER", "ROLLOVER", None, ""):
             pb_payouts[d] = 0.0  # undefined until drawn
         else:
-            try:
-                pb_payouts[d] = float(combined)
-            except (ValueError, TypeError):
-                pb_payouts[d] = 0.0
+            pb_payouts[d] = _money_to_float(combined)
 
     return {
         "lotto": lotto_payouts,
@@ -338,7 +411,8 @@ def get_prize_for_draw(
 
     Args:
         draw_numbers: List of 6 main numbers drawn.
-        pb: Powerball number (1-10).
+        pb: Powerball number. Valid range is era-dependent: 1-10 before
+            2026-09-16, 1-14 on/after (1-14 when draw_date is None).
         bonus_matched: Whether the bonus ball was matched.
         draw_date: Draw date string (YYYY-MM-DD). If None, uses latest draw.
 
@@ -357,23 +431,29 @@ def get_prize_for_draw(
     """
     if len(draw_numbers) != 6 or len(set(draw_numbers)) != 6:
         raise ValueError("draw_numbers must be a list of 6 unique integers.")
-    if not (1 <= pb <= 10):
-        raise ValueError("pb must be between 1 and 10.")
+    # Era-aware Powerball range: 1-10 before 2026-09-16, 1-14 on/after.
+    from powerball_rules import powerball_max_for_date
+
+    max_pb = powerball_max_for_date(draw_date) if draw_date else 14
+    if not 1 <= pb <= max_pb:
+        raise ValueError(
+            f"pb {pb} out of range for draw {draw_date or 'current rules'} " f"(valid 1-{max_pb})."
+        )
 
     payouts = fetch_payouts(draw_date)
     is_estimated = payouts is None
 
     if payouts is None:
         lotto_payouts = FALLBACK_LOTTO
-        pb_payouts = FALLBACK_PB
+        pb_payouts = _fallback_pb_prizes(draw_date)
         draw_date_str = draw_date or "unknown"
     else:
         lotto_payouts = payouts["lotto"]
         pb_payouts = payouts["powerball"]
         draw_date_str = payouts["draw_date"]
 
-    # Resolve divisions based on 6 main matches
-    lotto_div, pb_div = resolve_divisions(6, bonus_matched, True)
+    # Resolve divisions based on 6 main matches (era-irrelevant at 6 mains)
+    lotto_div, pb_div = resolve_divisions(6, bonus_matched, True, draw_date=draw_date)
 
     main_prize = lotto_payouts.get(lotto_div, 0.0) if lotto_div else 0.0
 
@@ -436,12 +516,15 @@ def get_prize_for_matches(
       Div 5: 4 main + PB                    (bonus irrelevant)
       Div 6: 3 main + bonus + PB
       Div 7: 3 main + PB                    (bonus irrelevant)
+      Div 8: 2 main + bonus + PB   (draws on/after 2026-09-16 only, $12 fixed)
 
     Args:
         main_matches: Number of main numbers matched (0-6).
         bonus_match: Whether the bonus ball was matched.
         pb_hit: Whether the powerball matched.
-        draw_date: Specific draw date (or None for latest).
+        draw_date: Specific draw date (or None for latest). The era of this
+            date decides whether Division 8 can apply; None means the rules
+            currently in force.
 
     Returns:
         Same structure as get_prize_for_draw().  The 'is_estimated' flag
@@ -452,15 +535,17 @@ def get_prize_for_matches(
 
     if payouts is None:
         lotto_payouts = FALLBACK_LOTTO
-        pb_payouts = FALLBACK_PB
+        pb_payouts = _fallback_pb_prizes(draw_date)
         draw_date_str = draw_date or "unknown"
     else:
         lotto_payouts = payouts["lotto"]
         pb_payouts = payouts["powerball"]
         draw_date_str = payouts["draw_date"]
 
-    # Resolve divisions using official rules
-    lotto_div, pb_div = resolve_divisions(main_matches, bonus_match, pb_hit)
+    # Resolve divisions using official rules (era-aware via draw_date; the
+    # fetched draw's date when the caller did not specify one)
+    era_date = draw_date or (draw_date_str if draw_date_str != "unknown" else None)
+    lotto_div, pb_div = resolve_divisions(main_matches, bonus_match, pb_hit, draw_date=era_date)
 
     main_prize = lotto_payouts.get(lotto_div, 0.0) if lotto_div else 0.0
 
@@ -608,7 +693,7 @@ def calculate_lotto_only_prize(
 try:
     PB_POOL_PERCENTAGES = _st.pb_pool_percentages
     LOTTO_ALLOC_PERCENTAGES = _st.lotto_pool_percentages
-    DIV7_PB_PRIZE = _st.div7_pb_prize
+    DIV7_PB_PRIZE = _st.div7_pb_prize  # pre-change fixed prize ($15)
     DIV7_LOTTO_PRIZE = _st.div7_lotto_prize
     DIV1_CAP = _st.div1_cap
     DEFAULT_RESERVE_RATE = _st.reserve_powerball
@@ -636,6 +721,27 @@ except NameError:
     DIV1_CAP = 50_000_000.0
     DEFAULT_RESERVE_RATE = 0.25
 
+# Post-change fixed prizes (Lotto Amendment Rules 2026): Div 7 -> $20 and the
+# new Div 8 -> $12. Kept in sync with powerball_rules.pb_fixed_prizes().
+from powerball_rules import POWERBALL_CHANGE_DATE, pb_fixed_prizes
+
+DIV7_PB_PRIZE_POST = pb_fixed_prizes(POWERBALL_CHANGE_DATE)[7]  # $20
+DIV8_PB_PRIZE_POST = pb_fixed_prizes(POWERBALL_CHANGE_DATE)[8]  # $12
+
+
+def _pb_fixed_prizes_for(draw_date: str | None) -> dict[int, float]:
+    """Fixed Powerball prizes for ``allocate_pool``.
+
+    ``draw_date=None`` means the rules currently in force (post-change) —
+    ``allocate_pool`` models a game played under a known rule set, so the
+    current rules are the correct default for forward simulations.
+    """
+    from typing import Any as _Any
+    from typing import cast as _cast
+
+    effective = draw_date if draw_date is not None else POWERBALL_CHANGE_DATE
+    return pb_fixed_prizes(_cast(_Any, effective))
+
 
 def allocate_pool(
     total_turnover: float,
@@ -643,12 +749,13 @@ def allocate_pool(
     game: str = "powerball",
     reserve_rate: float | None = None,
     div1_cap: float | None = None,
+    draw_date: str | None = None,
 ) -> dict[str, Any]:
     """Allocate prize pool across divisions with realistic NZ Lotto rules.
 
     Models the official prize allocation mechanics:
     1. Deducts reserve / operating costs from turnover.
-    2. Pays fixed Div 7 prizes for all Div 7 winners.
+    2. Pays the fixed Powerball prizes first (Div 7, plus Div 8 post-change).
     3. Splits the remaining pool among Div 1–6 by official percentages.
     4. Caps Div 1 at $50M; excess goes to the reserve fund.
     5. If a division has 0 winners, its allocation rolls down to the
@@ -659,7 +766,8 @@ def allocate_pool(
     total_turnover : float
         Total ticket sales revenue for the draw (NZD).
     winners_per_division : dict[int, int] or None
-        Number of winners per division {1: n1, 2: n2, ..., 7: n7}.
+        Number of winners per division {1: n1, 2: n2, ..., 7: n7}
+        (Powerball may also include 8 for post-change draws).
         Divisions with no entry are treated as 0 winners.
         If None, defaults to 0 winners for every division.
     game : str
@@ -670,6 +778,10 @@ def allocate_pool(
     div1_cap : float or None
         Maximum Div 1 payout in NZD.  Default: $50,000,000 for Powerball,
         None for Lotto (no cap).
+    draw_date : str or None
+        Draw date (YYYY-MM-DD) selecting the Powerball rule era for the
+        fixed prizes: Div 7 = $15 pre-change, $20 + Div 8 = $12 post-change.
+        None means the rules currently in force (post-change).
 
     Returns
     -------
@@ -678,7 +790,9 @@ def allocate_pool(
           - total_turnover: float
           - reserve_deduction: float
           - prize_pool: float — after reserve
+          - fixed_total: float — total paid to fixed-prize winners
           - div7_fixed_total: float — total paid to Div 7 winners
+            (kept for backward compatibility; 0 for lotto game)
           - remaining_pool: float — pool split among Div 1–6
           - per_winner: dict[int, float] — prize per winner per division
           - total_per_division: dict[int, float] — total prize per division
@@ -697,25 +811,34 @@ def allocate_pool(
 
     if game == "powerball":
         pool_pcts = PB_POOL_PERCENTAGES
-        div7_fixed = DIV7_PB_PRIZE
+        fixed_prizes = _pb_fixed_prizes_for(draw_date)
     else:
         pool_pcts = LOTTO_ALLOC_PERCENTAGES
-        div7_fixed = DIV7_LOTTO_PRIZE
+        fixed_prizes = {7: DIV7_LOTTO_PRIZE}
+        pool_pcts = LOTTO_ALLOC_PERCENTAGES
 
     # --- Step 1: Deduct reserve ---
     reserve_deduction = round(total_turnover * reserve_rate, 2)
     prize_pool = round(total_turnover - reserve_deduction, 2)
 
-    # --- Step 2: Pay fixed Div 7 prizes ---
-    div7_winners = winners_per_division.get(7, 0)
-    div7_fixed_total = round(div7_winners * div7_fixed, 2)
+    # --- Step 2: Pay fixed prizes first (Powerball Div 7, plus Div 8
+    # --- post-change; Lotto Div 7 bonus ticket) ---
+    fixed_payouts: dict[int, float] = {}
+    fixed_total = 0.0
+    for div, fixed_prize in fixed_prizes.items():
+        n = winners_per_division.get(div, 0)
+        if n > 0:
+            fixed_payouts[div] = round(n * fixed_prize, 2)
+            fixed_total += fixed_payouts[div]
+    # Backward-compat alias: Div 7 fixed total (0 for lotto game).
+    div7_fixed_total = fixed_payouts.get(7, 0.0)
 
-    if prize_pool < div7_fixed_total:
-        # Edge case: pool too small to cover Div 7; pay what we can
-        div7_fixed_total = prize_pool
+    if prize_pool < fixed_total:
+        # Edge case: pool too small to cover fixed prizes; pay what we can
+        fixed_total = prize_pool
         remaining_pool = 0.0
     else:
-        remaining_pool = round(prize_pool - div7_fixed_total, 2)
+        remaining_pool = round(prize_pool - fixed_total, 2)
 
     # --- Step 3: Split remaining pool by percentage (with roll-down) ---
     # Divisions 1–6 get percentage allocations; if a division has 0 winners,
@@ -792,10 +915,11 @@ def allocate_pool(
                 total_per_division[1] = round(total_per_division.get(1, 0.0) + unallocated, 2)
                 unallocated = 0.0
 
-    # --- Step 4: Div 7 per-winner and total ---
-    if div7_winners > 0:
-        per_winner[7] = round(div7_fixed, 2)
-        total_per_division[7] = round(div7_fixed_total, 2)
+    # --- Step 4: Fixed-prize divisions per-winner and total ---
+    for div, fixed_prize in fixed_prizes.items():
+        if winners_per_division.get(div, 0) > 0 and fixed_total > 0:
+            per_winner[div] = round(fixed_prize, 2)
+            total_per_division[div] = round(fixed_payouts.get(div, 0.0), 2)
 
     # --- Determine Div 1 capped status (use tracked values from allocation) ---
     div1_capped = div1_was_capped
@@ -805,6 +929,7 @@ def allocate_pool(
         "total_turnover": total_turnover,
         "reserve_deduction": reserve_deduction,
         "prize_pool": prize_pool,
+        "fixed_total": fixed_total,
         "div7_fixed_total": div7_fixed_total,
         "remaining_pool": remaining_pool,
         "per_winner": per_winner,
@@ -930,8 +1055,8 @@ def apply_jackpot(
             forced_distribution = True
             jackpot_triggered = True
 
-            # Find divisions with winners (2–7)
-            cascade_divs = [d for d in range(2, 8) if per_winner.get(d, 0) > 0]
+            # Find divisions with winners (2–8; Div 8 exists post-change)
+            cascade_divs = [d for d in range(2, 9) if per_winner.get(d, 0) > 0]
             if cascade_divs:
                 # We need actual winner counts — estimate from totals
                 cascade_winner_counts: dict[int, int] = {}
@@ -1129,7 +1254,12 @@ def main() -> None:
         required=True,
         help="6 comma-separated draw numbers",
     )
-    parser.add_argument("--pb", type=int, required=True, help="Powerball (1-10)")
+    parser.add_argument(
+        "--pb",
+        type=int,
+        required=True,
+        help="Powerball (1-10 before 2026-09-16, 1-14 on/after)",
+    )
     parser.add_argument("--date", help="Draw date (YYYY-MM-DD) — defaults to latest")
     parser.add_argument(
         "--flush-cache",
@@ -1174,8 +1304,8 @@ def main() -> None:
         if len(nums) != 6:
             print("Error: --draw must have exactly 6 numbers.")
             sys.exit(1)
-        if not (1 <= args.pb <= 10):
-            print("Error: --pb must be 1-10.")
+        if not (1 <= args.pb <= 14):
+            print("Error: --pb must be 1-14 (1-10 for draws before 2026-09-16).")
             sys.exit(1)
 
         info = get_prize_for_draw(nums, args.pb, draw_date=args.date)

@@ -34,7 +34,8 @@ USER_AGENT = (
 )
 
 NUMBER_RE = re.compile(r"\b([1-9]|[12]\d|3[0-9]|40)\b")
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
+from config.settings import DB_PATH
+
 PROGRESS_FILE = "crawl_progress.txt"
 
 
@@ -159,21 +160,29 @@ def _extract_draws_from_page(soup: BeautifulSoup) -> list[dict[str, Any]]:
                     bonus = int(bm[-1])
 
         # Powerball
+        # Regex must cover the full 1-14 pool (new rules from 2026-09-16).
         powerball = 0
         pb_el = card.find(string=re.compile(r"powerball", re.I))
         if pb_el:
             pp = pb_el.find_parent()
             if pp:
-                pm = re.findall(r"\b(10|[1-9])\b", pp.get_text())
-                if pm:
-                    powerball = int(pm[-1])
+                pm = re.findall(r"\b(1[0-4]|[1-9])\b", pp.get_text())
+                if not pm:
+                    raise ValueError(
+                        f"Powerball value not found in card text for draw {date_iso!r}"
+                    )
+                powerball = int(pm[-1])
+                # Era-aware validation: raises on out-of-era Powerball values.
+                from powerball_rules import validate_powerball
+
+                validate_powerball(powerball, date_iso)
 
         draws.append(
             {
                 "draw_date": date_iso,
                 "numbers": sorted(numbers),
                 "bonus": bonus if 1 <= bonus <= 40 else 0,
-                "powerball": powerball if 1 <= powerball <= 10 else 0,
+                "powerball": powerball,
             }
         )
 

@@ -373,6 +373,211 @@ def standard_lotto_results(
 
 
 # ---------------------------------------------------------------------------
+# Streamlit tab (lazy UI rendering; called by dashboard.py)
+# ---------------------------------------------------------------------------
+def render_bonus_impact_tab(wheel_names: list[str], wheels: dict[str, Any]) -> None:
+    """Render the "🎱 Bonus Impact" Streamlit page.
+
+    Extracted from dashboard.py (pure code motion, behavior identical).
+    Streamlit is imported lazily so this module stays importable without
+    a Streamlit runtime.
+
+    Parameters
+    ----------
+    wheel_names : list[str]
+        Names of the pre-built wheels (used for the multiselect control).
+    wheels : dict[str, Any]
+        The WHEELS mapping: name -> (tickets, powerball).
+    """
+    import datetime as dt
+
+    import pandas as pd
+    import streamlit as st
+
+    from database import fetch_all_draws
+
+    st.markdown('<h2 class="section-header">🎱 Bonus Impact</h2>', unsafe_allow_html=True)
+    st.markdown(
+        "Quantify how much the **bonus ball** adds to your wheels: division "
+        "upgrades, premium value, and the maximum possible upside."
+    )
+
+    # ---- Historical draws via database.py ----
+    try:
+        all_draws = fetch_all_draws()
+    except Exception as e:
+        st.warning(f"Could not load draws from the database: {e}")
+        all_draws = []
+
+    if not all_draws:
+        st.info("No draws in the database yet. Import draw history first (Data Import page).")
+    else:
+        dates = sorted(d["draw_date"] for d in all_draws)
+        min_d = dt.date.fromisoformat(dates[0])
+        max_d = dt.date.fromisoformat(dates[-1])
+
+        # ---- Controls ----
+        ctl1, ctl2 = st.columns(2)
+        start_d = ctl1.date_input(
+            "Start date", value=min_d, min_value=min_d, max_value=max_d, key="bi_start"
+        )
+        end_d = ctl2.date_input(
+            "End date", value=max_d, min_value=min_d, max_value=max_d, key="bi_end"
+        )
+
+        selected_wheels = st.multiselect(
+            "Wheels played during this range",
+            wheel_names,
+            default=wheel_names,
+            key="bi_wheels",
+        )
+
+        what_if = st.toggle(
+            "What-If Bonus Matched",
+            value=False,
+            key="bi_what_if",
+            help="Re-runs the report with force_bonus_match=True for every "
+            "ticket to show the maximum possible bonus upside.",
+        )
+
+        if start_d > end_d:
+            st.error("Start date must be on or before end date.")
+        elif not selected_wheels:
+            st.info("Select at least one wheel to backtest.")
+        else:
+            ranged = [
+                d for d in all_draws if start_d.isoformat() <= d["draw_date"] <= end_d.isoformat()
+            ]
+            if not ranged:
+                st.info("No draws found in the selected date range.")
+            else:
+                # Unique tickets across all selected wheels
+                unique_tickets = [
+                    list(t)
+                    for t in sorted(
+                        {
+                            tuple(sorted(ticket))
+                            for name in selected_wheels
+                            for ticket in wheels[name][0]
+                        }
+                    )
+                ]
+
+                # Prize lookup per division (latest payouts, else static fallback)
+                @st.cache_data(ttl=3600, show_spinner=False)
+                def _division_prizes() -> Any:
+                    from prize_calculator import fetch_payouts
+
+                    try:
+                        payouts = fetch_payouts()
+                        if payouts:
+                            return (
+                                {int(k): float(v) for k, v in payouts["lotto"].items()},
+                                "MyLotto API (latest)",
+                            )
+                    except Exception:
+                        pass
+                    try:
+                        from settings import settings as _s
+
+                        return (
+                            {int(k): float(v) for k, v in _s.fallback_lotto.items()},
+                            "static fallback estimates",
+                        )
+                    except Exception:
+                        return (
+                            {
+                                1: 1_000_000.0,
+                                2: 30_000.0,
+                                3: 1_000.0,
+                                4: 100.0,
+                                5: 60.0,
+                                6: 40.0,
+                                7: 20.0,
+                            },
+                            "static fallback estimates",
+                        )
+
+                prize_lookup, prize_src = _division_prizes()
+
+                tickets_per_draw = [unique_tickets] * len(ranged)
+                draws_main = [d["numbers"] for d in ranged]
+                draws_bonus = [d["bonus"] for d in ranged]
+
+                baseline = run_bonus_impact_backtest(
+                    tickets_per_draw,
+                    draws_main,
+                    draws_bonus,
+                    prize_lookup,
+                )
+                bi_report = baseline
+                if what_if:
+                    bi_report = run_bonus_impact_backtest(
+                        tickets_per_draw,
+                        draws_main,
+                        draws_bonus,
+                        prize_lookup,
+                        force_bonus_match=True,
+                    )
+
+                # ---- Key metrics ----
+                if what_if:
+                    st.caption(
+                        "🔮 **What-If mode** — every ticket scored as if the bonus "
+                        "matched. Actual baseline premium: "
+                        f"${baseline.bonus_premium_value:,.2f} "
+                        f"({baseline.bonus_premium_pct:.1f}%)."
+                    )
+                delta_val = (
+                    (bi_report.bonus_premium_value - baseline.bonus_premium_value)
+                    if what_if
+                    else None
+                )
+                delta_pct = (
+                    (bi_report.bonus_premium_pct - baseline.bonus_premium_pct) if what_if else None
+                )
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric(
+                    "Total Prize (with bonus)",
+                    f"${bi_report.total_prize_with_bonus:,.2f}",
+                )
+                m2.metric(
+                    "Bonus Premium Value",
+                    f"${bi_report.bonus_premium_value:,.2f}",
+                    delta=f"${delta_val:+,.2f}" if delta_val is not None else None,
+                )
+                m3.metric(
+                    "Bonus Premium %",
+                    f"{bi_report.bonus_premium_pct:.1f}%",
+                    delta=f"{delta_pct:+.1f} pts" if delta_pct is not None else None,
+                )
+                st.caption(
+                    f"{bi_report.total_draws} draws × {len(unique_tickets)} unique tickets "
+                    f"({bi_report.total_tickets_played:,} ticket-evaluations) · "
+                    f"prizes: {prize_src}"
+                )
+
+                # ---- Full markdown report ----
+                st.divider()
+                st.markdown(report_to_markdown(bi_report))
+
+                # ---- Per-draw bonus premium chart ----
+                st.divider()
+                st.markdown("### Bonus Premium per Draw")
+                chart_df = pd.DataFrame(
+                    {
+                        "date": [d["draw_date"] for d in ranged],
+                        "bonus_premium": [p["bonus_premium"] for p in bi_report.per_draw_impact],
+                    }
+                ).set_index("date")
+                if chart_df["bonus_premium"].abs().sum() == 0:
+                    st.info("No bonus premium recorded in any draw of this range.")
+                else:
+                    st.bar_chart(chart_df)
+
+
+# ---------------------------------------------------------------------------
 # Self-test
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":

@@ -35,9 +35,10 @@ from block_analysis import validate_positional_ranges
 # =========================
 # Ticket configuration
 # =========================
+from era_features import powerball_pool_size
 
 NUM_MAIN_NUMBERS = 40  # Total count of possible main numbers (1..40)
-NUM_POWERBALLS = 10  # Total count of possible Powerball numbers (1..10)
+NUM_POWERBALLS = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 NUM_PER_LINE = 6  # Number of main numbers selected per ticket line
 NUM_LINES = 12  # Total number of ticket lines to generate
 

@@ -23,7 +23,7 @@ import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection

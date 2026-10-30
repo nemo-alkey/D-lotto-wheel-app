@@ -398,6 +398,183 @@ def profile_to_markdown(profile: AttractionProfile) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Streamlit tab (lazy UI rendering; called by dashboard.py)
+# ---------------------------------------------------------------------------
+def render_attraction_tab(draws: list[tuple[list[int], int, int, str]]) -> None:
+    """Render the "🧲 Attraction Profile" Streamlit page.
+
+    Extracted from dashboard.py (pure code motion, behavior identical).
+    Streamlit is imported lazily so this module stays importable without
+    a Streamlit runtime.
+
+    Parameters
+    ----------
+    draws : list[tuple[list[int], int, int, str]]
+        Draw history as (numbers, powerball, bonus, date) tuples.
+    """
+    import pandas as pd
+    import streamlit as st
+
+    st.markdown(
+        '<h2 class="section-header">🧲 Attraction Profile</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "Consecutive-pair and +2-gap patterns across the **last 30 draws**. "
+        "Albert baseline: ~63% of draws contain a consecutive pair, ~42% a +2 gap."
+    )
+
+    if not draws:
+        st.warning("No draws in database.")
+    else:
+        # Cached profile — re-analyzed at most once per hour per draw set
+        @st.cache_data(ttl=3600, show_spinner=False)
+        def _attraction_profile(recent_draws: Any) -> Any:
+            return analyze_attraction([list(d) for d in recent_draws], lookback=30)
+
+        recent_key = tuple(tuple(sorted(nums)) for nums, _pb, _b, _date in draws[-30:])
+        profile = _attraction_profile(recent_key)
+        s = profile.summary
+
+        # ---- Summary metrics (with Albert baseline comparison) ----
+        m1, m2, m3 = st.columns(3)
+        m1.metric(
+            "Consecutive Pair Rate",
+            f"{s['consecutive_rate']:.1%}",
+            delta=f"{s['consecutive_rate'] - s['albert_consecutive_baseline']:+.1%} vs Albert",
+        )
+        m2.metric(
+            "+2 Gap Rate",
+            f"{s['plus_two_rate']:.1%}",
+            delta=f"{s['plus_two_rate'] - s['albert_plus_two_baseline']:+.1%} vs Albert",
+        )
+        m3.metric("Draws Analyzed", profile.total_draws_analyzed)
+        st.caption(
+            f"Unique pairs detected: {s['total_pairs_detected']} "
+            f"({s['unique_consecutive_pairs']} consecutive, "
+            f"{s['unique_plus_two_pairs']} +2 gap)"
+        )
+
+        # ---- Top-10 pair tables side by side ----
+        t1, t2 = st.columns(2)
+        with t1:
+            st.markdown("### Top 10 Consecutive Pairs")
+            rows_c = sorted(profile.consecutive_pairs.items(), key=lambda x: (-x[1], x[0]))[:10]
+            if rows_c:
+                st.dataframe(
+                    pd.DataFrame(
+                        [
+                            {
+                                "Pair": f"{a}–{b}",
+                                "Hits": c,
+                                "Score": round(profile.normalized_scores.get((a, b), 0.0), 3),
+                            }
+                            for (a, b), c in rows_c
+                        ]
+                    ),
+                    width="stretch",
+                    hide_index=True,
+                    use_container_width=True,
+                )
+            else:
+                st.info("No consecutive pairs in the last 30 draws.")
+        with t2:
+            st.markdown("### Top 10 +2 Gap Pairs")
+            rows_p = sorted(profile.plus_two_pairs.items(), key=lambda x: (-x[1], x[0]))[:10]
+            if rows_p:
+                st.dataframe(
+                    pd.DataFrame(
+                        [
+                            {
+                                "Pair": f"{a}–{b}",
+                                "Hits": c,
+                                "Score": round(profile.normalized_scores.get((a, b), 0.0), 3),
+                            }
+                            for (a, b), c in rows_p
+                        ]
+                    ),
+                    width="stretch",
+                    hide_index=True,
+                    use_container_width=True,
+                )
+            else:
+                st.info("No +2 gap pairs in the last 30 draws.")
+
+        # ---- Hot / Cold number badges ----
+        def _badges(numbers: Any, color: str) -> str:
+            return " ".join(
+                f"<span style='background:{color};color:white;border-radius:12px;"
+                f"padding:0.2rem 0.6rem;margin:0.15rem;display:inline-block;'>"
+                f"{n}</span>"
+                for n in numbers
+            )
+
+        st.divider()
+        h1, h2 = st.columns(2)
+        with h1:
+            st.markdown("### 🔥 Hot Numbers")
+            if profile.hot_numbers:
+                st.markdown(_badges(profile.hot_numbers[:10], "#e74c3c"), unsafe_allow_html=True)
+                st.caption("Numbers appearing most often in hot pairs")
+            else:
+                st.info("No hot numbers detected.")
+        with h2:
+            st.markdown("### ❄️ Cold Numbers")
+            if profile.cold_numbers:
+                st.markdown(
+                    _badges(profile.cold_numbers[:12], "#3498db"),
+                    unsafe_allow_html=True,
+                )
+                st.caption(f"{len(profile.cold_numbers)} numbers absent from all detected pairs")
+            else:
+                st.info("No cold numbers — every number appeared in a pair.")
+
+        # ---- Score My Wheel ----
+        st.divider()
+        st.markdown("### Score My Wheel")
+        wheel_input = st.text_input(
+            "Your 6 numbers (comma-separated)",
+            "3, 4, 12, 14, 25, 33",
+            key="na_wheel_input",
+        )
+        if st.button("Score Wheel", key="na_score_btn"):
+            try:
+                nums = [int(x.strip()) for x in wheel_input.split(",") if x.strip()]
+                err = None
+                if len(nums) != 6:
+                    err = "Enter exactly 6 numbers."
+                elif len(set(nums)) != 6:
+                    err = "Duplicate numbers detected."
+                elif any(n < 1 or n > 40 for n in nums):
+                    err = "Numbers must be between 1 and 40."
+                if err:
+                    st.error(err)
+                else:
+                    wa_score = score_wheel_attraction(nums, profile)
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Albert Alignment", f"{wa_score.albert_alignment:.0%}")
+                    c2.metric("Attraction Score", f"{wa_score.attraction_score:.2f}")
+                    c3.metric("Hot-Pair Coverage", f"{wa_score.coverage_ratio:.0%}")
+
+                    if wa_score.albert_alignment >= 0.99:
+                        st.success(wa_score.recommendation)
+                    elif wa_score.albert_alignment > 0:
+                        st.info(wa_score.recommendation)
+                    else:
+                        st.warning(wa_score.recommendation)
+
+                    st.write(
+                        f"**Consecutive pairs:** "
+                        f"{wa_score.consecutive_pairs_present or 'none'} · "
+                        f"**+2 gap pairs:** {wa_score.plus_two_pairs_present or 'none'}"
+                    )
+            except ValueError:
+                st.error(
+                    "Could not parse numbers — use comma-separated integers, e.g. 3, 4, 12, 14, 25, 33."
+                )
+
+
+# ---------------------------------------------------------------------------
 # Self-test
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":

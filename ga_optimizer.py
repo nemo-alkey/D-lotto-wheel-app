@@ -26,6 +26,8 @@ import sqlite3
 from copy import deepcopy
 from typing import Any
 
+from config.settings import DB_PATH
+
 
 class WheelOptimizerGA:
     """Genetic Algorithm for wheel parameter optimisation.
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     parser.add_argument("--generations", type=int, default=10)
     args = parser.parse_args()
 
-    conn = sqlite3.connect("lotto.db")
+    conn = sqlite3.connect(DB_PATH)
     try:
         ga = WheelOptimizerGA(
             conn,

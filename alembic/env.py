@@ -38,8 +38,9 @@ def _get_url() -> str:
     env_url = os.environ.get("DATABASE_URL")
     if env_url:
         return env_url
-    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "lotto.db")
-    return f"sqlite:///{db_path}"
+    from config.settings import DB_PATH
+
+    return f"sqlite:///{DB_PATH}"
 
 
 def run_migrations_offline() -> None:

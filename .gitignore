@@ -28,3 +28,19 @@ _ci_checkout/
 # Frontend build artifacts
 node_modules/
 mobile-frontend/dist/
+
+# Coverage output
+.coverage
+htmlcov/
+.coverage.*
+
+# Generated artifacts
+data/features.parquet
+data/plots/
+models/
+model.pkl
+reports/optuna/
+reports/predictions/
+
+data/*.pre_pb14_*.db
+data/lotto.db

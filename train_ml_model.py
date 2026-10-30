@@ -3,7 +3,9 @@
 train_ml_model.py — Train XGBoost models on NZ Lotto Powerball historical draws.
 
 Creates feature vectors from draw history, trains binary classifiers for
-each main number (1–40) and Powerball (1–10), and saves the models.
+each main number (1–40, all history allowed) and Powerball (era-aware:
+current-era draws only, pool 1–14 since 2026-09-16 — pre/post distributions
+are never mixed), and saves the models.
 
 Usage (local, if you have AVX):
     python3 train_ml_model.py
@@ -24,6 +26,8 @@ from typing import Any
 
 import numpy as np
 
+from era_features import current_rule_era, powerball_pool_size
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ---------------------------------------------------------------------------
@@ -32,7 +36,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def load_draws_from_db(db_path: str) -> list[tuple[list[int], int, int, str]]:
-    """Load draws from a lotto_working.db SQLite file.
+    """Load draws from a SQLite file.
+
+    Supports both schemas:
+      - wide (legacy ``lotto_working.db``): n1..n6, powerball, bonus, draw_date
+      - canonical (``data/lotto.db``): numbers (comma-joined), powerball, bonus, draw_date
 
     Returns list of (numbers_list, powerball, bonus, draw_date).
     Works with both local paths and uploaded DB files.
@@ -44,19 +52,31 @@ def load_draws_from_db(db_path: str) -> list[tuple[list[int], int, int, str]]:
         sys.exit(1)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    cursor = conn.execute(
-        "SELECT draw_date, n1, n2, n3, n4, n5, n6, powerball, bonus "
-        "FROM draws ORDER BY draw_date"
-    )
-    draws = [
-        (
-            [row["n1"], row["n2"], row["n3"], row["n4"], row["n5"], row["n6"]],
-            row["powerball"],
-            row["bonus"] or 0,
-            row["draw_date"],
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(draws)")}
+    if {"n1", "n6"} <= cols:
+        cursor = conn.execute(
+            "SELECT draw_date, n1, n2, n3, n4, n5, n6, powerball, bonus "
+            "FROM draws ORDER BY draw_date"
         )
-        for row in cursor
-    ]
+        draws = [
+            (
+                [row["n1"], row["n2"], row["n3"], row["n4"], row["n5"], row["n6"]],
+                row["powerball"],
+                row["bonus"] or 0,
+                row["draw_date"],
+            )
+            for row in cursor
+        ]
+    else:
+        cursor = conn.execute(
+            "SELECT draw_date, numbers, powerball, bonus FROM draws ORDER BY draw_date"
+        )
+        draws = []
+        for row in cursor:
+            nums = [int(x) for x in (row["numbers"] or "").split(",") if x.strip()]
+            if len(nums) != 6:
+                continue
+            draws.append((nums, row["powerball"] or 0, row["bonus"] or 0, row["draw_date"]))
     conn.close()
     return draws
 
@@ -70,7 +90,7 @@ MIN_HISTORY = 30
 
 
 def build_features_for_draw(
-    draws: list[tuple[list[int], int, str]],
+    draws: list[tuple[list[int], int, int, str]],
     target_idx: int,
     num_range: range,
 ) -> list[dict[str, Any]]:
@@ -86,8 +106,11 @@ def build_features_for_draw(
         return []
 
     past_draws = draws[:target_idx]
-    current_nums = draws[target_idx][0]
-    is_pb = num_range[0] == 1 and num_range[-1] == 10  # detect PB range
+    current_nums = draws[target_idx][0] if target_idx < len(draws) else []
+    # Powerball rows are built over the era-aware pool (1-14 since 2026-09-16).
+    from era_features import powerball_pool_size
+
+    is_pb = len(num_range) == powerball_pool_size()  # detect PB pool (vs 40 main)
     if is_pb:
         current_nums = [draws[target_idx][1]] if target_idx < len(draws) else []
 
@@ -118,7 +141,7 @@ def build_features_for_draw(
 
     recent_50_start = max(0, target_idx - 50)
 
-    for j, (nums, pb, _) in enumerate(past_draws):
+    for j, (nums, pb, _, _) in enumerate(past_draws):
         drawn_set = set(nums)
 
         # If this is the PB feature builder, the "drawn" number is just the PB
@@ -311,16 +334,15 @@ def train_xgboost(
         colsample_bytree=0.8,
         scale_pos_weight=scale_pos_weight,
         eval_metric="logloss",
-        use_label_encoder=False,
         random_state=42,
         verbosity=0,
+        early_stopping_rounds=30,
     )
 
     model.fit(
         x_train,
         y_train,
         eval_set=[(x_test, y_test)],
-        early_stopping_rounds=30,
         verbose=False,
     )
 
@@ -400,8 +422,11 @@ def predict_next(
     # Feature rows for the NEXT draw (target_idx = len(draws))
     next_idx = len(draws)
 
+    from era_features import current_rule_era, filter_draws_by_era, powerball_pool_size
+
+    pb_pool = powerball_pool_size()
     main_rows = build_features_for_draw(draws, next_idx, range(1, 41))
-    pb_rows = build_features_for_draw(draws, next_idx, range(1, 11))
+    pb_rows = build_features_for_draw(draws, next_idx, range(1, pb_pool + 1))
 
     if not main_rows:
         return {"numbers": [], "powerball": 0}
@@ -423,8 +448,11 @@ def predict_next(
         pb = pb_candidates[0][0]
         pb_prob = pb_candidates[0][1]
     else:
-        # Fallback: most common recent PB
-        recent_pbs = Counter(pb for _, pb, _ in draws[-30:])
+        # Fallback: most common recent PB within the CURRENT era only —
+        # never mix pre/post-2026-09-16 distributions.
+        era_draws = filter_draws_by_era(draws, current_rule_era(), date_index=3)
+        recent = era_draws[-30:] if era_draws else draws[-30:]
+        recent_pbs = Counter(pb for _, pb, _, _ in recent)
         pb = recent_pbs.most_common(1)[0][0]
         pb_prob = 0.0
 
@@ -447,8 +475,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--db",
-        default="lotto_working.db",
-        help="Path to lotto_working.db (default: lotto_working.db)",
+        default="data/lotto.db",
+        help="Path to the draws SQLite DB (default: data/lotto.db)",
     )
     parser.add_argument(
         "--output",
@@ -476,12 +504,33 @@ def main() -> None:
     x_train, x_test, y_train, y_test = create_dataset(draws, range(1, 41))
     main_model = train_xgboost(x_train, x_test, y_train, y_test, label="main")
 
-    # 3. Powerball (1-10)
+    # 3. Powerball — era-aware: train ONLY on the current rule era
+    #    (1-14 pool since 2026-09-16). Never mix pre/post distributions.
     pb_model = None
     if not args.no_pb_model:
-        print("\n--- Powerball (1-10) ---")
-        x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(draws, range(1, 11))
-        pb_model = train_xgboost(x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball")
+        from era_features import (
+            check_single_era,
+            filter_draws_by_era,
+        )
+
+        pb_era = current_rule_era()
+        pb_pool = powerball_pool_size(pb_era)
+        pb_draws = filter_draws_by_era(draws, pb_era, date_index=3)
+        print(f"\n--- Powerball ({pb_era}, pool 1-{pb_pool}) ---")
+        if len(pb_draws) < MIN_HISTORY:
+            print(
+                f"  Refusing to train Powerball model: only {len(pb_draws)} draws in "
+                f"era {pb_era} (need {MIN_HISTORY}). Use --no-pb-model or wait for "
+                "more post-change draws. Mixing eras is never allowed."
+            )
+        else:
+            check_single_era(pb_draws, context="train_ml_model pb_model", date_index=3)
+            x_pb_train, x_pb_test, y_pb_train, y_pb_test = create_dataset(
+                pb_draws, range(1, pb_pool + 1)
+            )
+            pb_model = train_xgboost(
+                x_pb_train, x_pb_test, y_pb_train, y_pb_test, label="powerball"
+            )
 
     # 4. Predict next draw
     print("\n--- Prediction for Next Draw ---")
@@ -522,8 +571,10 @@ def main() -> None:
             "cooccur_hot",
         ],
         "n_main": 40,
-        "n_pb": 10,
+        "n_pb": powerball_pool_size(),
+        "pb_rule_era": current_rule_era(),
         "draws_used": len(draws),
+        "draws_used_pb": len(pb_draws) if not args.no_pb_model else 0,
         "date_range": (draws[0][3], draws[-1][3]),
         "train_metrics": {
             "main_test_auc": _roc_auc(y_test, main_model.predict_proba(x_test)[:, 1]),
@@ -584,7 +635,7 @@ if __name__ == "__main__":
 #            norm_gap  0.1234
 #            ...
 #
-#   --- Powerball (1-10) ---
+#   --- Powerball (1-10; 2008-2026-09-15, 1-14 after) ---
 #     Total examples: 18430  (1843 draws x 10 numbers)
 #     Train: 14740  |  Test: 3690
 #

@@ -1,0 +1,10 @@
+Abbreviated Wheel: 4 if 5
+Pool (8 numbers): [3, 7, 12, 18, 22, 29, 34, 36]
+Tickets: 3  (full wheel: 28)
+Reduction: 10.7% of full wheel
+Cost per draw: $2.10
+Powerball: 7
+---------------------------------------------
+Ticket   1:  3  7 12 18 22 29  PB:7
+Ticket   2:  3  7 12 18 34 36  PB:7
+Ticket   3:  3  7 22 29 34 36  PB:7

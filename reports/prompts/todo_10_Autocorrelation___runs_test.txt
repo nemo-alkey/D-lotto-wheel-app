@@ -1,0 +1,4 @@
+﻿Not yet implemented: Autocorrelation / runs test
+Dispatch target: scripts.analysis.runs_test
+
+Create that module, then re-run with -Runnable.

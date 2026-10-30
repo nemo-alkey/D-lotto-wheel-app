@@ -48,15 +48,26 @@ def process_historical_data(results: dict[str, Any], pipeline: DataPipeline) -> 
         return  # Exit the function early since there is no data to process.
 
     # Step 3: Validates the historical data.
-    ## Valid Powerball Range: Powerball numbers must be integers between 1 and 10.
-    # Uses a list comprehension to filter out invalid draws.
-    valid_historical_data = [
-        draw
-        for draw in historical_data
-        if 1
-        <= draw.get("powerball", 0)
-        <= 10  # Use 0 as a fallback if the "powerball" key is missing.
-    ]
+    ## Powerball range is era-dependent: 1-10 before the 2026-09-16 rule change,
+    ## 1-14 on/after it. When a draw carries its date we validate against the
+    ## rules in force that day; without a date we accept the 1-14 union and
+    ## leave era mixing protection to the downstream training guard.
+    from powerball_rules import validate_powerball
+
+    def _powerball_ok(draw: dict) -> bool:
+        pb = draw.get("powerball", 0)  # Use 0 as a fallback if the key is missing.
+        if not isinstance(pb, int) or isinstance(pb, bool):
+            return False
+        date = draw.get("draw_date")
+        if date:
+            try:
+                validate_powerball(pb, date)
+            except ValueError:
+                return False
+            return True
+        return 1 <= pb <= 14
+
+    valid_historical_data = [draw for draw in historical_data if _powerball_ok(draw)]
 
     # Step 4: Stores the filtered data into the pipeline.
     ## Adds the validated data to the pipeline under the key "historical_data".

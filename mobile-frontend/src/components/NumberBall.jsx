@@ -12,7 +12,7 @@ const SIZES = {
   lg: 'h-12 w-12 text-base',
 };
 
-export default function NumberBall({ number, size = 'md', highlighted = false, probability }) {
+export default function NumberBall({ number, size = 'md', highlighted = false, model_score }) {
   const block = Math.min(Math.max(Math.ceil(number / 8), 1), 5);
   const color = BLOCK_COLORS[block - 1];
   return (
@@ -24,8 +24,8 @@ export default function NumberBall({ number, size = 'md', highlighted = false, p
       >
         {number}
       </div>
-      {probability != null && (
-        <span className="text-[10px] text-neutral-400">{(probability * 100).toFixed(1)}%</span>
+      {model_score != null && (
+        <span className="text-[10px] text-neutral-400">{(model_score * 100).toFixed(1)}%</span>
       )}
     </div>
   );

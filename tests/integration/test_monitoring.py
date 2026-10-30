@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api
+from config.settings import DB_PATH
 from monitoring import health as health_checks
 from monitoring import metrics
 from monitoring.alerting import evaluate_rules
@@ -71,7 +72,7 @@ def test_health_503_on_database_failure(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_health_warn_levels(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(health_checks, "check_redis", lambda url: "fail: connection refused")
-    result = health_checks.run_all_checks("lotto.db", "redis://localhost:6379", "2.0.0")
+    result = health_checks.run_all_checks(DB_PATH, "redis://localhost:6379", "2.0.0")
     # Redis failure degrades but does not 503 (in-memory fallback exists).
     assert result["status"] == "degraded"
     assert result["http_status"] == 200

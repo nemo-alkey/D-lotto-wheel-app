@@ -209,21 +209,29 @@ def selenium_scrape_results(
                         bonus = int(bm[-1])
 
             # Powerball
+            # Regex must cover the full 1-14 pool (new rules from 2026-09-16).
             powerball = 0
             pb_el = card.find(string=re.compile(r"powerball", re.I))
             if pb_el:
                 pp = pb_el.find_parent()
                 if pp:
-                    pm = re.findall(r"\b(10|[1-9])\b", pp.get_text())
-                    if pm:
-                        powerball = int(pm[-1])
+                    pm = re.findall(r"\b(1[0-4]|[1-9])\b", pp.get_text())
+                    if not pm:
+                        raise ValueError(
+                            f"Powerball value not found in card text for draw {date_str!r}"
+                        )
+                    powerball = int(pm[-1])
+                    # Era-aware validation: raises on out-of-era Powerball values.
+                    from powerball_rules import validate_powerball
+
+                    validate_powerball(powerball, date_str)
 
             draws.append(
                 {
                     "draw_date": date_str,
                     "numbers": sorted(numbers),
                     "bonus": bonus if 1 <= bonus <= 40 else 0,
-                    "powerball": powerball if 1 <= powerball <= 10 else 0,
+                    "powerball": powerball,
                 }
             )
 

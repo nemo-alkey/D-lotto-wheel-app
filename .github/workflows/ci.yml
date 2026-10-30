@@ -44,7 +44,7 @@ jobs:
       - name: Install linters + project dependencies
         run: |
           pip install -r requirements.txt
-          pip install ruff==0.5.0 mypy==1.10.0 types-requests
+          pip install ruff==0.5.0 mypy==1.10.0 types-requests types-cachetools
 
       # Config lives in pyproject.toml (ruff) and mypy.ini (mypy, strict).
       # Any error from either tool fails the build.
@@ -117,7 +117,7 @@ jobs:
           python - <<'EOF'
           import random, sqlite3
           rng = random.Random(42)
-          conn = sqlite3.connect("lotto.db")
+          conn = sqlite3.connect("data/lotto.db")
           for i in range(1, 61):
               nums = sorted(rng.sample(range(1, 41), 6))
               conn.execute(
@@ -172,7 +172,7 @@ jobs:
           python - <<'EOF'
           import random, sqlite3
           rng = random.Random(42)
-          conn = sqlite3.connect("lotto.db")
+          conn = sqlite3.connect("data/lotto.db")
           for i in range(1, 61):
               nums = sorted(rng.sample(range(1, 41), 6))
               conn.execute(

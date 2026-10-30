@@ -1,0 +1,151 @@
+# Container smoke guards for deployment persistence and rotation-history paths.
+name: Container smoke
+
+on:
+  push:
+    branches: [fix/powerball-2026]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  container-smoke:
+    name: P0.3 / P0.4 / P0.5 container smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build application image
+        run: docker build -t lotto-wheel-app:smoke .
+
+      - name: Start container with persistent data volume
+        run: |
+          docker volume create lotto-smoke-data
+          docker run -d --name lotto-smoke -p 8000:8000 \
+            -v lotto-smoke-data:/app/data \
+            -e DATA_DIR=/app/data \
+            -e ENVIRONMENT=development \
+            -e DEBUG=true \
+            lotto-wheel-app:smoke
+
+      - name: Wait for initial API startup
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/live; then
+              exit 0
+            fi
+            if ! docker ps --format '{{.Names}}' | grep -q '^lotto-smoke$'; then
+              docker logs lotto-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+          docker logs lotto-smoke
+          echo "API did not start within 60 seconds" >&2
+          exit 1
+
+      - name: A — rotation_history accepts Powerball 1-14
+        run: |
+          docker exec -i lotto-smoke python - <<'PY'
+          import sqlite3
+
+          from config.settings import DB_PATH
+          from rotation_scheduler import init_rotation_db
+
+          init_rotation_db().close()
+          conn = sqlite3.connect(DB_PATH)
+          try:
+              row = conn.execute(
+                  "SELECT sql FROM sqlite_master "
+                  "WHERE type='table' AND name='rotation_history'"
+              ).fetchone()
+          finally:
+              conn.close()
+          assert row is not None, "A FAIL: rotation_history table is missing"
+          assert "BETWEEN 1 AND 14" in row[0], f"A FAIL: stale schema: {row[0]}"
+          print("A PASS: rotation_history accepts Powerball 1-14")
+          PY
+
+      - name: B — scheduler uses canonical DB_PATH in container
+        run: |
+          docker exec -i lotto-smoke python - <<'PY'
+          from pathlib import Path
+
+          import rotation_scheduler
+          from config.settings import DB_PATH
+
+          actual = rotation_scheduler.ROTATION_DB
+          assert Path(actual) == Path(DB_PATH), (
+              f"B FAIL: ROTATION_DB={actual!r}, canonical DB_PATH={DB_PATH!r}"
+          )
+          print(f"B PASS: scheduler uses canonical {DB_PATH}")
+          PY
+
+      - name: C — sentinel survives container restart
+        run: |
+          docker exec -i lotto-smoke python - <<'PY'
+          import sqlite3
+
+          from config.settings import DB_PATH
+
+          conn = sqlite3.connect(DB_PATH)
+          try:
+              conn.execute("DELETE FROM rotation_history WHERE created_at = '_smoke'")
+              conn.execute(
+                  "INSERT INTO rotation_history "
+                  "(created_at, period, numbers, powerball) VALUES (?, ?, ?, ?)",
+                  ("_smoke", 1, "1,2,3,4,5,6", 14),
+              )
+              conn.commit()
+          finally:
+              conn.close()
+          print("Sentinel inserted; restarting container")
+          PY
+          docker restart lotto-smoke
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/live; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec -i lotto-smoke python - <<'PY'
+          import sqlite3
+
+          from config.settings import DB_PATH
+
+          conn = sqlite3.connect(DB_PATH)
+          try:
+              count = conn.execute(
+                  "SELECT COUNT(*) FROM rotation_history WHERE created_at = '_smoke'"
+              ).fetchone()[0]
+          finally:
+              conn.close()
+          assert count == 1, f"C FAIL: expected one persisted sentinel, found {count}"
+          print("C PASS: _smoke sentinel survived docker restart")
+          PY
+
+      - name: D — CLI creates no CWD-relative database
+        run: |
+          docker exec lotto-smoke sh -c '
+            rm -rf /tmp/scratch
+            mkdir -p /tmp/scratch
+            cd /tmp/scratch
+            python /app/rotation_scheduler.py --help >/dev/null
+            if [ -e rotation_scheduler.db ]; then
+              echo "D FAIL: CLI created /tmp/scratch/rotation_scheduler.db" >&2
+              exit 1
+            fi
+            echo "D PASS: no CWD-relative rotation_scheduler.db created"
+          '
+
+      - name: Clean up smoke resources
+        if: always()
+        run: |
+          docker rm -f lotto-smoke || true
+          docker volume rm lotto-smoke-data || true

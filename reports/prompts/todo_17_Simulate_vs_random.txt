@@ -1,0 +1,4 @@
+﻿Not yet implemented: Simulate vs random
+Dispatch target: scripts.analysis.simulate_random
+
+Create that module, then re-run with -Runnable.

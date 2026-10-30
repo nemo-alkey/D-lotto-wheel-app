@@ -26,7 +26,9 @@ from typing import Any
 
 import requests
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
+from powerball_rules import validate_powerball
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "lotto.db")
 API_BASE = "https://pathway.mylotto.co.nz/api/results/v1/results/lotto"
 LOG_FILE = "update_draws.log"
 USER_AGENT = (
@@ -120,9 +122,7 @@ def fetch_draw(date: str | None = None) -> dict[str, Any] | None:
 
             pb = data.get("powerBall", {})
             pb_raw = pb.get("powerballWinningNumber", "")
-            if not pb_raw:
-                raise ValueError("API response missing powerballWinningNumber")
-            powerball = int(pb_raw)
+            powerball = int(pb_raw) if pb_raw else 0
 
             # Validate ranges
             for n in numbers:
@@ -130,8 +130,8 @@ def fetch_draw(date: str | None = None) -> dict[str, Any] | None:
                     raise ValueError(f"Number {n} out of range (1-40)")
             if bonus and not (1 <= bonus <= 40):
                 raise ValueError(f"Bonus ball {bonus} out of range (1-40)")
-            if not (1 <= powerball <= 10):
-                raise ValueError(f"Powerball {powerball} out of range (1-10)")
+            # Era-aware: 1-10 before 2026-09-16, 1-14 on/after. Raises on invalid.
+            validate_powerball(powerball, draw_date)
 
             return {
                 "draw_date": draw_date,
@@ -226,16 +226,21 @@ def _scraper_fallback(date: str | None = None) -> dict[str, Any] | None:
 
 
 def init_db(conn: sqlite3.Connection) -> None:
-    """Ensure the draws table exists."""
+    """Ensure the draws table exists (including the rule_era era flag)."""
     conn.execute("""
         CREATE TABLE IF NOT EXISTS draws (
             draw_id    INTEGER PRIMARY KEY,
             draw_date  TEXT NOT NULL UNIQUE,
             numbers    TEXT NOT NULL,
             bonus      INTEGER CHECK (bonus BETWEEN 1 AND 40),
-            powerball  INTEGER CHECK (powerball BETWEEN 1 AND 10)
+            powerball  INTEGER,
+            rule_era   TEXT
         )
     """)
+    # Existing DBs: add + backfill the era column in place (idempotent).
+    from era_features import ensure_rule_era_column
+
+    ensure_rule_era_column(conn)
     conn.commit()
 
 
@@ -247,20 +252,23 @@ def draw_exists(conn: sqlite3.Connection, draw_date: str) -> bool:
 
 def insert_draw(conn: sqlite3.Connection, draw: dict[str, Any]) -> bool:
     """Insert a new draw. Returns True on success, False on duplicate."""
+    from era_features import rule_era_for_date
+
     nums = draw["numbers"]
     nums_str = ",".join(str(n) for n in nums)
     try:
-        cur = conn.execute("SELECT COALESCE(MAX(draw_id), 0) FROM draws")
+        cur = conn.execute("SELECT COALESCE(MAX(draw_number), 0) FROM draws")
         new_id = cur.fetchone()[0] + 1
         conn.execute(
-            "INSERT INTO draws (draw_id, draw_date, numbers, bonus, powerball) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO draws (draw_number, draw_date, numbers, bonus, powerball, rule_era) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (
                 new_id,
                 draw["draw_date"],
                 nums_str,
                 draw.get("bonus", 0),
                 draw["powerball"],
+                rule_era_for_date(draw["draw_date"]),
             ),
         )
         conn.commit()
@@ -309,6 +317,26 @@ def process_draw(conn: sqlite3.Connection, date: str | None = None) -> int:
                 log(f"  Pos/Neg {shift_alert}")
         except Exception as e:
             log(f"  Pos/Neg rebalance check failed (non-fatal): {e}")
+        try:
+            import accuracy_tracker
+
+            accuracy = accuracy_tracker.on_new_draw_fetched(
+                draw["draw_date"], draw["numbers"], draw.get("bonus")
+            )
+            log(
+                f"  Accuracy tracker: {accuracy['backfilled_predictions']} predictions backfilled, "
+                f"{accuracy['scorecards_updated']} scorecards updated"
+            )
+        except Exception as e:
+            log(f"  Accuracy tracker update failed (non-fatal): {e}")
+        try:
+            from drift_detector import check_for_drift
+
+            check_for_drift(DB_PATH)
+        except ImportError:
+            pass  # drift_detector is optional; skip silently when absent
+        except Exception as e:
+            log(f"  Drift detection failed (non-fatal): {e}")
         return 1
     else:
         log("  Insert failed (duplicate?).")

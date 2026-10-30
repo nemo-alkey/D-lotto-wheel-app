@@ -3,7 +3,7 @@
 ## Purpose of File: Perform Monte Carlo Simulations on Lottery Number Probabilities
 ## Description:
 ##   Runs Monte Carlo simulations to generate a frequency distribution
-##   for main (1-40) and Powerball (1-10) numbers.
+##   for main (1-40) and Powerball (1-10; 2008-2026-09-15, 1-14 after) numbers.
 ##   Uses Bayesian fusion and clustering to adjust probabilities,
 ##   then simulates draws and returns a shape-(50,) probability vector.
 
@@ -18,8 +18,10 @@ from pipeline import DataPipeline  # Pipeline type for step signatures
 # Configure logging format and default level
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+from era_features import powerball_pool_size
+
 NUM_MAIN = 40  # Total possible main numbers
-NUM_POWERBALL = 10  # Total possible Powerball numbers
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Combined vector length (50)
 NUM_PICK = 6  # Number of main numbers drawn per ticket line
 CLUSTER_MULTIPLIER = 1.2  # Base weight applied to clustering influence

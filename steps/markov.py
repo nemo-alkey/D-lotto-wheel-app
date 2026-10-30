@@ -19,10 +19,11 @@ from typing import Any  # Type hints for generic NumPy arrays
 import numpy as np  # Numerical library for arrays and matrix math
 import numpy.typing as npt  # NumPy type aliases for annotations
 
+from era_features import powerball_pool_size
 from pipeline import DataPipeline  # Pipeline type for step signatures
 
 NUM_MAIN = 40  # Number of main lottery numbers
-NUM_POWERBALL = 10  # Number of Powerball numbers
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Total output length (50 probabilities)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -202,9 +203,11 @@ def markov_features(pipeline: DataPipeline) -> None:
     # =========================
 
     power_seq: list[int] = []
-    # Sequence of Powerball cluster states
+    # Sequence of Powerball cluster states — built from the CURRENT era only,
+    # never mixing the pre-2026-09-16 (1-10) and post (1-14) distributions.
+    from era_features import current_rule_era, filter_draws_by_era
 
-    for draw in historical:
+    for draw in filter_draws_by_era(historical, current_rule_era()):
         pb = draw.get("powerball")
         # Get Powerball value
 

@@ -24,7 +24,7 @@ Pipeline stages:
 """
 
 import logging  # Standard Python logging
-from typing import cast  # For NumPy return casts
+from typing import Any, cast  # For NumPy return casts
 
 import numpy as np  # Core numerical array library used throughout
 import numpy.typing as npt  # NumPy type aliases for annotations
@@ -53,7 +53,9 @@ logging.basicConfig(
 
 # Lottery structure
 NUM_MAIN = 40  # Main number count (1..40)
-NUM_POWERBALL = 10  # Powerball number count (1..10)
+from era_features import powerball_pool_size
+
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 NUM_TOTAL = NUM_MAIN + NUM_POWERBALL  # Total output width (50)
 
 # Training configuration
@@ -249,7 +251,17 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
 
     # ---------- Step 2: Build strict multi-hot labels ---------- #
 
-    labels = []  # Will hold one 50-dim multi-hot vector per historical draw
+    from era_features import current_rule_era, rule_era_for_date
+
+    _era = current_rule_era()
+
+    def _in_current_era(draw: Any) -> bool:
+        # Powerball labels/counts only from the current era; draws without a
+        # date are excluded from PB stats rather than risk mixing eras.
+        d = draw.get("draw_date")
+        return bool(d) and rule_era_for_date(d) == _era
+
+    labels = []  # Will hold one 54-dim multi-hot vector per historical draw
 
     for draw in historical_data:  # Iterates over draw dicts
         y = np.zeros(NUM_TOTAL, dtype=float)  # Allocates empty label vector
@@ -259,14 +271,15 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
             if isinstance(n, int) and 1 <= n <= NUM_MAIN:  # Validate as integer and in range
                 y[n - 1] = 1.0  # Converts 1-based lotto number to 0-based index
 
-        # Powerball (1–10)
-        pb = draw.get("powerball")  # Reads powerball field
-        if isinstance(pb, int) and 1 <= pb <= NUM_POWERBALL:  # Single powerball integer
-            y[NUM_MAIN + pb - 1] = 1.0  # Map to indices 40..49 (0-based)
-        elif isinstance(pb, list | tuple):  # Some sources may store multiple PBs
-            for p in pb:  # Iterates PB list/tuple
-                if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:  # Validate range
-                    y[NUM_MAIN + p - 1] = 1.0  # Set PB index as active
+        # Powerball (current era only — never mix 1-10 / 1-14 distributions)
+        if _in_current_era(draw):
+            pb = draw.get("powerball")  # Reads powerball field
+            if isinstance(pb, int) and 1 <= pb <= NUM_POWERBALL:  # Single powerball integer
+                y[NUM_MAIN + pb - 1] = 1.0  # Map to PB indices (0-based)
+            elif isinstance(pb, list | tuple):  # Some sources may store multiple PBs
+                for p in pb:  # Iterates PB list/tuple
+                    if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:  # Validate range
+                        y[NUM_MAIN + p - 1] = 1.0  # Set PB index as active
 
         labels.append(y)  # Stores label vector for this draw
 
@@ -315,13 +328,15 @@ def deep_learning_prediction(pipeline: DataPipeline) -> None:
             if isinstance(n, int) and 1 <= n <= NUM_MAIN:  # Validate main number
                 counts[n - 1] += 1.0  # Increments main number count
 
-        pb = historical_data[t].get("powerball")  # Reads powerball for this draw
-        if isinstance(pb, int) and 1 <= pb <= NUM_POWERBALL:  # Single PB integer
-            counts[NUM_MAIN + pb - 1] += 1.0  # Increments PB count
-        elif isinstance(pb, list | tuple):  # Multiple PBs
-            for p in pb:  # Iterates PB list/tuple
-                if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:  # Validate PB
-                    counts[NUM_MAIN + p - 1] += 1.0  # Increments PB count
+        # Powerball — current era only (never mix pre/post distributions)
+        if _in_current_era(historical_data[t]):
+            pb = historical_data[t].get("powerball")  # Reads powerball for this draw
+            if isinstance(pb, int) and 1 <= pb <= NUM_POWERBALL:  # Single PB integer
+                counts[NUM_MAIN + pb - 1] += 1.0  # Increments PB count
+            elif isinstance(pb, list | tuple):  # Multiple PBs
+                for p in pb:  # Iterates PB list/tuple
+                    if isinstance(p, int) and 1 <= p <= NUM_POWERBALL:  # Validate PB
+                        counts[NUM_MAIN + p - 1] += 1.0  # Increments PB count
 
     # ---------- Step 5: Classical feature matrix ---------- #
 

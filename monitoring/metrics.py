@@ -29,9 +29,10 @@ import threading
 import time
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 import prometheus_client
+from fastapi import APIRouter, Response
 from prometheus_client import Counter, Gauge, Histogram
 from prometheus_client.core import GaugeMetricFamily, Metric
 from starlette.requests import Request
@@ -169,6 +170,18 @@ def render_metrics() -> bytes:
 
 
 CONTENT_TYPE_LATEST = prometheus_client.CONTENT_TYPE_LATEST
+
+
+def get_metrics_router() -> APIRouter:
+    """Build the metrics APIRouter exposing the Prometheus exposition."""
+    router = APIRouter()
+
+    @router.get("/metrics", include_in_schema=False, tags=["System"])
+    def prometheus_metrics() -> Response:
+        """Prometheus metrics exposition (text format)."""
+        return Response(content=render_metrics(), media_type=CONTENT_TYPE_LATEST)
+
+    return router
 
 
 def route_template(request: Request) -> str:

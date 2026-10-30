@@ -19,6 +19,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from config.settings import DB_PATH as CANONICAL_DB_PATH
+
 _THIS_DIR = Path(__file__).resolve().parent
 
 
@@ -29,11 +31,11 @@ class Settings(BaseSettings):
     # Database
     # ------------------------------------------------------------------
     database_url: str = Field(
-        default_factory=lambda: f"sqlite:///{_THIS_DIR / 'lotto.db'}",
+        default_factory=lambda: f"sqlite:///{CANONICAL_DB_PATH}",
         description="SQLAlchemy database URL.  Set to postgresql://... for PostgreSQL.",
     )
     db_path: str = Field(
-        default_factory=lambda: str(_THIS_DIR / "lotto.db"),
+        default=CANONICAL_DB_PATH,
         description="Path to the main SQLite database.",
     )
     prize_cache_file: str = Field(

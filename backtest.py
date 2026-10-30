@@ -28,6 +28,10 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lotto_wheels import WHEELS, load_draws
+from powerball_rules import POWERBALL_CHANGE_DATE, powerball_era
+
+#: ISO date of the first new-rules draw (Powerball pool 1-14, Division 8).
+POWERBALL_CHANGE_DATE_ISO = POWERBALL_CHANGE_DATE.isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +139,7 @@ PB_DIVISION_LABELS = {
     5: "PB Div 5",
     6: "PB Div 6",
     7: "PB Div 7",
+    8: "PB Div 8 (2+bonus+PB)",
 }
 
 
@@ -202,27 +207,35 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
         is_live = False
         print("using static estimates")
 
-    # Pre-build lookup: (matches, bonus_match, pb_hit) -> prize info
-    prize_lookup: dict[tuple[int, bool, bool], dict[str, Any]] = {}
-    for m in range(0, 7):
-        for bm in [False, True]:
-            for pb in [False, True]:
-                lotto_div, pb_div = resolve_divisions(m, bm, pb)
-                main_prize = lotto_prizes.get(lotto_div, 0.0) if lotto_div else 0.0
-                pb_val = pb_prizes.get(pb_div, 0.0) if pb_div else 0.0
-                prize_lookup[(m, bm, pb)] = {
-                    "main_division": lotto_div,
-                    "pb_division": pb_div,
-                    "main_prize": main_prize,
-                    "pb_prize": pb_val,
-                    "total_prize": main_prize + pb_val,
-                }
+    # Pre-build lookups per rule era: (era, matches, bonus_match, pb_hit) ->
+    # prize info. Division 8 exists only post-change, so the division mapping
+    # must be resolved per era and applied per draw — never mix eras.
+    prize_lookups: dict[str, dict[tuple[int, bool, bool], dict[str, Any]]] = {}
+    for _era, _era_date in (
+        ("pre_2026_09_16", "2026-01-01"),
+        ("post_2026_09_16", POWERBALL_CHANGE_DATE_ISO),
+    ):
+        _lookup: dict[tuple[int, bool, bool], dict[str, Any]] = {}
+        for m in range(0, 7):
+            for bm in [False, True]:
+                for pb in [False, True]:
+                    lotto_div, pb_div = resolve_divisions(m, bm, pb, draw_date=_era_date)
+                    main_prize = lotto_prizes.get(lotto_div, 0.0) if lotto_div else 0.0
+                    pb_val = pb_prizes.get(pb_div, 0.0) if pb_div else 0.0
+                    _lookup[(m, bm, pb)] = {
+                        "main_division": lotto_div,
+                        "pb_division": pb_div,
+                        "main_prize": main_prize,
+                        "pb_prize": pb_val,
+                        "total_prize": main_prize + pb_val,
+                    }
+        prize_lookups[_era] = _lookup
     print()
 
     # --- Accumulators ---
     lotto_counts = [0] * 7  # index = division - 1
     lotto_prizes_acc = [0.0] * 7
-    pb_counts = [0] * 7
+    pb_counts = [0] * 8  # index = division - 1 (Div 8 exists post-change)
     bonus_upgrades = 0  # tickets upgraded by bonus ball
     bonus_added_value = 0.0  # extra prize $ from bonus upgrades
     upgrade_breakdown: dict[str, int] = {}  # "fromX_toY" -> count
@@ -240,6 +253,8 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
         pool_overlap = len(draw_set & pool)
         # Use override PB for scoring if provided
         score_pb = draw_pb_override if draw_pb_override is not None else draw_pb
+        # Division mapping for THIS draw's rule era (Div 8 only post-change)
+        prize_lookup = prize_lookups[powerball_era(draw_date)]
 
         ticket_match_counts = []
         draw_had_win = False
@@ -260,7 +275,7 @@ def backtest(wheel_name: str, num_draws: int | None, draw_pb_override: int | Non
             pb_div = info.get("pb_division")
 
             # Track bonus upgrades: compare with bonus_match=False
-            if bonus_match and pb_hit and matches in (5, 4, 3):
+            if bonus_match and pb_hit and matches in (5, 4, 3, 2):
                 without_info = prize_lookup.get((matches, False, pb_hit), {})
                 without_prize = without_info.get("total_prize", 0.0)
                 upgrade_value = prize - without_prize
@@ -456,16 +471,24 @@ def backtest_bonus_impact(wheel_name: str, num_draws: int | None = None) -> dict
         lotto_p = dict(_FALLBACK_LOTTO)
         pb_p = dict(_FALLBACK_PB)
 
-    prize_lookup = {}
-    for m in range(7):
-        for bm in (False, True):
-            for pb in (False, True):
-                ld, pd = resolve_divisions(m, bm, pb)
-                prize_lookup[(m, bm, pb)] = {
-                    "total_prize": (lotto_p.get(ld, 0) if ld else 0)
-                    + (pb_p.get(pd, 0) if pd else 0),
-                    "main_division": ld,
-                }
+    # Era-keyed lookups: Div 8 exists only post-change, so the division
+    # mapping is resolved per era and applied per draw.
+    prize_lookups: dict[str, dict[tuple[int, bool, bool], dict[str, Any]]] = {}
+    for _era, _era_date in (
+        ("pre_2026_09_16", "2026-01-01"),
+        ("post_2026_09_16", POWERBALL_CHANGE_DATE_ISO),
+    ):
+        _lk: dict[tuple[int, bool, bool], dict[str, Any]] = {}
+        for m in range(7):
+            for bm in (False, True):
+                for pb in (False, True):
+                    ld, pd = resolve_divisions(m, bm, pb, draw_date=_era_date)
+                    _lk[(m, bm, pb)] = {
+                        "total_prize": (lotto_p.get(ld, 0) if ld else 0)
+                        + (pb_p.get(pd, 0) if pd else 0),
+                        "main_division": ld,
+                    }
+        prize_lookups[_era] = _lk
 
     total_prize = 0.0
     total_prize_wo = 0.0
@@ -473,7 +496,8 @@ def backtest_bonus_impact(wheel_name: str, num_draws: int | None = None) -> dict
     bonus_added = 0.0
     upgrade_breakdown: dict[str, int] = {}
 
-    for draw_nums, draw_pb, draw_bonus, _draw_date in recent:
+    for draw_nums, draw_pb, draw_bonus, draw_date in recent:
+        prize_lookup = prize_lookups[powerball_era(draw_date)]
         for ticket in tickets:
             matches = len(set(ticket) & set(draw_nums))
             bonus_match = draw_bonus > 0 and draw_bonus in set(ticket)
@@ -486,7 +510,7 @@ def backtest_bonus_impact(wheel_name: str, num_draws: int | None = None) -> dict
             wo_info = prize_lookup.get((matches, False, pb_hit), {})
             total_prize_wo += wo_info.get("total_prize", 0)
 
-            if bonus_match and pb_hit and matches in (5, 4, 3):
+            if bonus_match and pb_hit and matches in (5, 4, 3, 2):
                 upgrade_val = prize - wo_info.get("total_prize", 0)
                 if upgrade_val > 0:
                     bonus_upgrades += 1
@@ -598,7 +622,7 @@ def simulate_bonus_ev(
     """Monte Carlo simulation of bonus ball premium for a wheel.
 
     For each simulated draw, randomly generates 6 main numbers (1-40,
-    without replacement), 1 bonus ball (1-40), and 1 Powerball (1-10).
+    without replacement), 1 bonus ball (1-40), and 1 Powerball (1-10; 2008-2026-09-15, 1-14 after).
     Computes the total prize across all tickets with and without the
     bonus ball matching.  Uses vectorised numpy operations for speed.
 

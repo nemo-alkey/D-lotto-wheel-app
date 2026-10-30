@@ -1,0 +1,4 @@
+﻿Not yet implemented: Prediction report template
+Dispatch target: scripts.analysis.prediction_report
+
+Create that module, then re-run with -Runnable.

@@ -26,7 +26,9 @@ _CHI2_CRIT_DF39_0P05 = 55.758  # Threshold to decide if observed bias differs fr
 
 # Constants
 NUM_MAIN = 40  # Main number count (1–40)
-NUM_POWERBALL = 10  # Powerball number count (1–10)
+from era_features import powerball_pool_size
+
+NUM_POWERBALL = powerball_pool_size()  # era-aware: 10 pre-2026-09-16, 14 after
 TOTAL_NUMBERS = NUM_MAIN + NUM_POWERBALL  # Total probability vector size (50)
 
 

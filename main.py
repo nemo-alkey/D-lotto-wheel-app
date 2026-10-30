@@ -13,6 +13,10 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+# Configuration validation
+from config.settings import DB_PATH
+from config_manager import get_settings, validate_startup
+
 # Data I/O
 from data_io import load_current_ticket
 
@@ -44,7 +48,10 @@ from steps.redundancy import sequential_features
 # Constants
 NUM_PICK_MAIN = 6
 MAX_MAIN_NUMBER = 40
-NUM_POWERBALL = 10
+from powerball_rules import POWERBALL_MAX_NEW
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+NUM_POWERBALL = POWERBALL_MAX
 TICKET_LINES = 12
 
 
@@ -129,6 +136,17 @@ def safe_run(step_fn: Callable[[DataPipeline], Any], pipeline: DataPipeline, nam
 # Main Program Loop
 # ============================================================
 def main() -> None:
+    cfg = get_settings()
+    print(f"=== {cfg.APP_NAME} ===")
+    print(f"Version:     {cfg.VERSION}")
+    print(f"Environment: {cfg.ENVIRONMENT}")
+    print(f"Health:      http://localhost:{cfg.API_PORT}/health")
+    try:
+        validate_startup(cfg)
+    except SystemExit:
+        print("Startup aborted: configuration validation failed.", file=sys.stderr)
+        raise
+
     initialize_database()
     verify_draw_order()
     pipeline = DataPipeline()
@@ -270,7 +288,7 @@ if __name__ == "__main__":
 
             from ga_optimizer import WheelOptimizerGA
 
-            conn = sqlite3.connect("lotto.db")
+            conn = sqlite3.connect(DB_PATH)
             try:
                 ga = WheelOptimizerGA(
                     conn, population_size=args.population, generations=args.generations

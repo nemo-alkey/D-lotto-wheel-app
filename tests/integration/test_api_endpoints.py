@@ -161,6 +161,19 @@ def test_predict_ensemble(authenticated_client: tuple[TestClient, str]) -> None:
     assert len(body["powerball"]) == 1
 
 
+def test_bonus_bayesian_emits_model_score_without_probability(
+    authenticated_client: tuple[TestClient, str],
+) -> None:
+    client, _ = authenticated_client
+    resp = client.get("/predict/bonus_bayesian", params={"k": 1})
+
+    assert resp.status_code == 200
+    output = resp.json()
+    assert len(output) == 1
+    assert "model_score" in output[0]
+    assert "probability" not in output[0]
+
+
 # ---------------------------------------------------------------------------
 # Anonymous vs authenticated /me
 # ---------------------------------------------------------------------------
@@ -179,3 +192,45 @@ def test_me_authenticated(authenticated_client: tuple[TestClient, str]) -> None:
     body = resp.json()
     assert body["authenticated"] is True
     assert body["username"] == username
+
+
+# ---------------------------------------------------------------------------
+# /internal/new-draw — per-draw era validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def internal_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Allow /internal/new-draw from the test client (localhost fallback).
+
+    TestClient's remote host is "testclient", not 127.0.0.1, so without this
+    the endpoint would 403 before the era validation is reached.
+    """
+    monkeypatch.setattr(api, "INTERNAL_NOTIFY_TOKEN", "")
+    monkeypatch.setattr(api, "get_remote_address", lambda _request: "127.0.0.1")
+
+
+@pytest.mark.parametrize(
+    ("powerball", "draw_date", "expected_status"),
+    [
+        (13, "2026-09-10", 422),  # PB 11-14 not valid before 2026-09-16
+        (13, "2026-09-16", 200),  # PB 13 valid on/after the change date
+        (15, "2026-09-16", 422),  # Pydantic ceiling le=14
+        (10, "2026-09-16", 200),  # PB 10 always valid
+    ],
+)
+def test_internal_new_draw_era_validation(
+    client: TestClient,
+    internal_localhost: None,
+    powerball: int,
+    draw_date: str,
+    expected_status: int,
+) -> None:
+    body = {
+        "draw_date": draw_date,
+        "numbers": [1, 2, 3, 4, 5, 6],
+        "bonus": 7,
+        "powerball": powerball,
+    }
+    resp = client.post("/internal/new-draw", json=body)
+    assert resp.status_code == expected_status

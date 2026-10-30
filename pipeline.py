@@ -13,7 +13,10 @@ from typing import Any  # Type hinting for better clarity and error checking
 
 # Constants defining the lottery structure
 NUM_MAIN_NUMBERS = 40  # Number of main numbers in each draw
-NUM_POWERBALL = 10  # Number of possible Powerball values
+from powerball_rules import POWERBALL_MAX_NEW
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
+NUM_POWERBALL = POWERBALL_MAX
 NUM_TOTAL_NUMBERS = NUM_MAIN_NUMBERS + NUM_POWERBALL  # Total number of output dimensions
 TICKET_LINES = 12  # Number of ticket lines to generate
 LINE_SIZE = 6  # Number of main numbers per ticket line

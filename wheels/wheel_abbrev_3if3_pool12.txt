@@ -1,0 +1,21 @@
+Abbreviated Wheel: 3 if 3
+Pool (12 numbers): [2, 5, 9, 10, 12, 14, 18, 21, 23, 25, 29, 34]
+Tickets: 15  (full wheel: 924)
+Reduction: 1.6% of full wheel
+Cost per draw: $10.50
+---------------------------------------------
+Ticket   1:  2  5  9 10 12 14
+Ticket   2:  2  5 18 21 23 25
+Ticket   3:  9 10 18 21 29 34
+Ticket   4: 12 14 23 25 29 34
+Ticket   5:  2  5  9 23 29 34
+Ticket   6:  2 10 12 18 25 29
+Ticket   7:  5 10 14 21 25 34
+Ticket   8:  9 12 14 18 21 23
+Ticket   9:  2  9 14 18 25 34
+Ticket  10:  2 10 12 21 23 34
+Ticket  11:  5  9 12 21 25 29
+Ticket  12:  5 10 14 18 23 29
+Ticket  13:  2  9 14 21 23 29
+Ticket  14:  5  9 12 18 23 34
+Ticket  15:  2  5  9 10 23 25

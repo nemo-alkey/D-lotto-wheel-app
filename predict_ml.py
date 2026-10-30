@@ -2,14 +2,23 @@
 """
 predict_ml.py — Load a trained XGBoost model and predict the next Lotto draw.
 
+Emits the top-N numbers, the Powerball, and a ranked list of candidate sets.
+
 Usage:
-    python3 predict_ml.py                              # uses model.pkl + lotto_working.db
+    python3 predict_ml.py                        # uses model.pkl + data/lotto.db
     python3 predict_ml.py --model /path/to/model.pkl
-    python3 predict_ml.py --db /path/to/lotto_working.db
-    python3 predict_ml.py --top 10                     # show top 10 numbers, not just 6
+    python3 predict_ml.py --db /path/to/other.db
+    python3 predict_ml.py --top 10               # show top 10 numbers, not just 6
+    python3 predict_ml.py --sets 5               # number of candidate sets
 """
 
 from __future__ import annotations
+
+import random
+
+from powerball_rules import POWERBALL_MAX_NEW
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import argparse
 import os
@@ -26,7 +35,12 @@ import numpy as np
 
 
 def load_draws(db_path: str) -> list[tuple[list[int], int, int, str]]:
-    """Load draws from a lotto_working.db SQLite file."""
+    """Load draws from a SQLite file.
+
+    Supports both schemas:
+      - wide (legacy ``lotto_working.db``): n1..n6, powerball, bonus, draw_date
+      - canonical (``data/lotto.db``): numbers (comma-joined), powerball, bonus, draw_date
+    """
     import sqlite3
 
     if not os.path.exists(db_path):
@@ -34,19 +48,31 @@ def load_draws(db_path: str) -> list[tuple[list[int], int, int, str]]:
         sys.exit(1)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    cursor = conn.execute(
-        "SELECT draw_date, n1, n2, n3, n4, n5, n6, powerball, bonus "
-        "FROM draws ORDER BY draw_date"
-    )
-    draws = [
-        (
-            [row["n1"], row["n2"], row["n3"], row["n4"], row["n5"], row["n6"]],
-            row["powerball"],
-            row["bonus"] or 0,
-            row["draw_date"],
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(draws)")}
+    if {"n1", "n6"} <= cols:
+        cursor = conn.execute(
+            "SELECT draw_date, n1, n2, n3, n4, n5, n6, powerball, bonus "
+            "FROM draws ORDER BY draw_date"
         )
-        for row in cursor
-    ]
+        draws = [
+            (
+                [row["n1"], row["n2"], row["n3"], row["n4"], row["n5"], row["n6"]],
+                row["powerball"],
+                row["bonus"] or 0,
+                row["draw_date"],
+            )
+            for row in cursor
+        ]
+    else:
+        cursor = conn.execute(
+            "SELECT draw_date, numbers, powerball, bonus FROM draws ORDER BY draw_date"
+        )
+        draws = []
+        for row in cursor:
+            nums = [int(x) for x in (row["numbers"] or "").split(",") if x.strip()]
+            if len(nums) != 6:
+                continue
+            draws.append((nums, row["powerball"] or 0, row["bonus"] or 0, row["draw_date"]))
     conn.close()
     return draws
 
@@ -59,7 +85,7 @@ MIN_HISTORY = 30
 
 
 def build_features_for_draw(
-    draws: list[tuple[list[int], int, str]],
+    draws: list[tuple[list[int], int, int, str]],
     target_idx: int,
     num_range: range,
 ) -> list[dict[str, Any]]:
@@ -72,7 +98,7 @@ def build_features_for_draw(
 
     past_draws = draws[:target_idx]
     current_nums = draws[target_idx][0] if target_idx < len(draws) else []
-    is_pb = num_range[0] == 1 and num_range[-1] == 10
+    is_pb = num_range[0] == 1 and num_range[-1] in (10, 14)
     if is_pb:
         current_nums = [draws[target_idx][1]] if target_idx < len(draws) else []
 
@@ -91,7 +117,7 @@ def build_features_for_draw(
     streak_max: dict[int, int] = {n: 0 for n in num_range}
     recent_50 = max(0, target_idx - 50)
 
-    for j, (nums, pb, _) in enumerate(past_draws):
+    for j, (nums, pb, _, _) in enumerate(past_draws):
         drawn_set = set(nums)
         if is_pb:
             drawn_set = {pb}
@@ -172,12 +198,39 @@ def build_features_for_draw(
 # ---------------------------------------------------------------------------
 
 
+def build_candidate_sets(
+    num_probs: list[tuple[int, float]],
+    powerball: int,
+    n_sets: int = 5,
+    size: int = 6,
+) -> list[dict[str, Any]]:
+    """Produce *n_sets* diverse candidate lines from the probability vector.
+
+    Greedy selection with a reuse penalty so later lines differ from earlier
+    ones. Under a fair draw every line is equally (un)likely; the ordering
+    only reflects the model's confidence, not an edge.
+    """
+    ranked = sorted(num_probs, key=lambda x: -x[1])
+    penalty: Counter = Counter()
+    sets: list[dict[str, Any]] = []
+    for _ in range(n_sets):
+        scored = sorted(ranked, key=lambda x: -(x[1] - 0.5 * penalty[x[0]]))
+        line = sorted(n for n, _ in scored[:size])
+        for n in line:
+            penalty[n] += 1
+        confidence = sum(p for n, p in num_probs if n in line)
+        _pb_for_line = powerball if powerball is not None else random.randint(1, 14)
+        sets.append({"numbers": line, "powerball": _pb_for_line, "confidence": confidence})
+    return sets
+
+
 def predict(
     draws: list[Any],
     model_data: dict[str, Any],
     top_n: int = 6,
+    n_sets: int = 5,
 ) -> dict[str, Any]:
-    """Predict the next draw's numbers and Powerball."""
+    """Predict the next draw's numbers, Powerball, and candidate sets."""
     main_model = model_data["main_model"]
     pb_model = model_data.get("pb_model")
     next_idx = len(draws)
@@ -185,7 +238,13 @@ def predict(
     # Main numbers
     main_rows = build_features_for_draw(draws, next_idx, range(1, 41))
     if not main_rows:
-        return {"numbers": [], "powerball": 0, "main_probs": {}, "pb_prob": 0.0}
+        return {
+            "numbers": [],
+            "powerball": 0,
+            "main_probs": {},
+            "pb_prob": 0.0,
+            "candidate_sets": [],
+        }
 
     x_main = np.array([r["features"] for r in main_rows], dtype=np.float32)
     probs_main = main_model.predict_proba(x_main)[:, 1]
@@ -198,7 +257,7 @@ def predict(
 
     # Powerball
     if pb_model is not None:
-        pb_rows = build_features_for_draw(draws, next_idx, range(1, 11))
+        pb_rows = build_features_for_draw(draws, next_idx, range(1, POWERBALL_MAX + 1))
         if pb_rows:
             x_pb = np.array([r["features"] for r in pb_rows], dtype=np.float32)
             probs_pb = pb_model.predict_proba(x_pb)[:, 1]
@@ -210,9 +269,10 @@ def predict(
             pb = 0
             pb_prob = 0.0
     else:
-        recent_pbs = Counter(pb for _, pb, _ in draws[-30:])
-        pb = recent_pbs.most_common(1)[0][0]
-        pb_prob = 0.0
+        # No PB model (insufficient post-change draws).
+        # Signal per-line random dip to build_candidate_sets.
+        pb = None
+        pb_prob = None
 
     return {
         "numbers": [n for n, _ in top],
@@ -220,6 +280,7 @@ def predict(
         "main_probs": all_probs,
         "top_probs": dict(num_probs[:top_n]),
         "pb_prob": pb_prob,
+        "candidate_sets": build_candidate_sets(num_probs, pb, n_sets=n_sets),
     }
 
 
@@ -234,14 +295,33 @@ def print_prediction(pred: dict[str, Any], top_n: int) -> None:
     print()
     print("  === XGBoost Prediction ===")
     print(f"  Numbers:    {nums_str}")
-    print(f"  Powerball:  {pred['powerball']}")
+    if pred.get("powerball") is None:
+        print("  Powerball:  (no PB model - random dip per line)")
+    else:
+        print(f"  Powerball:  {pred['powerball']}")
     print()
     print(f"  Top {top_n} number probabilities:")
     for n in pred["numbers"]:
-        bar = "█" * int(pred["top_probs"].get(n, 0) * 40)
+        bar = "#" * int(pred["top_probs"].get(n, 0) * 40)
         print(f"    #{n:02d}  {pred['top_probs'].get(n, 0):.2%}  {bar}")
-    print(f"    PB  {pred['powerball_probability']:.2%}")
+    if pred.get("pb_prob") is not None:
+        print(f"    PB  {pred['pb_prob']:.2%}")
+    else:
+        print("    PB  (no PB model)")
     print()
+
+    sets = pred.get("candidate_sets") or []
+    if sets:
+        print(f"  Candidate sets ({len(sets)} lines):")
+        for i, s in enumerate(sets, 1):
+            nums = ", ".join(f"{n:02d}" for n in s["numbers"])
+            print(
+                f"    {i}. {nums}  + PB {s['powerball']:02d}   "
+                f"(confidence {s['confidence']:.4f})"
+            )
+        print("    Note: under a fair draw every line is equally (un)likely;")
+        print("          the ordering reflects model confidence only.")
+        print()
 
     if pred["main_probs"]:
         # Sum, odd/even, etc.
@@ -274,14 +354,20 @@ def main() -> None:
     )
     parser.add_argument(
         "--db",
-        default="lotto_working.db",
-        help="Path to lotto_working.db (default: lotto_working.db)",
+        default="data/lotto.db",
+        help="Path to the draws SQLite DB (default: data/lotto.db)",
     )
     parser.add_argument(
         "--top",
         type=int,
         default=6,
         help="Show top N numbers (default: 6)",
+    )
+    parser.add_argument(
+        "--sets",
+        type=int,
+        default=5,
+        help="Number of candidate sets to emit (default: 5)",
     )
     args = parser.parse_args()
 
@@ -311,7 +397,7 @@ def main() -> None:
     print(f"  Database has {len(draws)} draws")
 
     # Predict
-    pred = predict(draws, model_data, top_n=args.top)
+    pred = predict(draws, model_data, top_n=args.top, n_sets=args.sets)
     print_prediction(pred, args.top)
 
 

@@ -53,7 +53,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
+from config.settings import DB_PATH
 
 DEFAULT_WINDOW = 30  # draws in the classification window
 DEFAULT_POOL_SIZE = 40  # NZ Lotto 6/40

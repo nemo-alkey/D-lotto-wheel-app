@@ -5,12 +5,16 @@ ensemble.py — Dynamic ensemble predictor fusing Bayesian, Markov, and Albert m
 Walks forward over recent draws to compute each sub-predictor's accuracy
 (Brier score), then assigns softmax-normalised weights.  The ensemble
 prediction is a weighted average of sub-predictor probabilities for each
-number (1-40 for mains, 1-40 for bonus, 1-10 for Powerball).
+number (1-40 for mains, 1-40 for bonus, 1-10 for Powerball; 2008-2026-09-15, 1-14 after).
 
 Requires a sqlite3.Connection to a 'draws' table.
 """
 
 from __future__ import annotations
+
+from powerball_rules import POWERBALL_MAX_NEW
+
+POWERBALL_MAX = POWERBALL_MAX_NEW  # era-aware: 10 pre-2026-09-16, 14 after
 
 import sqlite3
 from collections import Counter
@@ -221,10 +225,10 @@ class EnsemblePredictor:
         # Powerball: frequency-based
         pb_counts: Counter[int] = Counter()
         for _, pb, _, _ in self.draws:
-            if 1 <= pb <= 10:
+            if 1 <= pb <= POWERBALL_MAX_NEW:
                 pb_counts[pb] += 1
         total_pb = sum(pb_counts.values()) or 1
-        pb_probs = {p: pb_counts.get(p, 0) / total_pb for p in range(1, 11)}
+        pb_probs = {p: pb_counts.get(p, 0) / total_pb for p in range(1, POWERBALL_MAX + 1)}
         pb_ranked = sorted(pb_probs.items(), key=lambda x: x[1], reverse=True)
         powerball = [(p, round(prob, 6)) for p, prob in pb_ranked[:pb_top]]
 

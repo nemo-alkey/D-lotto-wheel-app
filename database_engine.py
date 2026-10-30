@@ -3,7 +3,7 @@
 database_engine.py — SQLAlchemy engine factory for multi-database support.
 
 Returns a SQLAlchemy engine based on ``settings.database_url``.
-Defaults to ``sqlite:///lotto.db`` for local development.
+Defaults to the canonical ``data/lotto.db`` for local development.
 Set ``DATABASE_URL=postgresql://user:pass@host/db`` for PostgreSQL.
 
 Usage:
@@ -16,12 +16,26 @@ Usage:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any, cast
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.pool import StaticPool
 
+from config.settings import DB_PATH, PROJECT_ROOT
+
 _engine: Engine | None = None
+
+
+def _absolute_sqlite_url(url: str) -> str:
+    """Resolve relative SQLite URLs against the project root, not the cwd."""
+    prefix = "sqlite:///"
+    if not url.startswith(prefix):
+        return url
+    raw_path = url[len(prefix) :]
+    if raw_path == ":memory:" or Path(raw_path).is_absolute():
+        return url
+    return f"sqlite:///{(PROJECT_ROOT / raw_path).resolve()}"
 
 
 def _build_url() -> str:
@@ -31,25 +45,24 @@ def _build_url() -> str:
 
         url = getattr(settings, "database_url", None)
         if url:
-            return cast(str, url)
+            return _absolute_sqlite_url(cast(str, url))
     except ImportError:
         pass
 
     # Fallback: check env var directly
     env_url = os.environ.get("DATABASE_URL")
     if env_url:
-        return env_url
+        return _absolute_sqlite_url(env_url)
 
-    # Ultimate fallback: SQLite in the project root
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lotto.db")
-    return f"sqlite:///{db_path}"
+    # Ultimate fallback: the canonical absolute SQLite path.
+    return f"sqlite:///{DB_PATH}"
 
 
 def get_engine() -> Engine:
     """Return a SQLAlchemy engine (singleton — created once, reused thereafter).
 
     The URL is resolved via ``settings.database_url`` or the ``DATABASE_URL``
-    environment variable.  Falls back to ``sqlite:///lotto.db``.
+    environment variable.  Falls back to the canonical ``data/lotto.db``.
     """
     global _engine
     if _engine is not None:
@@ -77,14 +90,15 @@ def get_engine() -> Engine:
             cursor.close()
 
     else:
-        # PostgreSQL / other databases
-        _engine = create_engine(
-            url,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,  # verify connections before use
-            echo=False,
-        )
+        # PostgreSQL / other databases — pooling parameters come from the
+        # canonical app config (DB_POOL_SIZE, DB_MAX_OVERFLOW, …).
+        try:
+            from config_manager import get_settings
+
+            pool_kwargs = get_settings().sqlalchemy_engine_kwargs()
+        except Exception:
+            pool_kwargs = {"pool_size": 5, "max_overflow": 10, "pool_pre_ping": True}
+        _engine = create_engine(url, echo=False, **pool_kwargs)
 
     return _engine
 

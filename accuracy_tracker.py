@@ -283,6 +283,136 @@ def on_new_draw_fetched(
     }
 
 
+def render_leaderboard_tab() -> None:
+    """Render the "📊 Predictor Leaderboard" Streamlit page.
+
+    Extracted from dashboard.py (pure code motion, behavior identical).
+    Streamlit is imported lazily so this module stays importable by
+    non-UI code without a Streamlit runtime.
+    """
+    import contextlib
+    import os
+
+    import pandas as pd
+    import streamlit as st
+
+    st.markdown(
+        '<h2 class="section-header">📊 Predictor Leaderboard</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "Predictor performance from the `scorecards` table in `data/lotto.db`, "
+        "computed by `accuracy_tracker.py` over rolling windows of "
+        f"{', '.join(str(w) for w in LEADERBOARD_WINDOWS)} draws."
+    )
+
+    # ---- Refresh scores ----
+    if st.button("🔄 Refresh Scores", use_container_width=True):
+        try:
+            with st.spinner("Recomputing scorecards…"):
+                updated = update_all_scorecards()
+            st.toast(f"Updated {len(updated)} scorecard(s).", icon=":material/check:")
+        except sqlite3.Error as e:
+            st.error(f"Could not update scorecards: {e}")
+        st.rerun()
+
+    # ---- Load leaderboard data ----
+    def _load_leaderboard(window_size: int) -> Any:
+        """Scorecard rows for one window size; None if DB/table unavailable."""
+        try:
+            return get_leaderboard(window_size)
+        except sqlite3.Error:
+            return None
+
+    if not os.path.exists(str(DB_PATH)):
+        st.info(
+            "No prediction database yet (`data/lotto.db`). Scorecards appear once "
+            "predictions have been recorded with `accuracy_tracker.store_prediction()` "
+            "and scored — press **🔄 Refresh Scores** after logging predictions."
+        )
+    else:
+        boards = {w: _load_leaderboard(w) for w in LEADERBOARD_WINDOWS}
+
+        if any(b is None for b in boards.values()):
+            st.info(
+                "The `scorecards` table doesn't exist yet. Record some predictions, "
+                "then press **🔄 Refresh Scores** to build the leaderboard."
+            )
+        elif all(len(b) == 0 for b in boards.values()):
+            st.info(
+                "No scorecards yet. Record some predictions with "
+                "`accuracy_tracker.store_prediction()`, then press **🔄 Refresh Scores**."
+            )
+        else:
+            # ---- Hot Predictor badge (window_size=20) ----
+            hot = None
+            with contextlib.suppress(sqlite3.Error):
+                hot = get_hot_predictor(20)
+            if hot:
+                st.markdown("### 🔥 Hot Predictor")
+                st.badge(
+                    f"{hot} — best over the last 20 draws",
+                    icon="🔥",
+                    color="orange",
+                )
+
+            display_cols = {
+                "predictor_name": "Predictor",
+                "draws_evaluated": "Draws",
+                "hit_rate": "Hit Rate",
+                "top15_accuracy": "Top-15 Acc",
+                "top10_accuracy": "Top-10 Acc",
+                "top20_accuracy": "Top-20 Acc",
+                "brier_score": "Brier",
+                "mean_reciprocal_rank": "MRR",
+                "last_updated": "Updated",
+            }
+
+            # ---- One sorted table per window size ----
+            for win in LEADERBOARD_WINDOWS:
+                lb_rows = boards[win]
+                st.divider()
+                if not lb_rows:
+                    st.markdown(f"### Window: last {win} draws")
+                    st.caption(f"No scorecards for window size {win} yet.")
+                    continue
+
+                df = (
+                    pd.DataFrame(lb_rows)
+                    .sort_values(
+                        by=["hit_rate", "top15_accuracy", "brier_score"],
+                        ascending=[False, False, True],
+                        na_position="last",
+                    )
+                    .reset_index(drop=True)
+                )
+
+                top = df.iloc[0]
+                st.markdown(
+                    f"### Window: last {win} draws — "
+                    f"🏆 <span style='color:#D4AF37'>{top['predictor_name']}</span> "
+                    f"<small>(hit rate {top['hit_rate']:.1%})</small>",
+                    unsafe_allow_html=True,
+                )
+
+                show = df[[c for c in display_cols if c in df.columns]].rename(columns=display_cols)
+                show["Updated"] = show["Updated"].astype(str).str[:19].str.replace("T", " ")
+                st.dataframe(
+                    show,
+                    width="stretch",
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Hit Rate": st.column_config.NumberColumn(format="%.1%"),
+                        "Top-15 Acc": st.column_config.NumberColumn(format="%.1%"),
+                        "Top-10 Acc": st.column_config.NumberColumn(format="%.1%"),
+                        "Top-20 Acc": st.column_config.NumberColumn(format="%.1%"),
+                        "Brier": st.column_config.NumberColumn(format="%.4f"),
+                        "MRR": st.column_config.NumberColumn(format="%.3f"),
+                    },
+                )
+
+
 if __name__ == "__main__":
     import tempfile
 
