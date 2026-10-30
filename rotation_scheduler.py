@@ -62,7 +62,7 @@ from config.settings import DB_PATH
 from powerball_rules import POWERBALL_MAX_NEW
 
 WORKING_DB = DB_PATH  # unified schema: numbers TEXT, bonus, powerball
-ROTATION_DB = "rotation_scheduler.db"
+ROTATION_DB = DB_PATH
 PERIODS = 6  # each period = 2 draws (one calendar week → 12 draws total)
 POOL_SIZE = 11
 DEFAULT_PB = 3
@@ -517,7 +517,7 @@ def main() -> None:
         save_plan_json(schedule, bonus_picks=bonus_picks)
 
     # --- Database ---
-    save_plan_db(schedule)
+    save_plan_db(schedule, db_path=DB_PATH)
 
     # --- Email ---
     if args.send_email:
