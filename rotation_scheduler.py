@@ -65,7 +65,7 @@ WORKING_DB = DB_PATH  # unified schema: numbers TEXT, bonus, powerball
 ROTATION_DB = DB_PATH
 PERIODS = 6  # each period = 2 draws (one calendar week → 12 draws total)
 POOL_SIZE = 11
-DEFAULT_PB = 3
+START_PB = 3
 ALPHA = 1.0  # Dirichlet prior concentration
 
 
@@ -185,6 +185,25 @@ def build_rotation(posterior: dict[int, float]) -> list[list[int]]:
     return schedule
 
 
+def powerball_rotation(periods: int, start: int = START_PB) -> list[int]:
+    """Return one cyclically rotating Powerball per period."""
+    if periods < 0:
+        raise ValueError("periods must be non-negative")
+    if not 1 <= start <= POWERBALL_MAX_NEW:
+        raise ValueError(f"start must be between 1 and {POWERBALL_MAX_NEW}")
+    return [(start - 1 + i) % POWERBALL_MAX_NEW + 1 for i in range(periods)]
+
+
+def _resolve_powerballs(
+    schedule: list[list[int]], powerballs: list[int] | None
+) -> list[int]:
+    """Use the automatic rotation unless explicit per-period values are supplied."""
+    values = powerball_rotation(len(schedule)) if powerballs is None else powerballs
+    if len(values) != len(schedule):
+        raise ValueError("powerballs must contain one value per period")
+    return values
+
+
 # ---------------------------------------------------------------------------
 # 4. Output — terminal
 # ---------------------------------------------------------------------------
@@ -194,12 +213,14 @@ def print_plan(
     schedule: list[list[int]],
     posterior: dict[int, float],
     bonus_picks: list[tuple[Any, ...]] | None = None,
+    powerballs: list[int] | None = None,
 ) -> None:
     """Print the rotation plan as a formatted table."""
+    powerballs = _resolve_powerballs(schedule, powerballs)
     print()
     tag = " + Bonus Picks" if bonus_picks else ""
     print(f"  Bayesian Rotation Plan -- NZ Lotto Powerball{tag}  (1 period = 2 draws)")
-    print(f"  Recommended Powerball: {DEFAULT_PB}")
+    print(f"  Powerball rotation: {', '.join(str(pb) for pb in powerballs)}")
     print()
     print(
         f"  {'Period (2 draws)':>16s}  {'Numbers (11 per period)':^49s}  {'Weakest':>7s}  {'Incoming':>8s}"
@@ -260,8 +281,10 @@ def save_plan_csv(
     schedule: list[list[int]],
     path: str = "rotation_plan.csv",
     bonus_picks: list[tuple[Any, ...]] | None = None,
+    powerballs: list[int] | None = None,
 ) -> None:
     """Save the rotation plan to a CSV file."""
+    powerballs = _resolve_powerballs(schedule, powerballs)
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
         header = [
@@ -283,7 +306,7 @@ def save_plan_csv(
             header += ["Bonus_Primary", "Bonus_Secondary", "Bonus_Tertiary"]
         writer.writerow(header)
         for i, period_nums in enumerate(schedule, 1):
-            row = [i, *period_nums, DEFAULT_PB]
+            row = [i, *period_nums, powerballs[i - 1]]
             if bonus_picks and i <= len(bonus_picks):
                 row += [
                     bonus_picks[i - 1][0],
@@ -298,10 +321,12 @@ def save_plan_json(
     schedule: list[list[int]],
     path: str = "rotation_plan.json",
     bonus_picks: list[tuple[Any, ...]] | None = None,
+    powerballs: list[int] | None = None,
 ) -> None:
     """Save the rotation plan as a structured JSON file."""
     from datetime import timedelta
 
+    powerballs = _resolve_powerballs(schedule, powerballs)
     start = datetime.now()
     periods = []
     for i, nums in enumerate(schedule, 1):
@@ -311,6 +336,7 @@ def save_plan_json(
             "start_date": period_start.strftime("%Y-%m-%d"),
             "end_date": period_end.strftime("%Y-%m-%d"),
             "main_pool": nums,
+            "powerball": powerballs[i - 1],
         }
         if bonus_picks:
             pk = bonus_picks[min(i - 1, len(bonus_picks) - 1)]
@@ -351,8 +377,10 @@ def init_rotation_db(db_path: str = ROTATION_DB) -> sqlite3.Connection:
 def save_plan_db(
     schedule: list[list[int]],
     db_path: str = ROTATION_DB,
+    powerballs: list[int] | None = None,
 ) -> None:
     """Save each period's numbers as a row in rotation_history."""
+    powerballs = _resolve_powerballs(schedule, powerballs)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = init_rotation_db(db_path)
     for i, period_nums in enumerate(schedule, 1):
@@ -360,7 +388,7 @@ def save_plan_db(
         conn.execute(
             "INSERT INTO rotation_history (created_at, period, numbers, powerball) "
             "VALUES (?, ?, ?, ?)",
-            (now, i, numbers_str, DEFAULT_PB),
+            (now, i, numbers_str, powerballs[i - 1]),
         )
     conn.commit()
     conn.close()
@@ -373,9 +401,12 @@ def save_plan_db(
 
 
 def build_email_body(
-    schedule: list[list[int]], bonus_picks: list[tuple[int, float]] | None = None
+    schedule: list[list[int]],
+    bonus_picks: list[tuple[int, float]] | None = None,
+    powerballs: list[int] | None = None,
 ) -> str:
     """Build a plain-text email body from the rotation plan."""
+    powerballs = _resolve_powerballs(schedule, powerballs)
     lines = []
     lines.append("=" * 56)
     lines.append("  NZ Lotto Powerball — Weekly Rotation Plan")
@@ -384,13 +415,13 @@ def build_email_body(
     lines.append(f"  Generated:  {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     lines.append(f"  Pool size:  {POOL_SIZE} numbers per period")
     lines.append(f"  Periods:    {PERIODS}  ({PERIODS * 2} draws)")
-    lines.append(f"  Powerball:  {DEFAULT_PB}")
+    lines.append(f"  Powerballs: {', '.join(str(pb) for pb in powerballs)}")
     lines.append("")
 
     previous_set: set[int] | None = None
     for i, period_nums in enumerate(schedule, 1):
         nums_str = ", ".join(f"{n:02d}" for n in period_nums)
-        line = f"  Period {i}:  {nums_str}"
+        line = f"  Period {i}:  {nums_str}  (PB {powerballs[i - 1]})"
         if previous_set is not None:
             dropped = previous_set - set(period_nums)
             added = set(period_nums) - previous_set
@@ -498,6 +529,7 @@ def main() -> None:
     print(f"  Prior alpha:     {ALPHA}")
 
     schedule = build_rotation(posterior)
+    powerballs = powerball_rotation(len(schedule))
 
     # --- Bonus picks ---
     bonus_picks = None
@@ -507,22 +539,24 @@ def main() -> None:
         print(f"top-3: {[f'#{n} ({p:.1%})' for n, p in bonus_picks]}")
 
     # --- Terminal output ---
-    print_plan(schedule, posterior, bonus_picks=bonus_picks)
+    print_plan(schedule, posterior, bonus_picks=bonus_picks, powerballs=powerballs)
 
     # --- CSV ---
-    save_plan_csv(schedule, bonus_picks=bonus_picks)
+    save_plan_csv(schedule, bonus_picks=bonus_picks, powerballs=powerballs)
 
     # --- JSON ---
     if args.json:
-        save_plan_json(schedule, bonus_picks=bonus_picks)
+        save_plan_json(schedule, bonus_picks=bonus_picks, powerballs=powerballs)
 
     # --- Database ---
-    save_plan_db(schedule, db_path=DB_PATH)
+    save_plan_db(schedule, db_path=DB_PATH, powerballs=powerballs)
 
     # --- Email ---
     if args.send_email:
         subject = f"NZ Lotto Rotation Plan — {datetime.now().strftime('%Y-%m-%d')}"
-        body = build_email_body(schedule, bonus_picks=bonus_picks)
+        body = build_email_body(
+            schedule, bonus_picks=bonus_picks, powerballs=powerballs
+        )
 
         if bonus_picks:
             bonus_tag = " (#" + ", #".join(str(pk[0]) for pk in bonus_picks[:3]) + ")"
